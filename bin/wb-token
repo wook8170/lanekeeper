@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+// wb-token — token guard.
+//
+//   wb-token status                  usage of the window, percentage, stage
+//   wb-token on | off                switch (personal.token_guard.enabled)
+//   wb-token calibrate [<weighted>]  set the budget; no value = current weighted usage
+//                                    (run it when the app shows the limit reached)
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const lib = (n) => import(pathToFileURL(path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib', n)).href)
+const { parseArgs, load } = await lib('cli.mjs')
+const { translator } = await lib('i18n.mjs')
+const { getPath } = await lib('config.mjs')
+const { localUsage, percent, stagesOf, tierFor } = await lib('token.mjs')
+const { setPersonal } = await lib('runtime.mjs')
+
+const args = parseArgs(process.argv.slice(2))
+const [cmd = 'status', val] = args._
+const { resolved } = load(args)
+const t = translator(resolved.effective.language)
+const cfg = getPath(resolved.config, 'personal.token_guard') || {}
+const hours = cfg.window_hours || 5
+const say = (s) => console.log(s)
+
+if (cmd === 'on' || cmd === 'off') {
+  setPersonal(process.env, 'token_guard.enabled', cmd === 'on')
+  say(t(cmd === 'on' ? 'token.toggled.on' : 'token.toggled.off'))
+} else if (cmd === 'calibrate') {
+  const n = val ? Number(val) : localUsage({ hours }).weighted
+  if (!Number.isInteger(n) || n <= 0) {
+    say(t('token.calibrate.usage'))
+    process.exit(1)
+  }
+  setPersonal(process.env, 'token_guard.budget', n)
+  say(t('token.calibrate.set', { budget: n }))
+} else if (cmd === 'status') {
+  const u = localUsage({ hours })
+  say(t(cfg.enabled === false ? 'token.status.off' : 'token.status.on'))
+  say(t('token.status.usage', { hours, ...u }))
+  if (cfg.budget > 0) {
+    const util = percent(u.weighted, cfg.budget)
+    const { tier } = tierFor(util, stagesOf(resolved))
+    say(t('token.status.budget', { budget: cfg.budget, util, tier: tier || '-' }))
+  } else say(t('token.status.uncalibrated'))
+} else {
+  say(t('token.calibrate.usage'))
+  process.exit(1)
+}

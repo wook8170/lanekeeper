@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+// wb-retry — automatic resume after a usage limit.
+//
+//   wb-retry status | list      switch state and waiting resumes
+//   wb-retry on | off           switch (personal.auto_retry.enabled)
+//   wb-retry cancel <id|all>    cancel waiting resumes
+//   wb-retry mode <mode> [--i-understand]   permission mode of the resumed session
+//   wb-retry limits [--clear[=model]]       models recorded as out of quota
+//   wb-retry run <id>           (used by the scheduled job)
+//   wb-retry wait-run <id> <epoch>          (fallback waiter without a system scheduler)
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const lib = (n) => import(pathToFileURL(path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib', n)).href)
+const { parseArgs, load } = await lib('cli.mjs')
+const { translator } = await lib('i18n.mjs')
+const { statusLines, cancelRetry, runRetry } = await lib('retry.mjs')
+const { setPersonal, limitsFile } = await lib('runtime.mjs')
+const { readLimits, clearLimit } = await lib('limits.mjs')
+
+const args = parseArgs(process.argv.slice(2))
+const [cmd = 'status', a1, a2] = args._
+const { resolved } = load(args)
+const t = translator(resolved.effective.language)
+const say = (s) => console.log(s)
+
+switch (cmd) {
+  case 'status':
+  case 'list':
+    statusLines(resolved).forEach(say)
+    break
+  case 'on':
+  case 'off':
+    setPersonal(process.env, 'auto_retry.enabled', cmd === 'on')
+    say(t(cmd === 'on' ? 'retry.toggled.on' : 'retry.toggled.off'))
+    break
+  case 'cancel': {
+    if (!a1) {
+      say(t('retry.cancel.usage'))
+      process.exit(1)
+    }
+    say(t('retry.cancel.done', { count: cancelRetry(a1) }))
+    break
+  }
+  case 'mode': {
+    const modes = ['default', 'acceptEdits', 'plan', 'bypassPermissions']
+    if (!modes.includes(a1)) {
+      say(t('retry.mode.usage', { modes: modes.join(' | ') }))
+      process.exit(1)
+    }
+    if (a1 === 'bypassPermissions' && !args['i-understand']) {
+      say(t('retry.mode.warning'))
+      process.exit(1)
+    }
+    setPersonal(process.env, 'auto_retry.permission_mode', a1)
+    setPersonal(process.env, 'auto_retry.bypass_ack', a1 === 'bypassPermissions')
+    say(t('retry.mode.set', { mode: a1 }))
+    break
+  }
+  case 'limits': {
+    const file = limitsFile(resolved)
+    if (args.clear) clearLimit(file, args.clear === true ? undefined : String(args.clear))
+    say(JSON.stringify(readLimits(file), null, 2))
+    break
+  }
+  case 'run': {
+    const r = await runRetry(a1)
+    say(JSON.stringify({ result: r.result }))
+    break
+  }
+  case 'wait-run': {
+    const at = Number(a2) * 1000
+    while (Date.now() < at) await new Promise((r) => setTimeout(r, Math.min(30000, at - Date.now())))
+    say(JSON.stringify({ result: (await runRetry(a1)).result }))
+    break
+  }
+  default:
+    say(t('retry.cancel.usage'))
+    process.exit(1)
+}

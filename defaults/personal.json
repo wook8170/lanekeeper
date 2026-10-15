@@ -1,9 +1,36 @@
 {
   "version": 1,
   "language": "auto",
-  "report": { "chat_detail": "summary", "viewer": "local", "artifact_fallback": "html-file" },
-  "auto_retry": { "enabled": true, "permission_mode": "default" },
-  "paths": { "scratch_root": "~/.wb-scratch/{project}" },
-  "token_guard": { "enabled": true, "stages": [90, 95, 99] },
-  "terse": false
+  "report": {
+    "chat_detail": "summary",
+    "viewer": "local",
+    "artifact_fallback": "html-file"
+  },
+  "auto_retry": {
+    "enabled": true,
+    "permission_mode": "default",
+    "bypass_ack": false
+  },
+  "paths": {
+    "scratch_root": "~/.wb-scratch/{project}"
+  },
+  "token_guard": {
+    "enabled": true,
+    "stages": [
+      90,
+      95,
+      99
+    ],
+    "budget": 0,
+    "window_hours": 5
+  },
+  "terse": false,
+  "handoff": {
+    "enabled": true,
+    "file": "progress.md",
+    "throttle_min": 20
+  },
+  "checkpoint": {
+    "enabled": true
+  }
 }

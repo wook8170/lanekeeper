@@ -99,6 +99,20 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 
 **Protected lists only grow.** `protected_branches`, `protected_paths`, `ports.protected` and `denied` are the union of every layer. No layer can remove an entry another layer added.
 
+## Session helper hooks
+
+| Feature | Behavior | Setting keys | Manage |
+|---|---|---|---|
+| Handoff | At a new session and `/clear`, injects the newest section of `progress.md`. If a commit or file change is newer than the file, blocks the end of the turn once and asks for an update. The same session is not blocked again for 20 minutes | `personal.handoff.{enabled, file, throttle_min}` | |
+| Automatic resume | When a usage limit ends a turn, resumes the same session headless two minutes after the reset time. Scheduling uses launchd on macOS, a systemd user timer on Linux and a background waiter elsewhere. The model that hit the limit is recorded in `limits.json` | `personal.auto_retry.{enabled, permission_mode, bypass_ack}`, `routing.limits_state` | `wb-retry`, `/wb:auto-retry` |
+| Token guard | Converts local token usage of the recent window (default 5 hours) to a percentage of a budget and adds an instruction only when the stage rises. 90%: smaller work units. 95%: handoff after every wave. 99%: last handoff, notification, then wait | `personal.token_guard.{enabled, stages, budget, window_hours}` | `wb-token`, `/wb:token-guard` |
+| Terse mode | In a repository where it is on, injects rules that shorten output and tool calls at session start | `personal.terse`, repository switch | `wb-terse`, `/wb:terse` |
+| Checkpoint | On a limit, a subagent stop or a context compaction, commits changes to tracked files on a lane branch as a `wip(wb)` commit. Untracked files and secret-like files (`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`) are not committed; they are reported in `.git/wb/checkpoint.json` and a notification. If a project hook (pre-commit) fails, the checkpoint is skipped and the reason recorded. Protected and non-lane branches are left alone and nothing is pushed | `personal.checkpoint.enabled` | |
+
+The permission mode of the automatic resume defaults to `default`. In that mode tools that need approval are refused in the unattended run, so the resumed work can stop at that point. `bypassPermissions` is enabled only by `wb-retry mode bypassPermissions --i-understand` after reading the risk; without the recorded acknowledgement (`bypass_ack`) the resume uses `default`.
+
+The token guard budget defaults to 0 (not calibrated) and the guard stays silent in that state. Run `wb-token calibrate` when the app shows that the limit is reached; the usage at that moment is recorded as the budget. Only Claude Code use on this machine is counted and the percentage is an estimate.
+
 ## Run slots, ports and lane worktrees
 
 **Run slots.** Heavy runs (full test suites, builds, installs, e2e, indexing) and headless browsers are counted across the machine: 2 heavy and 2 browser slots by default. This count is separate from the lane limit (`machine.lanes.max`, default 3).

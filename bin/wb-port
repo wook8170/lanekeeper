@@ -19,7 +19,7 @@ const { resolveConfig, projectRoot, stateDir } = await load('config.mjs')
 const { translator } = await load('i18n.mjs')
 const ports = await load('ports.mjs')
 const { readLanes } = await load('ledger.mjs')
-const { parseArgs } = await load('cli.mjs')
+const { parseOptions: parseArgs } = await load('cli.mjs')
 
 const args = parseArgs(process.argv.slice(2), ['json'])
 const env = process.env

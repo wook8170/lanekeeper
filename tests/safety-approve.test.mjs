@@ -107,7 +107,7 @@ test('plugin wiring: hooks.json registers both hooks; the skill cannot be invoke
   for (const tool of ['Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Skill']) assert.ok(new RegExp(`^(${pre.matcher})$`).test(tool), tool)
   const exp = h.UserPromptExpansion.find((e) => e.hooks.some((x) => x.command.includes('safety/approve.mjs')))
   assert.equal(exp.matcher, 'wb:approve')
-  assert.ok(!h.UserPromptSubmit, 'grants must not come from UserPromptSubmit')
+  assert.ok(!(h.UserPromptSubmit || []).some((e) => e.hooks.some((x) => x.command.includes('approve'))), 'grants must not come from UserPromptSubmit')
   const skill = fs.readFileSync(path.join(ROOT, 'skills', 'approve', 'SKILL.md'), 'utf8')
   assert.match(skill, /^disable-model-invocation: true$/m)
   for (const s of ['pretool.mjs', 'approve.mjs']) assert.ok(fs.statSync(path.join(ROOT, 'hooks', 'scripts', 'safety', s)).mode & 0o111, s)

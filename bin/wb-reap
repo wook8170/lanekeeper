@@ -19,7 +19,7 @@ const { translator } = await load('i18n.mjs')
 const slots = await load('slots.mjs')
 const ports = await load('ports.mjs')
 const { readLanes, removeLane } = await load('ledger.mjs')
-const { parseArgs } = await load('cli.mjs')
+const { parseOptions: parseArgs } = await load('cli.mjs')
 
 const args = parseArgs(process.argv.slice(2), ['apply', 'gate-lock', 'json'])
 const env = process.env

@@ -25,7 +25,7 @@ const { translator } = await load('i18n.mjs')
 const wt = await load('worktree.mjs')
 const { readLanes } = await load('ledger.mjs')
 const { portsFile, readLeases } = await load('ports.mjs')
-const { parseArgs, readStdin } = await load('cli.mjs')
+const { parseOptions: parseArgs, readStdin } = await load('cli.mjs')
 
 const args = parseArgs(process.argv.slice(2), ['json', 'no-setup', 'force', 'delete-branch'])
 const [cmd, target] = args._
