@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+// wb-check — project checks. Each subcommand lives in its own lib module.
+//
+//   wb-check brief <file|-> [--json]   brief marker, required sections and statements
+//                                     (exit 1 = incomplete). Brief files it names
+//                                     (common briefs) are read as well.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const argv = process.argv.slice(2)
+const flags = new Set(argv.filter((a) => a.startsWith('--')))
+const [cmd, target] = argv.filter((a) => !a.startsWith('--'))
+const print = (s) => process.stdout.write(`${s}\n`)
+
+async function brief() {
+  if (!target) {
+    print('usage: wb-check brief <file|->')
+    process.exit(2)
+  }
+  const { resolveConfig, projectRoot } = await imp('config.mjs')
+  const { translator } = await imp('i18n.mjs')
+  const { checkBrief, collectBrief } = await imp('brief.mjs')
+  const root = projectRoot(process.cwd(), process.env)
+  const t = translator(resolveConfig({ projectDir: root, env: process.env }).effective.language)
+  const raw = target === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(target, 'utf8')
+  const base = target === '-' ? process.cwd() : path.dirname(path.resolve(target))
+  const b = collectBrief(raw, { cwd: base, projectRoot: root })
+  const r = checkBrief(b.text)
+  if (flags.has('--json')) print(JSON.stringify({ ...r, files: b.files }, null, 2))
+  else {
+    print(t(r.ok ? 'brief.ok' : 'brief.fail', { file: target }))
+    for (const m of r.missing) print(`  ✗ ${t(`brief.item.${m}`)}`)
+    if (r.placeholder) print(`  ✗ {{${r.placeholder}}}`)
+    if (r.marker) print(`  type=${r.marker.attrs.type || '-'} lane=${r.marker.attrs.lane || '-'} template=${r.marker.attrs.template || '-'}`)
+  }
+  process.exit(r.ok ? 0 : 1)
+}
+
+const COMMANDS = { brief }
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-check <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+await COMMANDS[cmd]()

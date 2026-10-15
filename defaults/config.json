@@ -35,5 +35,6 @@
   "codegraph": { "nudge": "warn", "index_on_worktree": true },
   "ui_stability": { "enabled": false, "adapter": "uistab.adapter.ts" },
   "protected_paths": [],
+  "dispatch": { "brief": "deny", "exempt_agents": ["fork", "claude-code-guide", "statusline-setup"] },
   "explain": { "links": [] }
 }

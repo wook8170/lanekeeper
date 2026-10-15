@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+// wb-route — model routing for subagent dispatch.
+//
+//   wb-route tasks [--json]                                 task types with chain and floor
+//   wb-route resolve <task> [--implementer <model>] [--json] model to use (exit 3 = wait, 4 = none)
+//   wb-route explain <task> [--implementer <model>]          resolution trace, step by step
+//   wb-route check <task> --model <model> [--implementer <model>] [--json]
+//                                                           judge a model choice (exit 1 = blocked)
+//   wb-route classify [--brief <file>] [--subagent <type>] [--description <text>] [--json]
+//
+// Common options: --project <dir>
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { resolveConfig, projectRoot, getPath } = await imp('config.mjs')
+const { translator } = await imp('i18n.mjs')
+const { limitsFile } = await imp('runtime.mjs')
+const { classify, resolveRoute, checkModel, explainLines, limitsMap } = await imp('route.mjs')
+const { parseMarker } = await imp('brief.mjs')
+
+function parseArgs(argv) {
+  const out = { _: [] }
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (!a.startsWith('--')) out._.push(a)
+    else if (a.includes('=')) out[a.slice(2, a.indexOf('='))] = a.slice(a.indexOf('=') + 1)
+    else if (argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) out[a.slice(2)] = argv[++i]
+    else out[a.slice(2)] = true
+  }
+  return out
+}
+
+const args = parseArgs(process.argv.slice(2))
+const [cmd, task] = args._
+const env = process.env
+const resolved = resolveConfig({ projectDir: args.project ? path.resolve(args.project) : projectRoot(process.cwd(), env), env })
+const t = translator(resolved.effective.language)
+const routing = getPath(resolved.config, 'routing') || {}
+const print = (s) => process.stdout.write(`${s}\n`)
+const json = (v) => print(JSON.stringify(v, null, 2))
+const usage = () => {
+  print('usage: wb-route tasks | resolve <task> | explain <task> | check <task> --model <m> | classify [--brief f] [--subagent s] [--description d]')
+  process.exit(2)
+}
+const decide = () => resolveRoute(routing, task, { limits: limitsMap(limitsFile(resolved, env)), implementer: args.implementer || null })
+
+switch (cmd) {
+  case 'tasks': {
+    const rows = Object.entries(routing.tasks || {}).map(([k, v]) => ({ task: k, label: t(`task.${k}`), chain: v.chain, floor: v.floor, differ_from: v.differ_from || null }))
+    if (args.json) json({ tasks: rows, denied: routing.denied || [] })
+    else {
+      for (const r of rows) print(`${r.task.padEnd(16)} ${r.label} · ${r.chain.join(' > ')} · floor ${r.floor}${r.differ_from ? ` · differ_from ${r.differ_from}` : ''}`)
+      if ((routing.denied || []).length) print(`denied: ${routing.denied.join(', ')}`)
+    }
+    break
+  }
+  case 'resolve':
+  case 'explain': {
+    if (!task) usage()
+    const d = decide()
+    if (args.json) json(d)
+    else if (cmd === 'explain') explainLines(d, t).forEach(print)
+    else if (d.ok) print(d.agent_param)
+    else explainLines(d, t).slice(-1).forEach(print)
+    process.exit(d.ok ? 0 : d.error === 'unknown-task' ? 2 : d.error === 'wait' ? 3 : 4)
+    break
+  }
+  case 'check': {
+    if (!task || !args.model) usage()
+    const d = decide()
+    if (d.error === 'unknown-task') {
+      print(t('route.unknown_task', { task }))
+      process.exit(2)
+    }
+    const vs = checkModel(routing, d, args.model, { strict: true })
+    if (args.json) json({ decision: d, verdicts: vs })
+    else {
+      for (const v of vs) print(`${v.level}: ${t(`dispatch.${v.code}.why`, v.vars)}`)
+      if (!vs.length) print(`ok: ${args.model}`)
+    }
+    process.exit(vs.some((v) => v.level === 'deny') ? 1 : 0)
+    break
+  }
+  case 'classify': {
+    const marker = args.brief ? parseMarker(fs.readFileSync(String(args.brief), 'utf8')) : null
+    const c = classify({ routing, marker, subagentType: args.subagent || '', description: args.description || '' })
+    if (args.json) json(c)
+    else print(c.type ? `${c.type} (${c.source}: ${c.matched})` : '-')
+    process.exit(c.type ? 0 : 1)
+    break
+  }
+  default:
+    usage()
+}
