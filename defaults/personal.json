@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "language": "auto",
+  "report": { "chat_detail": "summary", "viewer": "local", "artifact_fallback": "html-file" },
+  "auto_retry": { "enabled": true, "permission_mode": "default" },
+  "paths": { "scratch_root": "~/.wb-scratch/{project}" },
+  "token_guard": { "enabled": true, "stages": [90, 95, 99] },
+  "terse": false
+}

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "models": {
+    "fable":  { "agent_param": "fable",  "rank": 4 },
+    "opus":   { "agent_param": "opus",   "rank": 3 },
+    "sonnet": { "agent_param": "sonnet", "rank": 2 },
+    "haiku":  { "agent_param": "haiku",  "rank": 1 }
+  },
+  "denied": [],
+  "denied_note": {},
+  "tasks": {
+    "design":         { "label": "design-analysis",   "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify" },
+    "review":         { "label": "review-verdict",    "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify" },
+    "security":       { "label": "security-review",   "chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify" },
+    "adversarial":    { "label": "adversarial-review","chain": ["opus", "fable"],   "floor": "opus",   "on_floor": "wait-notify", "differ_from": "implementer" },
+    "impl-multi":     { "label": "multi-file-impl",   "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify" },
+    "impl-spec":      { "label": "spec-impl",         "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify" },
+    "mockup":         { "label": "mockup",            "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify" },
+    "defect-history": { "label": "defect-history",    "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify" },
+    "mechanical":     { "label": "mechanical-edit",   "chain": ["haiku", "sonnet"], "floor": "haiku",  "on_floor": "wait-notify" },
+    "research":       { "label": "read-only-research","chain": ["haiku", "sonnet"], "floor": "haiku",  "on_floor": "wait-notify" }
+  },
+  "limits_state": "${CLAUDE_PLUGIN_DATA}/limits.json"
+}

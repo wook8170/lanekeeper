@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "lanes": { "max": 3 },
+  "load": { "max": "auto", "auto_rule": "logical_cores * 2", "sample": "1min" },
+  "slots": {
+    "heavy":   { "count": 2, "patterns": ["full-test", "e2e", "typecheck-all", "build", "install", "codegraph-index"] },
+    "browser": { "count": 2, "patterns": ["chrome-headless", "playwright", "cdp"] },
+    "lease_dir": "~/.wb/run/slots",
+    "stale_after_min": 90
+  },
+  "ports": {
+    "protected": [],
+    "lane_range": { "base": 7000, "step": 10, "per_lane": ["web", "web2", "api", "db", "aux"], "max_lanes": 9 },
+    "leases": "{git_common_dir}/wb/ports.json"
+  },
+  "servers": []
+}

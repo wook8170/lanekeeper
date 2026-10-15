@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "lanes": { "max": 6 },
+  "load": { "max": 16 },
+  "ports": {
+    "protected": [
+      { "name": "my-api", "port": 8080, "project": "*", "note": "dev server I keep running" }
+    ]
+  },
+  "servers": [
+    { "name": "my-web", "port_ref": "my-api", "restart": "manual", "verify_url_path": "/" }
+  ]
+}

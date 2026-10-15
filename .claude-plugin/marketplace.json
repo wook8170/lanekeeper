@@ -1,0 +1,12 @@
+{
+  "name": "wb-plugin",
+  "description": "Marketplace for the wb (Agent Workbench) Claude Code plugin",
+  "owner": { "name": "AUTHOR_PLACEHOLDER" },
+  "plugins": [
+    {
+      "name": "wb",
+      "source": "./",
+      "description": "Workbench for running parallel Claude Code agent lanes"
+    }
+  ]
+}

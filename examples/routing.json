@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "denied": ["fable"],
+  "denied_note": { "fable": "personal decision; delete this line to lift it" },
+  "tasks": {
+    "review": { "chain": ["opus"] }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "project_kind": "other",
+  "git": {
+    "protected_branches": ["main", "master", "release/*"],
+    "integration_branch_pattern": "wb/*/int",
+    "lane_branch_pattern": "wb/*/l*",
+    "worktree_root": "{repo}/../wt-{task}",
+    "main_checkout": "auto",
+    "feature_push": "ask",
+    "gate_stamp": "wb-gate-pass",
+    "owner_grant_ttl_min": 15
+  },
+  "paths": {
+    "progress": "progress.md",
+    "briefs": ".wb/briefs/{lane}.md",
+    "lane_reports": "{scratch_root}/reports/{lane}.md",
+    "reports_final": "docs/reports/{date}/{slug}.md",
+    "artifacts_temp": "{scratch_root}/art/{slug}/",
+    "artifacts_keep": "docs/reports/artifacts/{slug}/",
+    "artifacts_keep_webp": { "over_kb": 300, "quality": 80 },
+    "decisions": "docs/decisions/{date}-{slug}.md",
+    "test_results": "docs/test-results/{date}/{name}-{HHMM}.xlsx",
+    "test_runs_raw": "test-results/runs/{name}-{stamp}/",
+    "waves": ".wb/waves/",
+    "metrics": ".wb/metrics/",
+    "e2e_ledger": "docs/e2e/"
+  },
+  "gate": { "command": "", "verify_all": "", "append_checks": [] },
+  "glossary": { "terms_dict": "docs/glossary/terms.yaml", "terms_scan": "docs/glossary/config.json", "copy_globs": [] },
+  "style": { "map": [
+    { "glob": "docs/**/*.md", "style": "report" }
+  ] },
+  "mockup": { "ui_globs": [], "tokens_css": "", "decision_required": true },
+  "codegraph": { "nudge": "warn", "index_on_worktree": true },
+  "ui_stability": { "enabled": false, "adapter": "uistab.adapter.ts" },
+  "protected_paths": [],
+  "explain": { "links": [] }
+}

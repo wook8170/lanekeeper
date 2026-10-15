@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "project_kind": "web-ui",
+  "gate": { "command": "npm test", "verify_all": "", "append_checks": [] },
+  "git": { "protected_branches": ["develop"] },
+  "style": { "map": [
+    { "glob": "src/**/*.{tsx,vue}", "style": "haeyo" },
+    { "glob": "docs/**/*.md", "style": "report" }
+  ] },
+  "machine": { "lanes": { "max": 2 } }
+}

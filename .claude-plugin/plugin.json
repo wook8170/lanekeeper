@@ -1,0 +1,25 @@
+{
+  "name": "wb",
+  "displayName": "Agent Workbench",
+  "version": "0.1.0",
+  "description": "Workbench for running parallel Claude Code agent lanes: model routing, lane and slot limits, git safety guards, handoff and review.",
+  "author": { "name": "AUTHOR_PLACEHOLDER" },
+  "license": "MIT",
+  "keywords": ["orchestration", "subagents", "worktree", "safety", "handoff"],
+  "userConfig": {
+    "language": {
+      "type": "string",
+      "title": "Message language",
+      "description": "Language for wb messages. auto follows the system locale. ~/.wb/personal.json overrides this value.",
+      "options": ["auto", "ko", "en"],
+      "default": "auto"
+    },
+    "chat_detail": {
+      "type": "string",
+      "title": "Chat report detail",
+      "description": "summary keeps chat reports short and puts evidence in an artifact. detailed writes tables, evidence and figures in chat as well.",
+      "options": ["summary", "detailed"],
+      "default": "summary"
+    }
+  }
+}

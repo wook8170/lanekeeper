@@ -1,0 +1,164 @@
+#!/usr/bin/env node
+// wb-config — read, explain and validate wb settings; initialize a project.
+//
+//   wb-config get <key> [--json]
+//   wb-config explain <key> [--json]
+//   wb-config validate [--json]
+//   wb-config dump [--json]
+//   wb-config init --kind <web-ui|service|library|other> --lang <ko|en> [--gate <command>]
+//   wb-config doctor [--json]
+//
+// Common options: --project <dir> (default: git top level of the current directory)
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const { resolveConfig, explain, projectRoot, getPath } = await import(pathToFileURL(path.join(libDir, 'config.mjs')).href)
+const { translator } = await import(pathToFileURL(path.join(libDir, 'i18n.mjs')).href)
+const { initProject, doctor } = await import(pathToFileURL(path.join(libDir, 'init.mjs')).href)
+
+function parseArgs(argv) {
+  const out = { _: [] }
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a.startsWith('--')) {
+      const name = a.slice(2)
+      const next = argv[i + 1]
+      if (next !== undefined && !next.startsWith('--')) {
+        out[name] = next
+        i++
+      } else out[name] = true
+    } else out._.push(a)
+  }
+  return out
+}
+
+const args = parseArgs(process.argv.slice(2))
+const [cmd, key] = args._
+const projectDir = args.project ? path.resolve(args.project) : projectRoot()
+const env = process.env
+const print = (s) => process.stdout.write(`${s}\n`)
+const asJson = (v) => print(JSON.stringify(v, (k, x) => (x instanceof Map ? Object.fromEntries(x) : x), 2))
+
+const resolved = resolveConfig({ projectDir, env })
+const t = translator(resolved.effective.language)
+
+function printIssues(r) {
+  if (r.errors.length) print(t('config.invalid', { count: r.errors.length }))
+  for (const e of r.errors) print(`  ✗ ${t('config.issue', e)}`)
+  if (r.warnings.length) print(t('config.warnings', { count: r.warnings.length }))
+  for (const w of r.warnings) print(`  ! ${t('config.issue', w)}`)
+  if (r.errors.length) {
+    print(t('config.fix'))
+    print(t('config.ask'))
+  }
+}
+
+function fmt(v) {
+  return v === undefined ? t('explain.unset') : JSON.stringify(v)
+}
+
+function printExplain(e) {
+  print(`${e.key}`)
+  print(`  ${t('explain.value')}: ${fmt(e.value)}`)
+  print(`  ${t('explain.rule')}: ${t(`explain.rule.${e.rule}`)}`)
+  if (e.from) print(`  ${t('explain.from')}: ${e.from.split('+').map((l) => t(`layer.${l}`)).join(' + ')}`)
+  if (e.children) {
+    for (const [k, l] of Object.entries(e.children)) print(`    ${k} ← ${l.split('+').map((x) => t(`layer.${x}`)).join(' + ')}`)
+  }
+  if (e.setBy.length) {
+    print(`  ${t('explain.setBy')}:`)
+    for (const s of e.setBy) print(`    - ${t(`layer.${s.layer}`)} (${s.file}): ${JSON.stringify(s.value)}`)
+  }
+}
+
+switch (cmd) {
+  case 'get': {
+    if (!key) {
+      print(t('cli.usage'))
+      process.exit(2)
+    }
+    const v = getPath(resolved.config, key)
+    if (v === undefined) {
+      process.stderr.write(`${t('cli.unknownKey', { key })}\n`)
+      process.exit(1)
+    }
+    if (args.json || typeof v === 'object') asJson(v)
+    else print(String(v))
+    break
+  }
+  case 'explain': {
+    if (!key) {
+      print(t('cli.usage'))
+      process.exit(2)
+    }
+    const e = explain(resolved, key)
+    if (e.value === undefined && e.setBy.length === 0) {
+      process.stderr.write(`${t('cli.unknownKey', { key })}\n`)
+      process.exit(1)
+    }
+    if (args.json) asJson(e)
+    else printExplain(e)
+    break
+  }
+  case 'validate': {
+    if (args.json) asJson({ errors: resolved.errors, warnings: resolved.warnings })
+    else {
+      printIssues(resolved)
+      if (!resolved.errors.length) print(t('config.valid'))
+    }
+    process.exit(resolved.errors.length ? 1 : 0)
+  }
+  case 'dump': {
+    asJson({ ...resolved.config, _effective: resolved.effective })
+    break
+  }
+  case 'init': {
+    const lang = args.lang || resolved.effective.language
+    const actions = initProject(projectDir, { kind: args.kind || 'other', language: lang, gate: typeof args.gate === 'string' ? args.gate : '' }, env)
+    const ti = translator(lang)
+    if (args.json) asJson(actions)
+    else {
+      for (const a of actions) {
+        if (a.type === 'wrote') print(ti('init.wrote', a))
+        else if (a.type === 'kept') print(ti('init.kept', a))
+        else if (a.type === 'exclude') print(ti('init.exclude', a))
+        else if (a.type === 'gitignore') print(ti('init.gitignore', a))
+        else if (a.type === 'notGit') print(ti('init.notGit'))
+        else if (a.type === 'uiHint') print(ti('init.uiHint'))
+      }
+      print(ti('init.done'))
+    }
+    break
+  }
+  case 'doctor': {
+    const d = doctor(projectDir, env)
+    if (args.json) {
+      asJson(d)
+      break
+    }
+    print(t('doctor.title'))
+    const mark = { ok: '✓', warn: '!', fail: '✗' }
+    for (const c of d.checks) {
+      let label = t(`doctor.${c.id}`, { version: c.detail })
+      let extra = ''
+      if (c.id === 'projectConfig' && c.status !== 'ok') extra = ` — ${t('doctor.projectConfig.missing')}`
+      if (c.id === 'codegraph' && c.status !== 'ok') extra = ` — ${t('doctor.codegraph.missing')}`
+      if (c.id === 'git') label = `${label} (${c.detail})`
+      print(`${mark[c.status]} ${label}: ${t(`doctor.${c.status}`)}${extra}`)
+      if (c.id === 'config') printIssues(c)
+    }
+    print(`${t('doctor.keys')}:`)
+    for (const e of d.keys) {
+      const from = e.from ? e.from.split('+').map((l) => t(`layer.${l}`)).join(' + ') : '-'
+      print(`  ${e.key} = ${fmt(e.value)}  [${from}]`)
+    }
+    print(`  (effective) language = ${d.effective.language}, load.max = ${d.effective.load_max}`)
+    if (d.checks.some((c) => c.status === 'fail')) process.exit(1)
+    break
+  }
+  default:
+    print(t('cli.usage'))
+    process.exit(cmd ? 2 : 0)
+}
