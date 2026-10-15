@@ -6,6 +6,8 @@
 //   wb-worktree setup <id|path> [--slot-timeout <sec>]
 //   wb-worktree remove <id|path> [--force] [--delete-branch] [--json]
 //   wb-worktree list [--json]
+//   wb-worktree hooks [status|sync] [--json]   opt-in WorktreeCreate/WorktreeRemove hooks
+//                                               (project.worktree.hook; see lib/worktree-hooks.mjs)
 //   wb-worktree hook-create      WorktreeCreate hook (stdin JSON { name, cwd }; prints the path)
 //   wb-worktree hook-remove      WorktreeRemove hook (stdin JSON { worktree_path, cwd })
 //
@@ -20,7 +22,8 @@ import { pathToFileURL } from 'node:url'
 
 const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
 const load = (m) => import(pathToFileURL(path.join(libDir, m)).href)
-const { resolveConfig, projectRoot } = await load('config.mjs')
+const { resolveConfig, projectRoot, PLUGIN_ROOT } = await load('config.mjs')
+const wthooks = await load('worktree-hooks.mjs')
 const { translator } = await load('i18n.mjs')
 const wt = await load('worktree.mjs')
 const { readLanes } = await load('ledger.mjs')
@@ -111,6 +114,12 @@ try {
       say(t('wt.list_head', { live: rows.filter((r) => r.exists).length, max: ctx.config.machine?.lanes?.max }))
       for (const r of rows) say(`  ${r.id}  ${r.branch}  ${r.worktree}${r.exists ? '' : `  (${t('wt.missing')})`}${r.ports ? `  ${Object.entries(r.ports).map(([k, v]) => `${k}=${v}`).join(' ')}` : ''}`)
     }
+  } else if (cmd === 'hooks') {
+    const enabled = ctx.config.project?.worktree?.hook === true
+    const r = target === 'sync' ? wthooks.syncWorktreeHooks(root, PLUGIN_ROOT, enabled) : { ...wthooks.status(root, PLUGIN_ROOT), changed: false }
+    if (args.json) say(JSON.stringify({ setting: enabled, ...r }, null, 2))
+    else say(t(r.state === 'conflict' ? 'wthook.conflict' : 'wthook.status', { setting: String(enabled), state: r.state, file: r.file || '-' }))
+    if (r.state === 'conflict') process.exit(1)
   } else if (cmd === 'hook-create') {
     // Replaces Claude Code's own worktree creation: same place and branch name
     // (.claude/worktrees/<name>, worktree-<name>), but based on the integration

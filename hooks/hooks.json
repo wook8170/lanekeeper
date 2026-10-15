@@ -47,6 +47,11 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/terse/session-start.mjs",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/worktree/session-sync.mjs",
+            "timeout": 20
           }
         ]
       }
@@ -124,20 +129,6 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/checkpoint/checkpoint.mjs",
             "timeout": 20
           }
-        ]
-      }
-    ],
-    "WorktreeCreate": [
-      {
-        "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/wb-worktree hook-create", "timeout": 600 }
-        ]
-      }
-    ],
-    "WorktreeRemove": [
-      {
-        "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/wb-worktree hook-remove", "timeout": 120 }
         ]
       }
     ]

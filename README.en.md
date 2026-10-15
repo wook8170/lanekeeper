@@ -19,11 +19,12 @@ claude plugin marketplace add <repository URL>
 claude plugin install wb@wb-plugin
 ```
 
-Then run `/wb:init` in the project folder. It asks three questions:
+Then run `/wb:init` in the project folder. It asks four questions:
 
 1. Project kind (`web-ui` · `service` · `library` · `other`)
 2. Message language (`ko` · `en`)
 3. Full verification command (may be empty)
+4. Whether wb also manages the worktrees Claude Code creates (default no; see "Claude Code worktree hooks (opt-in)" below)
 
 It writes `.wb/config.json` and `~/.wb/personal.json` and excludes the brief folder `.wb/briefs/` from git. Existing files are never overwritten.
 
@@ -136,7 +137,7 @@ Heavy commands are recognised by the pattern groups in `defaults/heavy-patterns.
 | `warn` (default) | the command runs; Claude is told the wrapped command |
 | `deny` | the command is blocked with the wrapped command as the fix |
 
-**Ports.** Protected ports (`machine.ports.protected`) and the lane port range (`machine.ports.lane_range`) are numbers that live only in machine settings. Docs and briefs use names and ask `wb-port get <name> [--lane <id>]`. A lane leases one band (one port per `per_lane` name). Bands holding a protected port, a port another process already listens on, or another lane's lease are skipped. The lease ledger is `<git-common-dir>/wb/ports.json`.
+**Ports.** Protected ports (`machine.ports.protected`) and the lane port range (`machine.ports.lane_range`) are numbers that live only in machine settings. Docs and briefs use names and ask `wb-port get <name> [--lane <id>]`. A lane leases one band (one port per `per_lane` name). Bands start at 41000, 20 ports apart, which keeps clear of macOS AirPlay on 7000. Bands holding a protected port, a port another process already listens on, or another lane's lease are skipped. The lease ledger is `<git-common-dir>/wb/ports.json`.
 
 **Lane worktrees.**
 
@@ -153,7 +154,9 @@ wb-worktree remove l3 [--force] [--delete-branch]
 - No worktree is created once live lanes reach `machine.lanes.max`.
 - Removal stops while any process runs inside the path and lists the PIDs; stop them one by one with `kill <PID>` and run again. Uncommitted changes need `--force`. The main checkout and folders that are not worktrees are never removed. `--delete-branch` deletes the branch only when its commits are on another local branch too.
 
-**Claude Code worktree hooks.** wb registers WorktreeCreate and WorktreeRemove hooks. With them Claude Code uses the hook instead of its own worktree creation (`claude --worktree`, subagents with `isolation: "worktree"`, and so on). The wb hook keeps Claude Code's location (`.claude/worktrees/<name>`) and branch name (`worktree-<name>`), bases the worktree on the integration HEAD when there is exactly one integration branch, and also leases ports, copies `.worktreeinclude` files and runs the setup command. These worktrees are not added to the lane registry. If no heavy slot comes free within 2 minutes the setup command is skipped; run `wb-worktree setup <name>` later.
+**Claude Code worktree hooks (opt-in).** Once a WorktreeCreate hook is registered it replaces Claude Code's own worktree creation entirely (`claude --worktree`, `EnterWorktree`, subagents with `isolation: "worktree"`, background sessions); a registered hook cannot hand the work back to the default. So wb does not list these hooks in its plugin `hooks.json`, and they are off by default. Answer yes to "Should wb manage lane worktrees?" in `/wb:init`, or set `"worktree": { "hook": true }` in `.wb/config.json`, and wb registers WorktreeCreate and WorktreeRemove hooks in the main checkout's `.claude/settings.local.json` (this machine only, kept out of git). The plugin's install path changes with each update, so a session-start hook re-points the registration to the current plugin every time and removes it when the setting is turned off. If another tool already has a WorktreeCreate hook there, wb does not add its own and says so. Check with `wb-worktree hooks status`; apply now with `wb-worktree hooks sync`.
+
+When on, the wb hook keeps Claude Code's location (`.claude/worktrees/<name>`) and branch name (`worktree-<name>`), bases the worktree on the integration HEAD when there is exactly one integration branch, and also leases ports, copies `.worktreeinclude` files and runs the setup command. These worktrees are not added to the lane registry. If no heavy slot comes free within 2 minutes the setup command is skipped; run `wb-worktree setup <name>` later. Claude Code's own extras (branching from the remote default branch, filter-driver neutralisation, the stale worktree sweep) do not apply in this mode.
 
 **Cleanup.** `wb-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and removed with `--gate-lock`. It never stops processes.
 

@@ -19,11 +19,12 @@ claude plugin marketplace add <저장소 주소>
 claude plugin install wb@wb-plugin
 ```
 
-설치한 뒤 프로젝트 폴더에서 `/wb:init` 을 실행한다. 세 가지를 묻는다.
+설치한 뒤 프로젝트 폴더에서 `/wb:init` 을 실행한다. 네 가지를 묻는다.
 
 1. 프로젝트 종류(`web-ui` · `service` · `library` · `other`)
 2. 메시지 언어(`ko` · `en`)
 3. 전체 검증 명령(없으면 비워 둔다)
+4. Claude Code 가 만드는 워크트리까지 wb 가 관리할지(기본 아니요, 아래 「Claude Code 워크트리 훅(선택)」)
 
 답에 따라 `.wb/config.json` 과 `~/.wb/personal.json` 을 만들고, 지시서 폴더 `.wb/briefs/` 를 git 추적 대상에서 뺀다. 이미 있는 파일은 덮어쓰지 않는다.
 
@@ -136,7 +137,7 @@ wb-slot reap          # 끝난 임대 회수
 | `warn`(기본) | 실행은 그대로 두고, `wb-slot` 으로 감싼 명령을 Claude 에게 알려 준다 |
 | `deny` | 실행을 막고 감싼 명령을 안내한다 |
 
-**포트.** 보호 포트(`machine.ports.protected`)와 레인 포트 대역(`machine.ports.lane_range`) 숫자는 머신 설정에만 둔다. 문서와 지시서는 이름만 쓰고 `wb-port get <이름> [--lane <id>]` 로 값을 얻는다. 레인은 대역 하나(`per_lane` 이름별 포트)를 임대한다. 보호 포트가 들어 있는 대역, 이미 다른 프로세스가 쓰는 포트가 있는 대역, 다른 레인이 임대한 대역은 건너뛴다. 임대 대장은 `<git-common-dir>/wb/ports.json` 이다.
+**포트.** 보호 포트(`machine.ports.protected`)와 레인 포트 대역(`machine.ports.lane_range`) 숫자는 머신 설정에만 둔다. 문서와 지시서는 이름만 쓰고 `wb-port get <이름> [--lane <id>]` 로 값을 얻는다. 레인은 대역 하나(`per_lane` 이름별 포트)를 임대한다. 기본 대역은 41000 부터 레인마다 20칸씩이다(macOS AirPlay 가 쓰는 7000 대를 피한다). 보호 포트가 들어 있는 대역, 이미 다른 프로세스가 쓰는 포트가 있는 대역, 다른 레인이 임대한 대역은 건너뛴다. 임대 대장은 `<git-common-dir>/wb/ports.json` 이다.
 
 **레인 워크트리.**
 
@@ -153,7 +154,9 @@ wb-worktree remove l3 [--force] [--delete-branch]
 - 살아 있는 레인이 `machine.lanes.max` 에 닿으면 만들지 않는다.
 - 지울 때 그 경로 안에서 도는 프로세스가 있으면 지우지 않고 PID 목록을 보여 준다. 하나씩 `kill <PID>` 로 끈 뒤 다시 실행한다. 커밋하지 않은 변경이 있으면 `--force` 가 필요하다. 주 체크아웃과 워크트리가 아닌 폴더는 지우지 않는다. `--delete-branch` 는 브랜치의 커밋이 다른 로컬 브랜치에도 있을 때만 지운다.
 
-**Claude Code 워크트리 훅.** wb 는 WorktreeCreate·WorktreeRemove 훅을 등록한다. 이 훅이 있으면 Claude Code 는 자체 워크트리 생성 대신 훅을 쓴다(`claude --worktree`, 서브에이전트 `isolation: "worktree"` 등). wb 의 훅은 Claude Code 와 같은 위치(`.claude/worktrees/<이름>`)와 브랜치 이름(`worktree-<이름>`)을 쓰고, 통합 브랜치가 하나로 정해지면 그 HEAD 를 기준으로 삼는다. 포트 임대·`.worktreeinclude` 복사·설치 명령도 같이 처리한다. 이 워크트리는 레인 대장에 등록하지 않는다. 설치 명령은 슬롯을 2분 안에 얻지 못하면 건너뛰고, 나중에 `wb-worktree setup <이름>` 으로 실행한다.
+**Claude Code 워크트리 훅(선택).** WorktreeCreate 훅은 등록되는 순간 Claude Code 의 워크트리 생성(`claude --worktree`, `EnterWorktree`, 서브에이전트 `isolation: "worktree"`, 백그라운드 세션)을 통째로 대체한다. 등록된 훅이 기본 동작으로 넘기는 방법은 없다. 그래서 wb 는 이 훅을 플러그인 `hooks.json` 에 넣지 않고 기본으로 꺼 둔다. `/wb:init` 의 「레인 워크트리를 wb 가 관리할까요?」에 예라고 답하거나 `.wb/config.json` 에 `"worktree": { "hook": true }` 를 두면, 주 체크아웃의 `.claude/settings.local.json`(이 머신 전용, git 제외)에 WorktreeCreate·WorktreeRemove 훅을 등록한다. 플러그인을 갱신하면 설치 경로가 바뀌므로, 세션 시작 훅이 매번 등록 경로를 현재 플러그인으로 맞추고 설정을 끄면 등록을 지운다. 다른 도구의 WorktreeCreate 훅이 이미 있으면 등록하지 않고 알린다. 상태는 `wb-worktree hooks status`, 즉시 반영은 `wb-worktree hooks sync` 로 한다.
+
+켜면 wb 의 훅은 Claude Code 와 같은 위치(`.claude/worktrees/<이름>`)와 브랜치 이름(`worktree-<이름>`)을 쓰고, 통합 브랜치가 하나로 정해지면 그 HEAD 를 기준으로 삼는다. 포트 임대·`.worktreeinclude` 복사·설치 명령도 같이 처리한다. 이 워크트리는 레인 대장에 등록하지 않는다. 설치 명령은 슬롯을 2분 안에 얻지 못하면 건너뛰고, 나중에 `wb-worktree setup <이름>` 으로 실행한다. 원격 기본 브랜치 기준 생성, 필터 드라이버 차단, 오래된 워크트리 자동 정리 같은 Claude Code 기본 동작은 이 경우 적용되지 않는다.
 
 **정리.** `wb-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 하고 `--gate-lock` 을 줄 때만 지운다. 프로세스는 끄지 않는다.
 

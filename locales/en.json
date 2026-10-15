@@ -278,5 +278,11 @@
   "reap.gate_stale": "gate.lock has been there for {ageMin} min. If no gate is running, remove it with `wb-reap --gate-lock`.",
   "reap.gate_active": "A gate is running (gate.lock {ageMin} min).",
   "reap.hint_apply": "Run `wb-reap --apply` to clear these.",
-  "reap.clean": "Nothing to clear."
+  "reap.clean": "Nothing to clear.",
+  "wthook.synced_on": "Registered the Claude Code worktree hooks in {file} (project.worktree.hook: true). They apply from the next session.",
+  "wthook.synced_off": "Removed the Claude Code worktree hooks from {file} (project.worktree.hook: false). Claude Code's own behaviour returns from the next session.",
+  "wthook.conflict": "{file} already has another WorktreeCreate hook, so the wb hooks were not registered. Only one can run; decide which to keep and remove the other.",
+  "wthook.status": "Worktree hook setting {setting}, registration {state} ({file})",
+  "init.worktreeHook": "Registered hooks in {file} so wb also creates Claude Code's worktrees (claude --worktree, subagent isolation).",
+  "init.worktreeHookKept": "Kept the existing .wb/config.json. To turn the worktree hooks on, add \"worktree\": {\"hook\": true} to it and run `wb-worktree hooks sync`."
 }

@@ -134,20 +134,22 @@ test('hook process prints the note and exits 0', () => {
   s.cleanup()
 })
 
-test('hooks.json wires the slot guard and both worktree hooks; bins are executable', () => {
+test('hooks.json wires the slot guard; worktree hooks are opt-in (not in hooks.json); bins are executable', () => {
   const h = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8')).hooks
   assert.ok(h.PreToolUse.some((e) => e.matcher === 'Bash' && e.hooks.some((x) => x.command.includes('slots/slot-guard.mjs'))))
-  assert.match(h.WorktreeCreate[0].hooks[0].command, /bin\/wb-worktree hook-create$/)
-  assert.match(h.WorktreeRemove[0].hooks[0].command, /bin\/wb-worktree hook-remove$/)
+  assert.equal(h.WorktreeCreate, undefined)
+  assert.equal(h.WorktreeRemove, undefined)
+  assert.ok(h.SessionStart.some((e) => e.hooks.some((x) => x.command.includes('worktree/session-sync.mjs'))))
   for (const b of ['wb-slot', 'wb-port', 'wb-worktree', 'wb-reap']) assert.ok(fs.statSync(path.join(ROOT, 'bin', b)).mode & 0o111, b)
 })
 
 test('messages used by the slot, port, worktree and reap commands exist in both locales', () => {
   const keys = new Set(['safety.slot.unwrapped.why', 'safety.slot.unwrapped.fix'])
-  const files = ['bin/wb-slot', 'bin/wb-port', 'bin/wb-worktree', 'bin/wb-reap', 'hooks/scripts/slots/slot-guard.mjs'].map((f) => path.join(ROOT, f))
+  const files = ['bin/wb-slot', 'bin/wb-port', 'bin/wb-worktree', 'bin/wb-reap', 'hooks/scripts/slots/slot-guard.mjs', 'hooks/scripts/worktree/session-sync.mjs'].map((f) => path.join(ROOT, f))
   for (const f of files) for (const m of fs.readFileSync(f, 'utf8').matchAll(/\bt\('([a-z][a-z_.-]+)'/g)) keys.add(m[1])
   for (const m of fs.readFileSync(path.join(ROOT, 'lib', 'worktree.mjs'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)
   for (const m of fs.readFileSync(path.join(ROOT, 'bin', 'wb-worktree'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)
+  for (const k of ['wthook.synced_on', 'wthook.synced_off', 'wthook.conflict', 'init.worktreeHook', 'init.worktreeHookKept']) keys.add(k)
   for (const c of ['no-lane', 'no-lease', 'unknown-name', 'problem.overlap', 'problem.too-high', 'problem.protected']) keys.add(`port.${c}`)
   for (const lang of ['ko', 'en']) {
     const msgs = JSON.parse(fs.readFileSync(path.join(ROOT, 'locales', `${lang}.json`), 'utf8'))

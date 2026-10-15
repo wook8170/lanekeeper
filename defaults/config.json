@@ -35,7 +35,7 @@
   "codegraph": { "nudge": "warn", "index_on_worktree": true },
   "ui_stability": { "enabled": false, "adapter": "uistab.adapter.ts" },
   "slots": { "heavy": [], "browser": [] },
-  "worktree": { "setup": "" },
+  "worktree": { "setup": "", "hook": false },
   "protected_paths": [],
   "explain": { "links": [] }
 }

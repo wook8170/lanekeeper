@@ -62,7 +62,7 @@ test('create: branches from the integration HEAD, leases ports, registers the la
   assert.ok(fs.existsSync(path.join(r.worktree, 'int.txt')))
   assert.equal(fs.readFileSync(path.join(r.worktree, '.env'), 'utf8'), 'KEY=local\n')
   assert.deepEqual(r.copied, ['.env'])
-  assert.equal(r.ports.web, 7000)
+  assert.equal(r.ports.web, 41000)
   // lanes.json keeps the shape the safety hooks read
   assert.deepEqual(f.lanes(), { lanes: [{ id: 'l1', branch: 'wb/t/l1', worktree: r.worktree, integration: 'wb/t/int' }] })
   assert.deepEqual(f.leases().map((l) => [l.lane, l.block, l.worktree]), [['l1', 0, r.worktree]])
@@ -70,11 +70,11 @@ test('create: branches from the integration HEAD, leases ports, registers the la
 })
 
 test('create: --agent-id is stored, explicit branch and base are honoured, ports skip protected ones', async () => {
-  const f = fixture({ machine: { load: { max: 100000 }, ports: { protected: [{ name: 'owner-api', port: 7003, project: '*' }] } } })
+  const f = fixture({ machine: { load: { max: 100000 }, ports: { protected: [{ name: 'owner-api', port: 41003, project: '*' }] } } })
   const r = await wt.createWorktree(f.ctx(), { id: 'l2', branch: 'feat/l2', base: 'main', agentId: 'agent-7' })
   assert.equal(r.branch, 'feat/l2')
   assert.equal(r.baseSha, git(f.repo, 'rev-parse', 'main'))
-  assert.equal(r.ports.web, 7010)
+  assert.equal(r.ports.web, 41020)
   assert.equal(f.lanes().lanes[0].agent_id, 'agent-7')
   f.cleanup()
 })
@@ -104,7 +104,7 @@ test('create: setup runs in the new worktree inside a heavy slot, with lane and 
   c.env = { ...c.env, SLOTS: path.join(f.base, 'slots') }
   const r = await wt.createWorktree(c, { id: 'l1' })
   assert.equal(r.setup.status, 0)
-  assert.equal(fs.readFileSync(path.join(r.worktree, 'setup.out'), 'utf8').trim(), 'l1 7000 heavy')
+  assert.equal(fs.readFileSync(path.join(r.worktree, 'setup.out'), 'utf8').trim(), 'l1 41000 heavy')
   assert.match(fs.readFileSync(path.join(r.worktree, 'slots.out'), 'utf8'), /slot1/)
   assert.deepEqual(fs.readdirSync(path.join(f.base, 'slots', 'heavy')).filter((n) => n.startsWith('slot')), [], 'slot released')
   f.cleanup()

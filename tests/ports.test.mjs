@@ -25,6 +25,16 @@ function cfg(machinePorts = {}) {
   }
 }
 
+test('default lane range starts at 41000 with 20 ports per band (clear of macOS AirPlay on 7000)', () => {
+  const m = JSON.parse(fs.readFileSync(path.join(ROOT, 'defaults', 'machine.json'), 'utf8'))
+  const range = ports.laneRange(m.machine ? m : { machine: m })
+  assert.deepEqual([range.base, range.step], [41000, 20])
+  assert.deepEqual(ports.blockPorts(range, 0), { web: 41000, web2: 41001, api: 41002, db: 41003, aux: 41004 })
+  assert.equal(ports.blockPorts(range, 8).aux, 41164)
+  assert.deepEqual(ports.rangeProblems({ machine: m }), [])
+  assert.deepEqual(ports.laneRange({}), { base: 41000, step: 20, names: ['web'], max: 9 })
+})
+
 test('block layout: base + block*step + index', () => {
   assert.deepEqual(ports.blockPorts(ports.laneRange(cfg()), 2), { web: 7020, web2: 7021, api: 7022, db: 7023, aux: 7024 })
 })

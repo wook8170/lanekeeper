@@ -5,7 +5,7 @@
 //   wb-config explain <key> [--json]
 //   wb-config validate [--json]
 //   wb-config dump [--json]
-//   wb-config init --kind <web-ui|service|library|other> --lang <ko|en> [--gate <command>]
+//   wb-config init --kind <web-ui|service|library|other> --lang <ko|en> [--gate <command>] [--worktree-hook yes|no]
 //   wb-config doctor [--json]
 //
 // Common options: --project <dir> (default: git top level of the current directory)
@@ -116,7 +116,7 @@ switch (cmd) {
   }
   case 'init': {
     const lang = args.lang || resolved.effective.language
-    const actions = initProject(projectDir, { kind: args.kind || 'other', language: lang, gate: typeof args.gate === 'string' ? args.gate : '' }, env)
+    const actions = initProject(projectDir, { kind: args.kind || 'other', language: lang, gate: typeof args.gate === 'string' ? args.gate : '', worktreeHook: args['worktree-hook'] === 'yes' }, env)
     const ti = translator(lang)
     if (args.json) asJson(actions)
     else {
@@ -127,6 +127,9 @@ switch (cmd) {
         else if (a.type === 'gitignore') print(ti('init.gitignore', a))
         else if (a.type === 'notGit') print(ti('init.notGit'))
         else if (a.type === 'uiHint') print(ti('init.uiHint'))
+        else if (a.type === 'worktreeHook') print(ti('init.worktreeHook', a))
+        else if (a.type === 'worktreeHookKept') print(ti('init.worktreeHookKept'))
+        else if (a.type === 'worktreeHookConflict') print(ti('wthook.conflict', a))
       }
       print(ti('init.done'))
     }
