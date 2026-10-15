@@ -226,6 +226,29 @@ wb-waves resume [--stale-min N] [--prompt 웨이브/레인]
 
 **시험 케이스 원장.** `paths.e2e_ledger`(기본 `docs/e2e/`)에 `<모듈>.cases.json` 과 `defect-register.json` 을 둔다. `wb-cases init|add|retire|set|list|check` 와 `wb-defects add|resolve|list|check` 로 관리한다. 케이스 ID 는 다시 쓰지 않는다(폐기한 ID 는 `retired_ids` 에 남는다). 보류(`fixme`) 케이스는 열린 결함을 가리켜야 하고, 결함이 종료되면 `check` 가 보류 해제를 요구한다. 결함은 삭제하지 않는다.
 
+## 시험 결과 엑셀
+
+통합·최종 검증의 결과를 엑셀(xlsx)과 요약 json 으로 남긴다. 생성기는 Python 3.8 이상과 openpyxl 이 필요하다(`python3 -m pip install openpyxl`). 없으면 `wb-test-report` 가 설치 명령을 안내하고 엑셀 생성만 건너뛴다(종료 코드 0, `--require` 를 주면 3). 확인은 `wb-test-report env` 로 한다.
+
+| 위치 | 내용 |
+|---|---|
+| `templates/test-results/core/` | 결과 모델, 어댑터(vitest · jest · Playwright · pytest), 원장 대조, 시트 구성. 결과 파일만 읽으며 프로젝트 이름·경로를 모른다 |
+| `templates/test-results/project/` | `verify-all.mjs`(gate → 단계별 시험 → 엑셀, 실패해도 계속), `run-gate.mjs`(gate 를 단계로 나눠 기록), `verify.config.json`(스택별 단계 목록) |
+
+```
+wb-test-report init                  .wb/verify.config.json 생성(gate 와 stages 를 프로젝트에 맞게 고친다)
+wb-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
+wb-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
+wb-test-report latest | summary [--json]
+wb-check test-results [--json] [--require-pass]
+```
+
+단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `wb-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
+
+시트는 요약 · 단위 · 통합 DB · e2e · e2e 상세 · UI 안정성 · gate 단계 · 실패 목록 · 간헐 실패 · 원장 대조 · 커버리지 · 변이이고, 결과가 없는 시트는 만들지 않는다(요약·실패 목록·간헐 실패는 항상). 같은 실행 안의 재시도에서 통과하거나 별도 재실행(`--rerun`)에서 통과한 시험은 간헐로 센다. 원장 대조는 `paths.e2e_ledger` 의 `*.cases.json` 과 시험 제목의 케이스 ID(`PAY-001`, 이어 쓴 `PAY-002 · 003` 포함)를 맞춰, 활성 케이스의 실패·간헐·건너뜀·미실행(`--ledger-priority`), 보류(`fixme`) 케이스의 통과, 원장에 없거나 폐기된 ID 를 불일치로 적는다. 원장이 있으면 불일치 0 이 출하 조건이다.
+
+저장 위치는 `paths.test_results`(기본 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx`, 같은 이름의 `.json` 이 함께 생긴다)이고 커밋한다. 원본 로그는 `paths.test_runs_raw` 에 두며 커밋하지 않는다. `test-results/` 같은 넓은 `.gitignore` 패턴이 `docs/test-results/` 를 가리면 `/wb:init` 이 예외 줄을 제안하고, `wb-check test-results` 는 커밋되지 않은 파일로 보고한다. `/wb:report` 는 `wb-check test-results --json` 의 `file`·`json` 을 증거로 붙이고 `wb-test-report summary --json` 의 수치를 그대로 인용한다.
+
 ## 보안과 한계
 
 - 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.

@@ -4,6 +4,9 @@
 //   wb-check brief <file|-> [--json]   brief marker, required sections and statements
 //                                     (exit 1 = incomplete). Brief files it names
 //                                     (common briefs) are read as well.
+//   wb-check test-results [--json] [--require-pass]
+//                                     newest test result workbook exists and is committed;
+//                                     the ledger matches the run when a ledger exists (exit 1 = no)
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -39,7 +42,25 @@ async function brief() {
   process.exit(r.ok ? 0 : 1)
 }
 
-const COMMANDS = { brief }
+async function testResults() {
+  const { resolveConfig, projectRoot } = await imp('config.mjs')
+  const { translator } = await imp('i18n.mjs')
+  const { checkTestResults } = await imp('testresults.mjs')
+  const root = projectRoot(process.cwd(), process.env)
+  const resolved = resolveConfig({ projectDir: root, env: process.env })
+  const t = translator(resolved.effective.language)
+  const r = checkTestResults(root, resolved.config, { requirePass: flags.has('--require-pass') })
+  if (flags.has('--json')) print(JSON.stringify({ ok: r.ok, file: r.file, json: r.json, items: r.items }, null, 2))
+  else {
+    print(t(r.ok ? 'tr.check.ok' : 'tr.check.fail'))
+    const mark = { ok: '✓', warn: '⚠', fail: '✗' }
+    for (const i of r.items) print(`  ${mark[i.level]} ${t(`tr.check.${i.id}`, i.vars)}`)
+    if (!r.ok) print(t('tr.check.how'))
+  }
+  process.exit(r.ok ? 0 : 1)
+}
+
+const COMMANDS = { brief, 'test-results': testResults }
 if (!COMMANDS[cmd]) {
   print(`usage: wb-check <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)

@@ -204,6 +204,29 @@ Commands: `wb-waves init-wave | lane | status | todo | verify | note | return | 
 
 Number series (`numbers` in `.wb/config.json`: `dir`, `pattern`, `width`, `start`) give parallel lanes unique numbers for migrations or decision records. The next number is above the files in the folder (working tree and main checkout) and above live reservations. Test cases (`<module>.cases.json`) and `defect-register.json` live in `paths.e2e_ledger`; case ids are never reused, a `fixme` case must point to an open defect, defects are never deleted.
 
+## Test result workbook
+
+The result of an integration or final verification is saved as an Excel workbook (xlsx) plus a summary json. The generator needs Python 3.8+ and openpyxl (`python3 -m pip install openpyxl`). Without them `wb-test-report` prints the install commands and skips only the workbook (exit 0, or 3 with `--require`). Check with `wb-test-report env`.
+
+| Where | What |
+|---|---|
+| `templates/test-results/core/` | result model, adapters (vitest, jest, Playwright, pytest), ledger comparison, sheet layout. It reads result files only and knows no project names or paths |
+| `templates/test-results/project/` | `verify-all.mjs` (gate, then each test stage, then the workbook; keeps going after a failure), `run-gate.mjs` (records the gate step by step), `verify.config.json` (the stage list per stack) |
+
+```
+wb-test-report init                  create .wb/verify.config.json (edit gate and stages for the project)
+wb-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
+wb-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
+wb-test-report latest | summary [--json]
+wb-check test-results [--json] [--require-pass]
+```
+
+Each stage names an `adapter` (vitest, jest, playwright, pytest), a `kind` (unit, integration, e2e, uistab), a `cmd` (`{file}` is where the structured output goes) and a `slot` (`heavy`, `heavy,browser`, `none`). Heavy stages run inside `wb-slot`. A run that only left logs is read with `build --input adapter:kind:name=log=<log>`.
+
+Sheets: summary, unit, integration DB, e2e, e2e detail, UI stability, gate steps, failures, flaky, ledger comparison, coverage, mutation. Sheet names are Korean and fixed. A sheet without data is not created (summary, failures and flaky always exist). A test that passes on a retry inside the run, or in a separate rerun (`--rerun`), counts as flaky. The ledger comparison matches `*.cases.json` in `paths.e2e_ledger` with the case ids in test titles (`PAY-001`, and the short form `PAY-002 · 003`). Mismatches are: an active case that failed, was flaky, was skipped or did not run (`--ledger-priority`), a `fixme` case that passes, and ids that are unknown or retired. With a ledger, 0 mismatches is a ship condition.
+
+The workbook goes to `paths.test_results` (default `docs/test-results/<date>/<name>-<HHMM>.xlsx`, with a `.json` of the same name) and is committed. Raw logs go to `paths.test_runs_raw` and are not committed. A broad `.gitignore` pattern such as `test-results/` also hides `docs/test-results/`; `/wb:init` suggests the exception line and `wb-check test-results` reports the files as not committed. `/wb:report` attaches `file` and `json` from `wb-check test-results --json` and quotes the figures of `wb-test-report summary --json`.
+
 ## Security and limits
 
 - Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.

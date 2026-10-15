@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "note": "",
+  "gate": {
+    "script": "gate",
+    "skip_in_verify": ["test"],
+    "slot": "heavy"
+  },
+  "stages": [
+    {
+      "name": "unit",
+      "adapter": "vitest",
+      "kind": "unit",
+      "suite": "app",
+      "cmd": "npx vitest run --reporter=default --reporter=json --outputFile.json={file}",
+      "slot": "heavy"
+    },
+    {
+      "name": "e2e",
+      "adapter": "playwright",
+      "kind": "e2e",
+      "suite": "e2e",
+      "cmd": "npx playwright test --reporter=list,json",
+      "env": { "WB_E2E_REPORT_DIR": "{dir}/e2e", "PLAYWRIGHT_JSON_OUTPUT_NAME": "{file}" },
+      "slot": "heavy,browser"
+    }
+  ],
+  "coverage": [],
+  "mutation": []
+}

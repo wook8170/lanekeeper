@@ -1,3 +1,4 @@
 node_modules/
 .wb/briefs/
 .DS_Store
+__pycache__/

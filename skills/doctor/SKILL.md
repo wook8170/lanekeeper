@@ -11,4 +11,5 @@ description: Check the wb setup — settings validity, where each value comes fr
    - Ordinary values: the higher layer wins (personal > plugin option > machine > project > default).
    - Protected lists (`routing.denied`, `machine.ports.protected`, `project.git.protected_branches`, `project.protected_paths`): union of all layers. A project cannot remove an entry set elsewhere.
    - Caps (`machine.lanes.max`, `machine.slots.heavy.count`, `machine.slots.browser.count`, `machine.load.max`): the smallest value among the non-default layers. The default applies only when no other layer sets it.
-4. Companion tools (other plugins, codegraph) are listed for information only. Do not install anything from this skill.
+4. For test result workbooks run `wb-test-report env`; it checks Python 3.8+ and openpyxl and prints the install commands.
+5. Companion tools (other plugins, codegraph) are listed for information only. Do not install anything from this skill.

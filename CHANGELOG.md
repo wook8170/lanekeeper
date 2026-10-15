@@ -26,3 +26,4 @@
 - 레인 원장·진행판·재개(L6): `wb-waves`(웨이브·레인 기록, 진행판, 레인별 metrics, 재개 보고·재실행 문구, `subagentStatusLine` 한 줄 상태), SubagentStart·SubagentStop 기록 훅(레인 연결·실행/되돌림 횟수·모델·토큰·지시서 해시), 디스패치 검사 훅의 허용 호출 기록
 - 번호 예약 대장 `wb-number`(계열은 `numbers` 설정), 시험 케이스 원장·결함 대장 `wb-cases` · `wb-defects`와 템플릿(`templates/test-cases/`)
 - 스킬 `/wb:lanes` · `/wb:pickup` · `/wb:resume`, 프로젝트 설정 키 `waves.stale_min` · `numbers`
+- 시험 결과 엑셀(L9): `templates/test-results/core/`(결과 모델, 어댑터 vitest·jest·Playwright·pytest, 원장 대조, 시트 구성 — Python 3.8+ · openpyxl), `templates/test-results/project/`(`verify-all.mjs` 단계 실행기 no-bail·슬롯 래퍼, `run-gate.mjs` gate 단계 기록, `verify.config.json`), CLI `wb-test-report`(env · init · run · gate · build · latest · summary), `wb-check test-results`(최신 엑셀 존재·커밋·원장 불일치), 스킬 `/wb:test-report`. Python 또는 openpyxl 이 없으면 설치 명령을 안내하고 엑셀 생성을 건너뜀

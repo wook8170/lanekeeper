@@ -1,0 +1,128 @@
+#!/usr/bin/env node
+// wb-test-report — test result workbook (xlsx) from vitest · jest · Playwright · pytest results.
+//
+//   wb-test-report env                         Python 3.8+ and openpyxl available? (exit 3 when not)
+//   wb-test-report init                        write .wb/verify.config.json from the template (stage list to edit)
+//   wb-test-report run [--name N] [--skip a,b] [--only a,b] [--ledger-priority P0] [--no-slot]
+//                                              gate -> every stage -> workbook, no bail
+//   wb-test-report gate [--no-bail] [--skip a]  gate steps one by one into gate.json
+//   wb-test-report build [core options]        workbook from results (default: newest folder under test_runs_raw)
+//   wb-test-report latest                      path of the newest workbook
+//   wb-test-report summary [--json]            counts of the newest workbook (for /wb:report)
+//
+// Without Python or openpyxl, run and build print how to install them and skip the workbook (exit 0;
+// --require makes it exit 3). Core and runners: templates/test-results/{core,project}.
+import fs from 'node:fs'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { translator } = await imp('i18n.mjs')
+const R = await imp('testresults.mjs')
+
+const BOOLEANS = ['json', 'require', 'no-slot', 'no-bail']
+const argv = process.argv.slice(2)
+const args = parseOptions(argv, BOOLEANS)
+const { root, resolved } = load(args)
+const t = translator(resolved.effective.language)
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const warn = (s) => process.stderr.write(`${s}\n`)
+const [cmd] = args._
+const paths = R.resultPaths(root, resolved.config)
+
+function envGuide(py) {
+  warn(t(py.python === 'missing' ? 'tr.env.no_python' : py.python === 'old' ? 'tr.env.old_python' : 'tr.env.no_openpyxl', { version: py.version }))
+  warn(t('tr.env.install'))
+}
+
+// Returns true when the workbook can be built; otherwise prints the guide and the skip notice.
+function ready() {
+  const py = R.pythonStatus()
+  if (py.ok) return true
+  envGuide(py)
+  warn(t('tr.skipped'))
+  return false
+}
+
+const finish = (code, needed) => process.exit(needed && args.require ? 3 : code)
+
+const COMMANDS = {
+  env() {
+    const py = R.pythonStatus()
+    if (py.ok) return print(t('tr.env.ok', { version: py.version }))
+    envGuide(py)
+    process.exit(3)
+  },
+  init() {
+    const dest = path.join(root, R.VERIFY_CONFIG)
+    if (fs.existsSync(dest)) return print(t('tr.init.exists', { file: R.VERIFY_CONFIG }))
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
+    fs.copyFileSync(path.join(R.PROJECT_DIR, 'verify.config.json'), dest)
+    print(t('tr.init.created', { file: R.VERIFY_CONFIG }))
+  },
+  run() {
+    const config = path.join(root, R.VERIFY_CONFIG)
+    if (!fs.existsSync(config)) {
+      warn(t('tr.no_config', { file: R.VERIFY_CONFIG }))
+      process.exit(2)
+    }
+    const a = [path.join(R.PROJECT_DIR, 'verify-all.mjs'), `--root=${root}`, `--config=${config}`, `--runs-dir=${paths.runsDir}`,
+      `--cases-dir=${paths.ledgerDir}`, `--out-template=${paths.resultsTemplate}`]
+    for (const k of ['name', 'skip', 'only', 'ledger-priority']) if (typeof args[k] === 'string') a.push(`--${k}=${args[k]}`)
+    if (args['no-slot']) a.push('--no-slot')
+    const r = spawnSync(process.execPath, a, { stdio: 'inherit', env: { ...process.env, WB_SLOT_BIN: path.join(libDir, '..', 'bin', 'wb-slot') } })
+    finish(r.status ?? 1, false)
+  },
+  gate() {
+    const config = path.join(root, R.VERIFY_CONFIG)
+    if (!fs.existsSync(config)) {
+      warn(t('tr.no_config', { file: R.VERIFY_CONFIG }))
+      process.exit(2)
+    }
+    const a = [path.join(R.PROJECT_DIR, 'run-gate.mjs'), `--root=${root}`, `--config=${config}`]
+    if (args['no-bail']) a.push('--no-bail')
+    if (typeof args.skip === 'string') a.push(`--skip=${args.skip}`)
+    if (typeof args['results-dir'] === 'string') a.push(`--results-dir=${args['results-dir']}`)
+    process.exit(spawnSync(process.execPath, a, { stdio: 'inherit' }).status ?? 1)
+  },
+  build() {
+    if (!ready()) return finish(0, true)
+    const rawArgs = argv.slice(argv.indexOf('build') + 1).filter((x) => x !== '--require')
+    const base = ['--repo', root, '--cases-dir', paths.ledgerDir, '--runs-dir', paths.runsDir]
+    if (!rawArgs.some((x) => x === '--out' || x.startsWith('--out='))) base.push('--out-template', paths.resultsTemplate)
+    const r = spawnSync(R.pythonStatus().cmd, [path.join(R.CORE_DIR, 'build_xlsx.py'), ...base, ...rawArgs], { stdio: 'inherit', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
+    process.exit(r.status ?? 1)
+  },
+  latest() {
+    const f = R.findLatest(paths.resultsBase)
+    if (!f) {
+      warn(t('tr.none', { dir: path.relative(root, paths.resultsBase) }))
+      process.exit(1)
+    }
+    print(path.relative(root, f))
+  },
+  summary() {
+    const f = R.findLatest(paths.resultsBase)
+    const s = f && R.summarize(R.readSummary(f))
+    if (!s) {
+      warn(t('tr.none', { dir: path.relative(root, paths.resultsBase) }))
+      process.exit(1)
+    }
+    if (args.json) return print(JSON.stringify({ file: path.relative(root, f), ...s }, null, 2))
+    print(t('tr.summary.head', { file: path.relative(root, f), verdict: t(`tr.verdict.${s.verdict}`), commit: s.commit || '-' }))
+    for (const [kind, c] of Object.entries(s.kinds)) {
+      print(`  ${kind}: ${t('tr.summary.line', { total: c.total, passed: c.passed, failed: c.failed, skipped: c.skipped, flaky: c.flaky })}`)
+    }
+    if (s.gate.steps) print(`  gate: ${t('tr.summary.gate', { steps: s.gate.steps, failed: s.gate.failed, notRun: s.gate.notRun })}`)
+    if (s.ledger) print(`  ${t('tr.summary.ledger', { cases: s.ledger.cases, n: s.ledger.mismatches })}`)
+  },
+}
+
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-test-report <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+COMMANDS[cmd]()
