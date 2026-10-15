@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "module": "{{module}}",
+  "prefix": "{{prefix}}",
+  "retired_ids": [],
+  "cases": []
+}

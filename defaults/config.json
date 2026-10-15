@@ -38,5 +38,7 @@
   "worktree": { "setup": "", "hook": false },
   "protected_paths": [],
   "dispatch": { "brief": "deny", "exempt_agents": ["fork", "claude-code-guide", "statusline-setup"] },
+  "waves": { "stale_min": 20 },
+  "numbers": {},
   "explain": { "links": [] }
 }

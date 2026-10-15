@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// wb-cases — test case ledger (<module>.cases.json in paths.e2e_ledger).
+//
+//   wb-cases init <module> [--prefix P]
+//   wb-cases add <module> --title T --expected E [--step S]... [--priority P0..P3] [--role R]
+//   wb-cases retire <module> <id>                  the id is never reused
+//   wb-cases set <module> <id> [--status active|fixme] [--defect D-001]
+//   wb-cases list [<module>] [--json]
+//   wb-cases check                                 ledger and defect register consistency (exit 1 on problems)
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { context, guarded } = await imp('ledger-cli.mjs')
+const C = await imp('cases.mjs')
+
+const argv = process.argv.slice(2)
+const steps = []
+for (let i = 0; i < argv.length; i++) if (argv[i] === '--step' && argv[i + 1]) steps.push(argv[i + 1])
+const ctx = context(argv)
+const { args, t, print } = ctx
+const [cmd, module, id] = args._
+const dir = ctx.path('e2e_ledger', 'docs/e2e')
+const need = (ok, usage) => ok || ctx.fail('usage', { usage }, 2)
+
+const COMMANDS = {
+  init() {
+    need(module, 'wb-cases init <module>')
+    const r = C.initCases(dir, module, { prefix: args.prefix })
+    print(t('cases.created', { file: path.relative(ctx.root, r.file), prefix: r.prefix }))
+  },
+  add() {
+    need(module, 'wb-cases add <module> --title T --expected E')
+    const c = C.addCase(dir, module, { title: args.title, expected: args.expected, steps, priority: args.priority, role: args.role })
+    print(t('cases.added', { id: c.id }))
+  },
+  retire() {
+    need(module && id, 'wb-cases retire <module> <id>')
+    C.retireCase(dir, module, id)
+    print(t('cases.retired', { id }))
+  },
+  set() {
+    need(module && id, 'wb-cases set <module> <id> [--status S] [--defect D]')
+    const c = C.setCase(dir, module, id, { status: args.status, defect: args.defect })
+    print(t('cases.updated', { id: c.id, status: c.status }))
+  },
+  list() {
+    const mods = module ? [module] : C.listModules(dir)
+    const out = mods.map((m) => ({ module: m, ...C.readCases(dir, m) }))
+    if (args.json) return ctx.json(out)
+    if (!out.length) return print(t('cases.none'))
+    for (const m of out) {
+      print(`${m.module}  ${t('cases.count', { n: m.cases.length, fixme: m.cases.filter((c) => c.status === 'fixme').length })}`)
+      for (const c of m.cases) print(`  ${c.id}  ${c.priority}  ${c.status}${c.defect ? `(${c.defect})` : ''}  ${c.title}`)
+    }
+  },
+  check() {
+    const problems = C.checkLedger(dir)
+    if (args.json) ctx.json(problems)
+    else if (!problems.length) print(t('cases.ok'))
+    else for (const p of problems) print(`✗ ${t(`cases.problem.${p.code}`, p.vars)}`)
+    process.exit(problems.length ? 1 : 0)
+  },
+}
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-cases <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+await guarded(ctx, () => COMMANDS[cmd]())

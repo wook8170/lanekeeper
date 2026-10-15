@@ -189,6 +189,21 @@ When on, the wb hook keeps Claude Code's location (`.claude/worktrees/<name>`) a
 
 **Cleanup.** `wb-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and removed with `--gate-lock`. It never stops processes.
 
+## Lane ledger, progress board and resume
+
+Wave and lane progress is recorded under `<git common dir>/wb/`, shared by every worktree. Only `wb-waves` writes it.
+
+- `waves.json`: lane state per wave (pending, running, review, blocked, failed, done), model, task type, brief path, runs and returns, to-dos, checks, token totals, history.
+- `dispatch.json`: dispatches that passed the guard and the agents running now.
+- `metrics/lanes.jsonl`: one line per start, stop, status change and return, with task, routed model, actual model, classification source, brief file hashes and tokens.
+- `lanes.json`: the lane worktree registry (L4); an agent start writes its `agent_id`.
+
+The dispatch guard remembers every allowed call. SubagentStart pairs the agent with the oldest pending call of the same agent type, sets the lane to running and counts the run. SubagentStop adds the transcript usage and sets the lane to review. A new agent on a lane in review counts as one return. A brief marker without `lane=` is logged in metrics only. Pending calls expire after 10 minutes.
+
+Commands: `wb-waves init-wave | lane | status | todo | verify | note | return | board | metrics | statusline | resume`, `wb-number reserve | release | list | check`, `wb-cases init | add | retire | set | list | check`, `wb-defects add | resolve | list | check`. Skills: `/wb:lanes`, `/wb:pickup`, `/wb:resume`. The resume report lists the newest progress.md section, git status, worktrees, the last five commits and lane verdicts, and reports stale items first (outdated progress.md, running lanes idle longer than `project.waves.stale_min`, missing or unregistered worktrees, uncommitted lane changes, orphan dispatches, agents without a stop record). It never deletes anything.
+
+Number series (`numbers` in `.wb/config.json`: `dir`, `pattern`, `width`, `start`) give parallel lanes unique numbers for migrations or decision records. The next number is above the files in the folder (working tree and main checkout) and above live reservations. Test cases (`<module>.cases.json`) and `defect-register.json` live in `paths.e2e_ledger`; case ids are never reused, a `fixme` case must point to an open defect, defects are never deleted.
+
 ## Security and limits
 
 - Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.

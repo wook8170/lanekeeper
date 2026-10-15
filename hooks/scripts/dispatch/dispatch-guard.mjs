@@ -16,6 +16,7 @@ import { translator } from '../../../lib/i18n.mjs'
 import { hookMain, notify, readJson, limitsFile } from '../../../lib/runtime.mjs'
 import { classify, resolveRoute, checkModel, modelKeyFor, limitsMap } from '../../../lib/route.mjs'
 import { checkBrief, collectBrief } from '../../../lib/brief.mjs'
+import { recordDispatch } from '../../../lib/waves.mjs'
 
 const RANK = { info: 0, warn: 1, deny: 2 }
 
@@ -81,7 +82,7 @@ export function evaluate(input, env = process.env, overrides = {}) {
   }
 
   const level = verdicts.reduce((a, v) => (RANK[v.level] > RANK[a] ? v.level : a), 'info')
-  return { level, verdicts, decision, classification: cls, brief: { files: brief.files, marker: brief.marker }, language: resolved.effective?.language || 'en' }
+  return { level, verdicts, decision, classification: cls, stateDir: sd || null, agentType: subagent, lane: lane || null, brief: { files: brief.files, marker: brief.marker }, language: resolved.effective?.language || 'en' }
 }
 
 export function format(lang, verdicts, decision) {
@@ -102,6 +103,12 @@ export function format(lang, verdicts, decision) {
 
 export function handle(input, env = process.env, overrides = {}) {
   const r = evaluate(input, env, overrides)
+  // Allowed dispatches are remembered so SubagentStart can bind agent_id to the lane.
+  if (r && r.level !== 'deny' && r.stateDir) {
+    try {
+      recordDispatch(r.stateDir, { agent_type: r.agentType, lane: r.lane, task: r.decision?.task || r.classification?.type, model: r.decision?.agent_param || input.tool_input?.model, source: r.classification?.source, files: r.brief.files })
+    } catch {}
+  }
   if (!r || !r.verdicts.length) return null
   const text = format(r.language, r.verdicts, r.decision)
   const wait = r.verdicts.find((v) => v.notify && v.level === 'deny')

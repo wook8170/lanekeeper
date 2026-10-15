@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+// wb-defects — defect register (defect-register.json in paths.e2e_ledger).
+//
+//   wb-defects add --title T [--severity critical|high|medium|low] [--case ID]... [--lane L] [--note N]
+//   wb-defects resolve <D-id> [--status fixed|wontfix] [--note N]
+//   wb-defects list [--status open|fixed|wontfix] [--json]
+//   wb-defects check                               same checks as `wb-cases check`
+// Defects are never deleted; a fixed one stays in the register.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { context, guarded } = await imp('ledger-cli.mjs')
+const C = await imp('cases.mjs')
+
+const argv = process.argv.slice(2)
+const cases = []
+for (let i = 0; i < argv.length; i++) if (argv[i] === '--case' && argv[i + 1]) cases.push(argv[i + 1])
+const ctx = context(argv)
+const { args, t, print } = ctx
+const [cmd, id] = args._
+const dir = ctx.path('e2e_ledger', 'docs/e2e')
+
+const COMMANDS = {
+  add() {
+    const d = C.addDefect(dir, { title: args.title, severity: args.severity, cases, lane: args.lane, note: args.note })
+    print(t('defects.added', { id: d.id }))
+  },
+  resolve() {
+    if (!id) ctx.fail('usage', { usage: 'wb-defects resolve <D-id>' }, 2)
+    const d = C.resolveDefect(dir, id, { status: args.status, note: args.note })
+    print(t('defects.resolved', { id: d.id, status: d.status }))
+  },
+  list() {
+    const all = C.readDefects(dir).defects.filter((d) => !args.status || d.status === args.status)
+    if (args.json) return ctx.json(all)
+    if (!all.length) return print(t('defects.none'))
+    for (const d of all) print(`${d.id}  ${d.severity}  ${d.status}  ${(d.case_ids || []).join(',') || '-'}  ${d.title}`)
+  },
+  check() {
+    const problems = C.checkLedger(dir)
+    if (args.json) ctx.json(problems)
+    else if (!problems.length) print(t('cases.ok'))
+    else for (const p of problems) print(`✗ ${t(`cases.problem.${p.code}`, p.vars)}`)
+    process.exit(problems.length ? 1 : 0)
+  },
+}
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-defects <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+await guarded(ctx, () => COMMANDS[cmd]())

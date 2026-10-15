@@ -189,6 +189,43 @@ wb-worktree remove l3 [--force] [--delete-branch]
 
 **정리.** `wb-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 하고 `--gate-lock` 을 줄 때만 지운다. 프로세스는 끄지 않는다.
 
+## 레인 원장·진행판·재개
+
+웨이브와 레인의 진행 상태는 `<git 공용 폴더>/wb/` 아래에 기록한다. 모든 워크트리가 같은 파일을 본다. 기록은 `wb-waves` 로만 한다.
+
+| 파일 | 내용 |
+|---|---|
+| `waves.json` | 웨이브별 레인 상태(대기·진행·검수 대기·막힘·실패·완료), 모델, 작업 종류, 지시서 경로, 실행·되돌림 횟수, 할 일, 검증 결과, 토큰 합계, 이력 |
+| `dispatch.json` | 디스패치 검사를 통과한 호출(대기)과 실행 중인 에이전트 |
+| `metrics/lanes.jsonl` | 시작·종료·상태 변경·되돌림 사건을 한 줄씩. 작업 종류, 라우팅 모델, 실제 모델, 분류 근거, 지시서 파일 해시, 토큰 |
+| `lanes.json` | 레인 워크트리 대장(L4). 에이전트가 시작하면 `agent_id` 를 적는다 |
+
+**기록 흐름.** 디스패치 검사 훅이 통과시킨 호출을 `dispatch.json` 에 남긴다. SubagentStart 훅이 같은 종류의 가장 오래된 대기 호출과 에이전트를 짝지어 레인을 진행 상태로 바꾸고 실행 횟수를 센다. SubagentStop 훅이 트랜스크립트의 사용량을 합산해 레인을 검수 대기로 바꾼다. 검수 대기 레인에 새 에이전트가 시작되면 되돌림 1회로 센다. 지시서 표지에 `lane=` 이 없으면 레인에 묶지 않고 metrics 에만 남긴다. 짝지은 대기 호출은 10분이 지나면 버린다.
+
+**명령.**
+
+```
+wb-waves init-wave <웨이브> [--title 제목] [--base-ref 기준]
+wb-waves lane <웨이브> <레인> [--task 종류] [--model 모델] [--brief 파일] [--todo 항목]...
+wb-waves status|todo|verify|note|return <웨이브> <레인> …
+wb-waves board [--json]        웨이브·레인 상태표
+wb-waves metrics [--lane 레인]  레인별 실행·토큰·모델
+wb-waves statusline            한 줄 상태(플러그인 settings.json 의 subagentStatusLine)
+wb-waves resume [--stale-min N] [--prompt 웨이브/레인]
+```
+
+`/wb:lanes` 가 진행판을 보여 주고, `/wb:pickup` 과 `/wb:resume` 이 세션 시작·재개 보고를 만든다. 재개 보고는 `progress.md` 최신 절, `git status`, 워크트리 목록, 최근 커밋 5건, 레인 판정을 보여 주고 오래된 항목을 먼저 알린다. 오래된 항목은 `progress.md` 가 작업보다 낡음, 활동이 `project.waves.stale_min`(기본 20분) 넘게 없는 진행 레인, 사라진 워크트리, 레인 대장에 없는 워크트리, 워크트리의 미커밋 변경, 시작으로 이어지지 않은 디스패치, 종료 기록 없는 에이전트다. 워크트리와 브랜치는 이 단계에서 지우지 않는다.
+
+**번호 예약.** 마이그레이션·결정 문서처럼 번호가 붙는 파일을 레인이 동시에 만들 때 번호를 `wb-number` 로 받는다. 계열은 `.wb/config.json` 에 선언한다.
+
+```json
+"numbers": { "migration": { "dir": "db/migrations", "pattern": "^(\\d+)_", "width": 3, "start": 1 } }
+```
+
+`wb-number reserve migration --lane l3` 은 폴더의 파일(작업 트리와 주 체크아웃 양쪽)과 살아 있는 예약보다 큰 번호를 돌려준다. `release` 로 예약을 풀고, `check` 는 같은 번호의 파일 중복과 이중 예약을 찾는다(종료 코드 1). 예약 대장은 `numbers.json` 이다.
+
+**시험 케이스 원장.** `paths.e2e_ledger`(기본 `docs/e2e/`)에 `<모듈>.cases.json` 과 `defect-register.json` 을 둔다. `wb-cases init|add|retire|set|list|check` 와 `wb-defects add|resolve|list|check` 로 관리한다. 케이스 ID 는 다시 쓰지 않는다(폐기한 ID 는 `retired_ids` 에 남는다). 보류(`fixme`) 케이스는 열린 결함을 가리켜야 하고, 결함이 종료되면 `check` 가 보류 해제를 요구한다. 결함은 삭제하지 않는다.
+
 ## 보안과 한계
 
 - 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.

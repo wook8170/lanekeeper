@@ -1,0 +1,140 @@
+#!/usr/bin/env node
+// wb-waves — wave and lane ledger, progress board, resume report.
+//
+//   wb-waves init-wave <wave> [--title T] [--base-ref REF]
+//   wb-waves lane <wave> <lane> [--task T] [--model M] [--brief FILE] [--todo TEXT]...
+//   wb-waves status <wave> <lane> pending|running|review|blocked|failed|done [--note N]
+//   wb-waves todo <wave> <lane> add TEXT | done ID | reopen ID
+//   wb-waves verify <wave> <lane> NAME pass|fail|skip [--detail D]
+//   wb-waves note <wave> <lane> TEXT
+//   wb-waves return <wave> <lane> [--reason R]      a reviewer sent the lane back
+//   wb-waves board [--json]                         wave / lane table
+//   wb-waves statusline                             one line for subagentStatusLine
+//   wb-waves metrics [--lane L] [--json]            runs, tokens and models per lane
+//   wb-waves resume [--json] [--stale-min N] [--prompt WAVE/LANE]
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { context, guarded } = await imp('ledger-cli.mjs')
+const W = await imp('waves.mjs')
+const B = await imp('board.mjs')
+const { getPath } = await imp('config.mjs')
+
+const argv = process.argv.slice(2)
+// "--todo" may repeat on `lane`; collect before the generic parser keeps only the last.
+const todos = []
+for (let i = 0; i < argv.length; i++) if (argv[i] === '--todo' && argv[i + 1]) todos.push(argv[i + 1])
+const ctx = context(argv)
+const { args, t, print } = ctx
+const [cmd, a, b, c, d] = args._
+
+const need = (n) => {
+  if (args._.length < n + 1) ctx.fail('usage', { usage: `wb-waves ${cmd || '<command>'} …` }, 2)
+}
+
+const COMMANDS = {
+  'init-wave'() {
+    need(1)
+    const w = W.initWave(ctx.needState(), { id: a, title: args.title, base_ref: args['base-ref'] })
+    print(t('waves.created_wave', { wave: w.id }))
+  },
+  lane() {
+    need(2)
+    const l = W.addLane(ctx.needState(), a, { lane: b, task: args.task, model: args.model, brief: args.brief, todos })
+    print(t('waves.created_lane', { wave: a, lane: l.lane }))
+  },
+  status() {
+    need(3)
+    const l = W.setStatus(ctx.needState(), a, b, c, args.note)
+    print(t('waves.status_set', { lane: l.lane, status: t(`board.status.${l.status}`) }))
+  },
+  todo() {
+    need(3)
+    const sd = ctx.needState()
+    if (c === 'add') print(t('waves.todo_added', { id: W.addTodo(sd, a, b, d).id }))
+    else if (c === 'done' || c === 'reopen') print(t('waves.todo_set', { id: W.setTodo(sd, a, b, d, c === 'done').id, state: c }))
+    else ctx.fail('usage', { usage: 'wb-waves todo <wave> <lane> add TEXT | done ID | reopen ID' }, 2)
+  },
+  verify() {
+    need(4)
+    W.addVerification(ctx.needState(), a, b, c, d, args.detail)
+    print(t('waves.verified', { name: c, result: d }))
+  },
+  note() {
+    need(3)
+    W.addNote(ctx.needState(), a, b, c)
+    print(t('waves.noted'))
+  },
+  return() {
+    need(2)
+    const l = W.addReturn(ctx.needState(), a, b, args.reason)
+    print(t('waves.returned', { lane: l.lane, count: l.returns }))
+  },
+  board() {
+    const rows = B.boardRows(ctx.needState())
+    if (args.json) ctx.json(rows)
+    else print(B.renderBoard(rows, t))
+  },
+  statusline() {
+    const sd = ctx.state()
+    const max = getPath(ctx.resolved.config, 'machine.lanes.max') || 3
+    print(sd ? B.statusLine(B.boardRows(sd), t, max) : t('board.statusline.none'))
+  },
+  metrics() {
+    const sd = ctx.needState()
+    const per = {}
+    for (const m of W.readMetrics(sd)) {
+      if (m.event !== 'stop' || (args.lane && m.lane !== args.lane)) continue
+      const k = m.lane || '-'
+      const r = (per[k] = per[k] || { lane: k, runs: 0, models: {}, tokens: { input: 0, output: 0, cache_read: 0, cache_creation: 0 } })
+      r.runs++
+      const model = m.actual_model || m.model || '-'
+      r.models[model] = (r.models[model] || 0) + 1
+      for (const key of Object.keys(r.tokens)) r.tokens[key] += m.tokens?.[key] || 0
+    }
+    const rows = Object.values(per)
+    if (args.json) return ctx.json(rows)
+    if (!rows.length) return print(t('metrics.none'))
+    for (const r of rows) print(`${r.lane}  ${t('metrics.runs', { n: r.runs })}  ${t('metrics.tokens', { n: B.tokenTotal(r.tokens) })}  ${Object.entries(r.models).map(([m, n]) => `${m}×${n}`).join(' ')}`)
+  },
+  async resume() {
+    const { buildResume, resumePrompt } = await imp('resume.mjs')
+    const staleMin = Number(args['stale-min'] || getPath(ctx.resolved.config, 'project.waves.stale_min') || 20)
+    const rep = buildResume({ cwd: ctx.root, state: ctx.state(), progressFile: getPath(ctx.resolved.config, 'personal.handoff.file') || 'progress.md', staleMin })
+    if (args.prompt) {
+      const [wave, lane] = String(args.prompt).split('/')
+      const rec = rep.lanes.find((x) => x.wave === wave && x.lane === lane)
+      if (!rec) ctx.fail('no_lane', { wave, lane })
+      return print(resumePrompt(rec, t))
+    }
+    if (args.json) return ctx.json(rep)
+    print(`# ${t('resume.h.progress')}`)
+    print(rep.progress ? rep.progress.excerpt : t('resume.no_progress'))
+    print(`\n# ${t('resume.h.git')}`)
+    print(`${t('resume.branch')}: ${rep.git.branch || '-'}`)
+    print(rep.git.status.length ? rep.git.status.slice(0, 30).join('\n') : t('resume.clean'))
+    print(`${t('resume.worktrees')}:`)
+    for (const w of rep.git.worktrees) print(`  ${w.path}  ${w.branch || '-'}`)
+    print(`${t('resume.log')}:`)
+    for (const l of rep.git.log) print(`  ${l.hash} ${l.subject}`)
+    print(`\n# ${t('resume.h.lanes')}`)
+    if (!rep.lanes.length) print(t('board.empty'))
+    for (const l of rep.lanes) print(`  ${l.wave}/${l.lane}  ${t(`resume.verdict.${l.verdict}`)}  ${l.model || '-'}  ${t('resume.remaining', { n: l.remaining.length })}${l.last_commit ? `  ${l.last_commit}` : ''}`)
+    print(`\n# ${t('resume.h.stale')}`)
+    if (!rep.stale.length) print(t('resume.stale_none'))
+    for (const s of rep.stale) print(`  - ${t(`resume.stale.${s.code}`, s.vars)}`)
+    if (rep.next.length) {
+      print(`\n# ${t('resume.h.next')}`)
+      for (const n of rep.next) print(`  - ${t(`resume.next.${n.action}`, { wave: n.wave, lane: n.lane })}`)
+    }
+  },
+}
+
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-waves <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+await guarded(ctx, () => COMMANDS[cmd]())

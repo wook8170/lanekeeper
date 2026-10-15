@@ -1,0 +1,69 @@
+#!/usr/bin/env node
+// wb-number — number reservation ledger for parallel lanes.
+//
+//   wb-number reserve <series> [--lane L] [--note N] [--count K]   prints the reserved number(s)
+//   wb-number release <series> <n>
+//   wb-number list [<series>] [--json]
+//   wb-number check <series>                                      duplicate files / reservations (exit 1 on problems)
+// A series is declared in .wb/config.json under "numbers" (dir, pattern, width, start).
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { context, guarded } = await imp('ledger-cli.mjs')
+const N = await imp('numbers.mjs')
+const { repoPaths } = await imp('worktree.mjs')
+
+const ctx = context(process.argv.slice(2))
+const { args, t, print } = ctx
+const [cmd, series, n] = args._
+const roots = () => {
+  try {
+    const r = repoPaths(ctx.root)
+    return [...new Set([r.top, r.main])]
+  } catch {
+    return [ctx.root]
+  }
+}
+const lane = () => args.lane || process.env.WB_LANE || null
+
+const COMMANDS = {
+  reserve() {
+    if (!series) ctx.fail('usage', { usage: 'wb-number reserve <series> [--lane L] [--count K]' }, 2)
+    const cfg = N.seriesConfig(ctx.resolved.config, series)
+    const recs = N.reserve(ctx.needState(), series, cfg, roots(), { lane: lane(), note: args.note, count: args.count ? Number(args.count) : 1 })
+    if (args.json) return ctx.json(recs.map((r) => ({ ...r, text: N.format(cfg, r.n) })))
+    for (const r of recs) print(N.format(cfg, r.n))
+  },
+  release() {
+    if (!series || !n) ctx.fail('usage', { usage: 'wb-number release <series> <n>' }, 2)
+    N.release(ctx.needState(), series, n)
+    print(t('numbers.released', { series, n }))
+  },
+  list() {
+    const all = N.readNumbers(ctx.needState()).series
+    const names = series ? [series] : Object.keys(all)
+    if (args.json) return ctx.json(Object.fromEntries(names.map((k) => [k, all[k] || []])))
+    if (!names.some((k) => (all[k] || []).length)) return print(t('numbers.none'))
+    for (const k of names) {
+      const width = ctx.resolved.config.project?.numbers?.[k]?.width || 3
+      for (const r of all[k] || []) print(`${k}  ${String(r.n).padStart(width, '0')}  ${t(`numbers.status.${r.status}`)}  ${r.lane || '-'}  ${r.note || ''}`.trimEnd())
+    }
+  },
+  check() {
+    if (!series) ctx.fail('usage', { usage: 'wb-number check <series>' }, 2)
+    const cfg = N.seriesConfig(ctx.resolved.config, series)
+    const r = N.check(ctx.needState(), series, cfg, roots())
+    if (args.json) ctx.json(r)
+    else if (!r.problems.length) print(t('numbers.ok', { series }))
+    else for (const p of r.problems) print(`✗ ${t(`numbers.problem.${p.code}`, p.vars)}`)
+    process.exit(r.problems.length ? 1 : 0)
+  },
+}
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-number <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+await guarded(ctx, () => COMMANDS[cmd]())
