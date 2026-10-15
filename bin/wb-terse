@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+// wb-terse — terse mode for this repository (all worktrees share the switch).
+//
+//   wb-terse status | on | off
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const lib = (n) => import(pathToFileURL(path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib', n)).href)
+const { parseArgs, load } = await lib('cli.mjs')
+const { translator } = await lib('i18n.mjs')
+const { terseFile, terseState } = await lib('terse.mjs')
+
+const args = parseArgs(process.argv.slice(2))
+const [cmd = 'status'] = args._
+const { root, resolved } = load(args)
+const t = translator(resolved.effective.language)
+const file = terseFile(root)
+
+if (cmd === 'on' || cmd === 'off') {
+  if (!file) {
+    console.log(t('terse.notGit'))
+    process.exit(1)
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, cmd)
+  console.log(t(cmd === 'on' ? 'terse.on' : 'terse.off'))
+} else if (cmd === 'status') {
+  const s = terseState(root, resolved)
+  console.log(t(s.on ? 'terse.status.on' : 'terse.status.off', { source: s.source }))
+} else {
+  console.log(t('terse.usage'))
+  process.exit(1)
+}

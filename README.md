@@ -99,6 +99,20 @@ wb-config doctor
 
 **보호 목록은 줄일 수 없다.** `protected_branches`·`protected_paths`·`ports.protected`·`denied` 는 모든 층의 합집합이다. 어느 층도 다른 층이 넣은 항목을 지우지 못한다.
 
+## 세션 보조 훅
+
+| 기능 | 동작 | 설정 키 | 관리 |
+|---|---|---|---|
+| 핸드오프 | 새 세션과 `/clear` 때 `progress.md` 의 최신 섹션을 넣는다. 마지막 갱신 뒤에 커밋이나 파일 변경이 있으면 턴 종료를 한 번 막아 갱신을 요구한다. 같은 세션은 20분 동안 다시 막지 않는다 | `personal.handoff.{enabled, file, throttle_min}` | |
+| 자동 재개 | 사용량 한도로 턴이 끝나면 리셋 시각 2분 뒤에 같은 세션을 헤드리스로 재개한다. 예약은 macOS 는 launchd, Linux 는 systemd 사용자 타이머, 그 밖에는 백그라운드 대기 프로세스로 한다. 한도에 걸린 모델은 `limits.json` 에 기록한다 | `personal.auto_retry.{enabled, permission_mode, bypass_ack}`, `routing.limits_state` | `wb-retry`, `/wb:auto-retry` |
+| 토큰 가드 | 최근 구간(기본 5시간)의 로컬 토큰 사용량을 예산에 대한 비율로 환산하고, 단계가 오를 때만 지침을 넣는다. 90%는 작업 단위 축소, 95%는 웨이브마다 핸드오프, 99%는 마지막 핸드오프와 알림 후 대기다 | `personal.token_guard.{enabled, stages, budget, window_hours}` | `wb-token`, `/wb:token-guard` |
+| 간결 모드 | 켠 저장소에서 세션 시작 때 출력·도구 호출을 줄이는 규칙을 넣는다 | `personal.terse`, 저장소 스위치 | `wb-terse`, `/wb:terse` |
+| 체크포인트 | 한도, 서브에이전트 종료, 컨텍스트 압축 시점에 레인 브랜치의 미커밋 변경을 `wip(wb)` 커밋으로 남긴다. 보호 브랜치와 레인이 아닌 브랜치는 건드리지 않고 push 하지 않는다 | `personal.checkpoint.enabled` | |
+
+자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로, 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `wb-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜지고, 확인 기록(`bypass_ack`)이 없으면 `default` 로 재개한다.
+
+토큰 가드의 예산은 기본이 0(미보정)이며 이 상태에서는 동작하지 않는다. 앱에서 한도에 도달했을 때 `wb-token calibrate` 를 실행하면 그 시점의 사용량이 예산으로 기록된다. 집계 대상은 이 기기의 Claude Code 사용뿐이고 비율은 추정치다.
+
 ## 보안과 한계
 
 - 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.
