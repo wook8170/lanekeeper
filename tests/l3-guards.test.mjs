@@ -266,7 +266,7 @@ test('checkpoint commits WIP on a lane branch only', () => {
   const f = makeEnv()
   try {
     const resolved = resolveConfig({ projectDir: f.repo, env: f.env })
-    fs.writeFileSync(path.join(f.repo, 'w.txt'), 'w')
+    fs.writeFileSync(path.join(f.repo, 'a.txt'), 'w')
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'protected', 'main is never committed to')
     git(f.repo, 'checkout', '-q', '-b', 'feature/x')
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'not-lane')
@@ -279,8 +279,48 @@ test('checkpoint commits WIP on a lane branch only', () => {
     assert.equal(git(f.repo, 'status', '--porcelain'), '')
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'clean')
     fs.writeFileSync(path.join(f.repo, '.git', 'MERGE_HEAD'), git(f.repo, 'rev-parse', 'HEAD'))
-    fs.writeFileSync(path.join(f.repo, 'w2.txt'), 'w')
+    fs.writeFileSync(path.join(f.repo, 'a.txt'), 'w2')
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'in-progress')
+  } finally {
+    f.cleanup()
+  }
+})
+test('checkpoint: untracked files are not committed (recorded), secret-like tracked files are excluded, project hooks are not bypassed', () => {
+  const f = makeEnv()
+  try {
+    const resolved = resolveConfig({ projectDir: f.repo, env: f.env })
+    fs.writeFileSync(path.join(f.repo, '.env'), 's=1\n')
+    fs.writeFileSync(path.join(f.repo, 'id_rsa'), 'k\n')
+    git(f.repo, 'add', '.')
+    git(f.repo, 'commit', '-q', '-m', 'secrets tracked')
+    git(f.repo, 'checkout', '-q', '-b', 'wb/mvp/l3')
+    fs.writeFileSync(path.join(f.repo, '.env'), 's=2\n')
+    fs.writeFileSync(path.join(f.repo, 'id_rsa'), 'k2\n')
+    fs.writeFileSync(path.join(f.repo, 'a.txt'), 'changed\n')
+    fs.writeFileSync(path.join(f.repo, 'new.txt'), 'new\n')
+    const notes = []
+    const r = checkpointDir(f.repo, resolved, 'Stop', new Date(), { env: f.env, notifyFn: (a, b) => notes.push(b) })
+    assert.equal(r.committed, true)
+    assert.deepEqual(git(f.repo, 'show', '--name-only', '--format=', 'HEAD').split('\n'), ['a.txt'])
+    assert.deepEqual(r.secrets.sort(), ['.env', 'id_rsa'])
+    assert.deepEqual(r.untracked, ['new.txt'])
+    const rec = JSON.parse(fs.readFileSync(path.join(f.repo, '.git', 'wb', 'checkpoint.json'), 'utf8'))
+    assert.deepEqual([rec.untracked_count, rec.untracked, rec.secrets_skipped.length], [1, ['new.txt'], 2])
+    assert.match(notes[0], /1 untracked.*secret-like/)
+    assert.match(git(f.repo, 'status', '--porcelain'), /\.env/)
+    // only secrets/untracked left: nothing committed
+    const r2 = checkpointDir(f.repo, resolved, 'Stop', new Date(), { env: f.env, notifyFn: () => {} })
+    assert.equal(r2.skipped, 'nothing-tracked')
+    // a failing project pre-commit hook skips the checkpoint and records the reason
+    fs.writeFileSync(path.join(f.repo, 'a.txt'), 'again\n')
+    const hook = path.join(f.repo, '.git', 'hooks', 'pre-commit')
+    fs.mkdirSync(path.dirname(hook), { recursive: true })
+    fs.writeFileSync(hook, '#!/bin/sh\necho nope >&2\nexit 1\n', { mode: 0o755 })
+    const head = git(f.repo, 'rev-parse', 'HEAD')
+    const r3 = checkpointDir(f.repo, resolved, 'Stop', new Date(), { env: f.env, notifyFn: (a, b) => notes.push(b) })
+    assert.equal(r3.skipped, 'commit-failed')
+    assert.equal(git(f.repo, 'rev-parse', 'HEAD'), head)
+    assert.equal(JSON.parse(fs.readFileSync(path.join(f.repo, '.git', 'wb', 'checkpoint.json'), 'utf8')).skipped, 'commit-failed')
   } finally {
     f.cleanup()
   }
@@ -289,7 +329,7 @@ test('checkpoint hook process: commits on a lane branch, disabled setting does n
   const f = makeEnv()
   try {
     git(f.repo, 'checkout', '-q', '-b', 'wb/mvp/l3')
-    fs.writeFileSync(path.join(f.repo, 'w.txt'), 'w')
+    fs.writeFileSync(path.join(f.repo, 'a.txt'), 'w')
     f.personal({ checkpoint: { enabled: false } })
     runScript('hooks/scripts/checkpoint/checkpoint.mjs', { hook_event_name: 'PreCompact', cwd: f.repo }, f.env)
     assert.notEqual(git(f.repo, 'status', '--porcelain'), '')
