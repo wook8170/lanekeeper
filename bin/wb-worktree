@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+// wb-worktree — lane worktrees.
+//
+//   wb-worktree create <id> [--branch <b>] [--integration <b>] [--base <ref>] [--path <dir>]
+//                           [--agent-id <id>] [--no-setup] [--slot-timeout <sec>] [--json]
+//   wb-worktree setup <id|path> [--slot-timeout <sec>]
+//   wb-worktree remove <id|path> [--force] [--delete-branch] [--json]
+//   wb-worktree list [--json]
+//   wb-worktree hook-create      WorktreeCreate hook (stdin JSON { name, cwd }; prints the path)
+//   wb-worktree hook-remove      WorktreeRemove hook (stdin JSON { worktree_path, cwd })
+//
+// create: branches from the integration HEAD (or --base), leases a lane port
+// block, registers the lane in <git-common-dir>/wb/lanes.json, copies files
+// listed in .worktreeinclude, and runs project.worktree.setup inside a heavy slot.
+// remove: refuses while a process works in the path and lists the PIDs to stop
+// one by one; refuses uncommitted changes unless --force.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const load = (m) => import(pathToFileURL(path.join(libDir, m)).href)
+const { resolveConfig, projectRoot } = await load('config.mjs')
+const { translator } = await load('i18n.mjs')
+const wt = await load('worktree.mjs')
+const { readLanes } = await load('ledger.mjs')
+const { portsFile, readLeases } = await load('ports.mjs')
+const { parseArgs, readStdin } = await load('cli.mjs')
+
+const args = parseArgs(process.argv.slice(2), ['json', 'no-setup', 'force', 'delete-branch'])
+const [cmd, target] = args._
+const env = process.env
+const isHook = cmd === 'hook-create' || cmd === 'hook-remove'
+const hookInput = isHook ? JSON.parse((await readStdin()) || '{}') : {}
+const cwd = hookInput.cwd || process.cwd()
+const root = projectRoot(cwd, env)
+const resolved = resolveConfig({ projectDir: root, env })
+const t = translator(resolved.effective.language)
+// a hook's stdout is the worktree path, so everything else goes to stderr
+const say = (s) => (isHook ? process.stderr : process.stdout).write(`${s}\n`)
+const err = (s) => process.stderr.write(`[wb-worktree] ${s}\n`)
+const ctx = {
+  cwd,
+  env,
+  resolved,
+  config: resolved.config,
+  log: (kind, w) => err(w.reason === 'load' ? t('slot.wait_load', { load: w.load.toFixed(2), max: resolved.effective.load_max }) : t('slot.wait_busy', { kind: w.kind, count: resolved.config.machine?.slots?.[w.kind]?.count ?? '-' })),
+}
+
+function report(e) {
+  if (e instanceof wt.WbError) {
+    err(t(`${e.code}.why`, e.vars))
+    if (e.code === 'wt.busy') for (const p of e.vars.procs) err(`  pid ${p.pid}  (${p.why})  ${p.command}`)
+    err(`${t('safety.fix')}: ${t(`${e.code}.fix`, e.vars)}`)
+    return e.exit
+  }
+  err(String(e?.stack || e))
+  return 1
+}
+
+function printCreated(r) {
+  if (args.json) return say(JSON.stringify(r, null, 2))
+  say(t('wt.created', { id: r.id, path: r.worktree, branch: r.branch, base: r.base, sha: r.baseSha.slice(0, 9) }))
+  if (r.ports) say(t('wt.ports', { ports: Object.entries(r.ports).map(([k, v]) => `${k}=${v}`).join(' ') }))
+  if (r.portError) say(t('port.full', { max: r.portError.max }))
+  if (r.copied.length) say(t('wt.copied', { count: r.copied.length }))
+  if (r.setup.status !== undefined) say(t(r.setup.status === 0 ? 'wt.setup_ok' : 'wt.setup_failed', { cmd: r.setup.command, status: r.setup.status }))
+  else if (r.setup.skipped === 'slot-timeout') say(t('wt.setup_skipped', { id: r.id }))
+}
+
+try {
+  if (resolved.errors.length) {
+    const e = resolved.errors[0]
+    throw new wt.WbError('wt.config', { file: e.file, key: e.path, msg: e.msg }, 2)
+  }
+  if (cmd === 'create') {
+    const r = await wt.createWorktree(ctx, {
+      id: target,
+      branch: args.branch,
+      integration: args.integration,
+      base: args.base,
+      path: args.path,
+      agentId: args['agent-id'],
+      setup: !args['no-setup'],
+      slotTimeoutMs: args['slot-timeout'] != null ? Number(args['slot-timeout']) * 1000 : null,
+    })
+    printCreated(r)
+    process.exit(r.setup.status ? 4 : 0)
+  } else if (cmd === 'setup') {
+    const repo = wt.repoPaths(cwd)
+    const lane = readLanes(repo.state).lanes.find((l) => l.id === target)
+    const dir = lane ? lane.worktree : path.resolve(cwd, target || '.')
+    const id = lane?.id || path.basename(dir)
+    const lease = readLeases(portsFile(ctx.config, repo.state)).find((l) => l.lane === id)
+    const r = await wt.runSetup(dir, ctx, { lane: id, lease, slotTimeoutMs: args['slot-timeout'] != null ? Number(args['slot-timeout']) * 1000 : null, log: ctx.log })
+    if (r.skipped) say(t(r.skipped === 'none' ? 'wt.setup_none' : 'wt.setup_skipped', { id }))
+    else say(t(r.status === 0 ? 'wt.setup_ok' : 'wt.setup_failed', { cmd: r.command, status: r.status }))
+    process.exit(r.status ? 4 : 0)
+  } else if (cmd === 'remove') {
+    if (!target) throw new wt.WbError('wt.usage', {}, 2)
+    const r = wt.removeWorktree(ctx, { target, force: Boolean(args.force), deleteBranch: Boolean(args['delete-branch']) })
+    if (args.json) say(JSON.stringify(r, null, 2))
+    else say(t('wt.removed', { path: r.worktree, ports: r.released.length, lanes: r.unregistered.join(',') || '-', branch: r.branchDeleted || '-' }))
+  } else if (cmd === 'list') {
+    const repo = wt.repoPaths(cwd)
+    const lanes = readLanes(repo.state)
+    const leases = readLeases(portsFile(ctx.config, repo.state))
+    const rows = lanes.lanes.map((l) => ({ ...l, exists: Boolean(l.worktree && fs.existsSync(l.worktree)), ports: leases.find((x) => x.lane === l.id)?.ports || null }))
+    if (args.json) say(JSON.stringify({ integration: lanes.integration || null, max: ctx.config.machine?.lanes?.max, lanes: rows }, null, 2))
+    else {
+      say(t('wt.list_head', { live: rows.filter((r) => r.exists).length, max: ctx.config.machine?.lanes?.max }))
+      for (const r of rows) say(`  ${r.id}  ${r.branch}  ${r.worktree}${r.exists ? '' : `  (${t('wt.missing')})`}${r.ports ? `  ${Object.entries(r.ports).map(([k, v]) => `${k}=${v}`).join(' ')}` : ''}`)
+    }
+  } else if (cmd === 'hook-create') {
+    // Replaces Claude Code's own worktree creation: same place and branch name
+    // (.claude/worktrees/<name>, worktree-<name>), but based on the integration
+    // HEAD when there is exactly one, with a port lease and the setup command.
+    let integration = null
+    try {
+      integration = wt.resolveIntegration(wt.repoPaths(cwd), ctx.config, null)
+    } catch {}
+    const r = await wt.createWorktree(ctx, {
+      id: String(hookInput.name || ''),
+      hookStyle: true,
+      register: false,
+      base: integration || undefined,
+      integration: integration || undefined,
+      slotTimeoutMs: 120_000,
+    })
+    printCreated(r)
+    process.stdout.write(`${r.worktree}\n`)
+  } else if (cmd === 'hook-remove') {
+    const r = wt.removeWorktree(ctx, { target: String(hookInput.worktree_path || ''), force: true, hook: true })
+    say(t('wt.removed', { path: r.worktree, ports: r.released.length, lanes: r.unregistered.join(',') || '-', branch: r.branchDeleted || '-' }))
+  } else throw new wt.WbError('wt.usage', {}, 2)
+} catch (e) {
+  process.exit(report(e))
+}

@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+// wb-port — port numbers by name, and lane port leases.
+//
+//   wb-port get <name> [--lane <id>]     <name> = a protected port name, or lane.<name> (web, api, ...)
+//   wb-port list [--json]                protected ports, the lane range and current leases
+//   wb-port lease --lane <id> [--worktree <dir>] [--json]
+//   wb-port release --lane <id>
+//   wb-port check [--json]               lane range problems (overlap, protected ports inside)
+//
+// Port numbers live only in machine settings; briefs and docs name them
+// ({{port:lane.web}}, {{port:<protected name>}}) and ask this command.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const load = (m) => import(pathToFileURL(path.join(libDir, m)).href)
+const { resolveConfig, projectRoot, stateDir } = await load('config.mjs')
+const { translator } = await load('i18n.mjs')
+const ports = await load('ports.mjs')
+const { readLanes } = await load('ledger.mjs')
+const { parseArgs } = await load('cli.mjs')
+
+const args = parseArgs(process.argv.slice(2), ['json'])
+const env = process.env
+const root = projectRoot(process.cwd(), env)
+const resolved = resolveConfig({ projectDir: root, env })
+const t = translator(resolved.effective.language)
+const config = resolved.config
+const out = (s) => process.stdout.write(`${s}\n`)
+const fail = (key, vars, code = 1) => {
+  process.stderr.write(`[wb-port] ${t(key, vars)}\n`)
+  process.exit(code)
+}
+if (resolved.errors.length) fail('slot.config_error', { file: resolved.errors[0].file, key: resolved.errors[0].path, msg: resolved.errors[0].msg }, 2)
+
+const sd = stateDir(root)
+const file = sd ? ports.portsFile(config, sd) : null
+const [cmd, name] = args._
+
+function currentLane() {
+  if (args.lane) return String(args.lane)
+  if (env.WB_LANE) return env.WB_LANE
+  if (!sd) return null
+  const hit = readLanes(sd).lanes.find((l) => l.worktree && path.resolve(l.worktree) === path.resolve(root))
+  if (hit) return hit.id
+  return ports.readLeases(file).find((l) => l.worktree && path.resolve(l.worktree) === path.resolve(root))?.lane ?? null
+}
+
+if (cmd === 'get') {
+  if (!name) fail('port.usage', {}, 2)
+  const r = ports.lookup(config, file, name, currentLane())
+  if (r.error) fail(`port.${r.error}`, { name, lane: r.lane ?? '-' })
+  out(String(r.port))
+} else if (cmd === 'list') {
+  const data = { protected: ports.protectedPorts(config), lane_range: ports.laneRange(config), leases: file ? ports.readLeases(file) : [], problems: ports.rangeProblems(config) }
+  if (args.json) out(JSON.stringify(data, null, 2))
+  else {
+    out(t('port.list_protected', { count: data.protected.length }))
+    for (const p of data.protected) out(`  ${p.name}  ${p.port}${p.note ? `  ${p.note}` : ''}`)
+    const r = data.lane_range
+    out(t('port.list_range', { base: r.base, step: r.step, names: r.names.join(','), max: r.max }))
+    out(t('port.list_leases', { count: data.leases.length }))
+    for (const l of data.leases) out(`  ${l.lane}  #${l.block}  ${Object.entries(l.ports).map(([k, v]) => `${k}=${v}`).join(' ')}  ${l.worktree || '-'}`)
+    for (const p of data.problems) out(`  ! ${t(`port.problem.${p.code}`, p)}`)
+  }
+} else if (cmd === 'lease') {
+  if (!sd) fail('wt.not_git', { cwd: root })
+  const lane = currentLane()
+  if (!lane) fail('port.no-lane', {}, 2)
+  const r = ports.leaseLane(file, config, { lane, worktree: args.worktree ? path.resolve(String(args.worktree)) : null })
+  if (r.error) fail('port.full', { max: r.max })
+  if (args.json) out(JSON.stringify(r, null, 2))
+  else out(Object.entries(r.ports).map(([k, v]) => `${k}=${v}`).join(' '))
+} else if (cmd === 'release') {
+  if (!sd) fail('wt.not_git', { cwd: root })
+  const lane = currentLane()
+  if (!lane) fail('port.no-lane', {}, 2)
+  const gone = ports.releaseLane(file, lane)
+  out(t('port.released', { lane, count: gone.length }))
+} else if (cmd === 'check') {
+  const problems = ports.rangeProblems(config)
+  if (args.json) out(JSON.stringify(problems, null, 2))
+  else for (const p of problems) out(t(`port.problem.${p.code}`, p))
+  process.exit(problems.some((p) => p.code !== 'protected') ? 1 : 0)
+} else fail('port.usage', {}, 2)

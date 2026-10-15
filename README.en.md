@@ -99,6 +99,50 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 
 **Protected lists only grow.** `protected_branches`, `protected_paths`, `ports.protected` and `denied` are the union of every layer. No layer can remove an entry another layer added.
 
+## Run slots, ports and lane worktrees
+
+**Run slots.** Heavy runs (full test suites, builds, installs, e2e, indexing) and headless browsers are counted across the machine: 2 heavy and 2 browser slots by default. This count is separate from the lane limit (`machine.lanes.max`, default 3).
+
+```
+wb-slot --kind heavy -- pnpm -r test
+wb-slot --kind heavy,browser -- npx playwright test
+wb-slot status        # slots in use and the 1-minute load
+wb-slot reap          # reclaim finished leases
+```
+
+- The command waits while no slot is free or while the 1-minute load is at or above `machine.load.max` (default: logical cores × 2). With `--timeout <sec>` it gives up after that long without running (exit code 75).
+- A lease is renewed while the command runs. When its process is gone, or it has not been renewed for `machine.slots.stale_after_min` (default 90), the next caller reclaims it.
+- Runs that need both kinds (e2e) take both slots together; if only one is free it is given back and the run waits.
+- Commands run in a slot get `WB_SLOT_HELD`, so a nested `wb-slot` of the same kind does not wait for itself.
+
+Heavy commands are recognised by the pattern groups in `defaults/heavy-patterns.json`. `machine.slots.heavy.patterns` and `machine.slots.browser.patterns` pick the groups, and a project can add regular expressions under `slots.heavy` and `slots.browser` in `.wb/config.json`. Single-file test runs (`vitest run a.test.ts`) are not matched. When the Bash tool runs such a command outside a slot, `machine.slots.guard` decides:
+
+| Value | Behaviour |
+|---|---|
+| `warn` (default) | the command runs; Claude is told the wrapped command |
+| `deny` | the command is blocked with the wrapped command as the fix |
+
+**Ports.** Protected ports (`machine.ports.protected`) and the lane port range (`machine.ports.lane_range`) are numbers that live only in machine settings. Docs and briefs use names and ask `wb-port get <name> [--lane <id>]`. A lane leases one band (one port per `per_lane` name). Bands holding a protected port, a port another process already listens on, or another lane's lease are skipped. The lease ledger is `<git-common-dir>/wb/ports.json`.
+
+**Lane worktrees.**
+
+```
+wb-worktree create l3            # from the integration HEAD, with a port lease and a lane entry
+wb-worktree list
+wb-worktree remove l3 [--force] [--delete-branch]
+```
+
+- The base is the integration branch HEAD. The integration branch is `--integration`, else the lane registry's `integration`, else the one local branch matching `project.git.integration_branch_pattern`. Without one, the current HEAD is used.
+- The branch name replaces the last part of the integration branch with the lane id (`wb/mvp/int` → `wb/mvp/l3`). The path is `project.git.worktree_root` (default `{repo}/../wt-{task}`).
+- Git-ignored files listed in `.worktreeinclude` (such as `.env`) are copied.
+- `project.worktree.setup` (for example `pnpm install --frozen-lockfile`) runs in the new worktree inside a heavy slot, with `WB_LANE` and `WB_PORT_<NAME>` set.
+- No worktree is created once live lanes reach `machine.lanes.max`.
+- Removal stops while any process runs inside the path and lists the PIDs; stop them one by one with `kill <PID>` and run again. Uncommitted changes need `--force`. The main checkout and folders that are not worktrees are never removed. `--delete-branch` deletes the branch only when its commits are on another local branch too.
+
+**Claude Code worktree hooks.** wb registers WorktreeCreate and WorktreeRemove hooks. With them Claude Code uses the hook instead of its own worktree creation (`claude --worktree`, subagents with `isolation: "worktree"`, and so on). The wb hook keeps Claude Code's location (`.claude/worktrees/<name>`) and branch name (`worktree-<name>`), bases the worktree on the integration HEAD when there is exactly one integration branch, and also leases ports, copies `.worktreeinclude` files and runs the setup command. These worktrees are not added to the lane registry. If no heavy slot comes free within 2 minutes the setup command is skipped; run `wb-worktree setup <name>` later.
+
+**Cleanup.** `wb-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and removed with `--gate-lock`. It never stops processes.
+
 ## Security and limits
 
 - Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.

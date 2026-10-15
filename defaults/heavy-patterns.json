@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "_comment": "Pattern groups for commands that must run inside a wb-slot. machine.slots.heavy.patterns and machine.slots.browser.patterns name the groups that need each kind of slot. Each regex is matched, case-insensitively, against one simple command: its program name (without directory) followed by its arguments, separated by single spaces. Single-file test runs are deliberately not matched.",
+  "groups": {
+    "full-test": [
+      "^(npm|pnpm|yarn|bun)( (-r|--recursive|-w|--workspaces|--if-present))*( run)? test(:all|:unit)?( --\\S+)*$",
+      "^(pnpm|npm|yarn) (-r|--recursive|-w|--workspaces|workspaces foreach)\\b.* test\\b",
+      "^(npx |pnpm (exec )?|yarn |bunx )?vitest( run)?( --\\S+)*$",
+      "^(npx |pnpm (exec )?|yarn |bunx )?jest( --\\S+)*$",
+      "^(python3? -m )?pytest( -\\S+)*$",
+      "^cargo (test|nextest run)\\b",
+      "^go test( -\\S+)* \\./\\.\\.\\.",
+      "^(npx )?(turbo|nx) (run )?test\\b",
+      "^(npx )?nx run-many\\b.*\\btest\\b"
+    ],
+    "e2e": [
+      "^(npx |pnpm (exec )?|yarn |bunx )?playwright test\\b",
+      "^(npx |pnpm (exec )?|yarn |bunx )?cypress run\\b",
+      "^(npm|pnpm|yarn|bun)( -\\S+)*( run)? (test:)?e2e\\S*\\b"
+    ],
+    "typecheck-all": [
+      "^(pnpm|npm|yarn) (-r|--recursive|-w|--workspaces)\\b.* typecheck\\b",
+      "^(npm|pnpm|yarn|bun)( run)? typecheck( --\\S+)*$",
+      "^(npx |pnpm (exec )?)?(tsc|vue-tsc) (-b|--build)\\b"
+    ],
+    "build": [
+      "^(npm|pnpm|yarn|bun)( (-r|--recursive|-w|--workspaces|--filter \\S+|-F \\S+))*( run)? build\\b",
+      "^(npx |pnpm (exec )?)?(vite|next|nuxt|astro|turbo|nx) (run )?build\\b",
+      "^cargo build\\b",
+      "^docker (build|buildx build|compose build)\\b"
+    ],
+    "install": [
+      "^(npm|pnpm|yarn|bun) (install|i|ci)\\b",
+      "^yarn$",
+      "^pip3? install\\b",
+      "^(python3? -m pip) install\\b",
+      "^cargo install\\b"
+    ],
+    "codegraph-index": [
+      "^codegraph (init|index|reindex|sync)\\b"
+    ],
+    "chrome-headless": [
+      "^(google[- ]chrome\\S*|chrome|chromium\\S*|microsoft[- ]edge\\S*|msedge|brave\\S*)( \\S+)* --headless\\b"
+    ],
+    "playwright": [
+      "^(npx |pnpm (exec )?|yarn |bunx )?playwright (test|screenshot|pdf)\\b"
+    ],
+    "cdp": [
+      "--remote-debugging-(port|pipe)\\b"
+    ]
+  }
+}

@@ -99,6 +99,50 @@ wb-config doctor
 
 **보호 목록은 줄일 수 없다.** `protected_branches`·`protected_paths`·`ports.protected`·`denied` 는 모든 층의 합집합이다. 어느 층도 다른 층이 넣은 항목을 지우지 못한다.
 
+## 실행 슬롯·포트·레인 워크트리
+
+**실행 슬롯.** 전체 시험·빌드·설치·e2e·색인처럼 무거운 실행과 헤드리스 브라우저는 머신 전체에서 개수를 센다. 기본값은 무거운 실행 2개, 브라우저 2개다. 레인 수(`machine.lanes.max`, 기본 3)와는 따로 센다.
+
+```
+wb-slot --kind heavy -- pnpm -r test
+wb-slot --kind heavy,browser -- npx playwright test
+wb-slot status        # 사용 중인 슬롯과 1분 부하
+wb-slot reap          # 끝난 임대 회수
+```
+
+- 빈 슬롯이 없거나 1분 부하가 `machine.load.max`(기본 논리 코어 × 2) 이상이면 기다린다. `--timeout <초>` 를 주면 그 시간 뒤에 실행하지 않고 끝낸다(종료 코드 75).
+- 임대는 실행 중 주기적으로 갱신한다. 소유 프로세스가 없어졌거나 `machine.slots.stale_after_min`(기본 90분) 동안 갱신이 없으면 다음 호출이 회수한다.
+- e2e 처럼 두 종류가 필요한 실행은 두 슬롯을 함께 잡는다. 하나만 잡히면 놓고 다시 기다린다.
+- 슬롯 안에서 실행된 명령은 `WB_SLOT_HELD` 를 받는다. 그 안에서 같은 종류의 `wb-slot` 을 다시 불러도 기다리지 않는다.
+
+무거운 명령은 `defaults/heavy-patterns.json` 의 패턴 묶음으로 판정한다. `machine.slots.heavy.patterns`·`machine.slots.browser.patterns` 가 묶음 이름을 고르고, 프로젝트는 `.wb/config.json` 의 `slots.heavy`·`slots.browser` 에 정규식을 더할 수 있다. 파일 하나만 돌리는 시험(`vitest run a.test.ts`)은 대상이 아니다. Bash 도구가 이런 명령을 슬롯 없이 실행하면 `machine.slots.guard` 에 따라 다음과 같이 처리한다.
+
+| 값 | 동작 |
+|---|---|
+| `warn`(기본) | 실행은 그대로 두고, `wb-slot` 으로 감싼 명령을 Claude 에게 알려 준다 |
+| `deny` | 실행을 막고 감싼 명령을 안내한다 |
+
+**포트.** 보호 포트(`machine.ports.protected`)와 레인 포트 대역(`machine.ports.lane_range`) 숫자는 머신 설정에만 둔다. 문서와 지시서는 이름만 쓰고 `wb-port get <이름> [--lane <id>]` 로 값을 얻는다. 레인은 대역 하나(`per_lane` 이름별 포트)를 임대한다. 보호 포트가 들어 있는 대역, 이미 다른 프로세스가 쓰는 포트가 있는 대역, 다른 레인이 임대한 대역은 건너뛴다. 임대 대장은 `<git-common-dir>/wb/ports.json` 이다.
+
+**레인 워크트리.**
+
+```
+wb-worktree create l3            # 통합 브랜치 HEAD 기준, 포트 임대, 레인 대장 등록
+wb-worktree list
+wb-worktree remove l3 [--force] [--delete-branch]
+```
+
+- 기준은 통합 브랜치 HEAD 다. 통합 브랜치는 `--integration`, 레인 대장의 `integration`, `project.git.integration_branch_pattern` 에 맞는 유일한 로컬 브랜치 순서로 정한다. 없으면 현재 HEAD 를 쓴다.
+- 브랜치 이름은 통합 브랜치의 마지막 부분을 레인 이름으로 바꾼 것이다(`wb/mvp/int` → `wb/mvp/l3`). 경로는 `project.git.worktree_root`(기본 `{repo}/../wt-{task}`)다.
+- `.worktreeinclude` 에 적힌 git 무시 파일(예: `.env`)을 복사한다.
+- `project.worktree.setup` 에 설치 명령(예: `pnpm install --frozen-lockfile`)을 적으면 새 워크트리에서 무거운 실행 슬롯 안에서 실행한다. 명령은 `WB_LANE`, `WB_PORT_<이름>` 환경변수를 받는다.
+- 살아 있는 레인이 `machine.lanes.max` 에 닿으면 만들지 않는다.
+- 지울 때 그 경로 안에서 도는 프로세스가 있으면 지우지 않고 PID 목록을 보여 준다. 하나씩 `kill <PID>` 로 끈 뒤 다시 실행한다. 커밋하지 않은 변경이 있으면 `--force` 가 필요하다. 주 체크아웃과 워크트리가 아닌 폴더는 지우지 않는다. `--delete-branch` 는 브랜치의 커밋이 다른 로컬 브랜치에도 있을 때만 지운다.
+
+**Claude Code 워크트리 훅.** wb 는 WorktreeCreate·WorktreeRemove 훅을 등록한다. 이 훅이 있으면 Claude Code 는 자체 워크트리 생성 대신 훅을 쓴다(`claude --worktree`, 서브에이전트 `isolation: "worktree"` 등). wb 의 훅은 Claude Code 와 같은 위치(`.claude/worktrees/<이름>`)와 브랜치 이름(`worktree-<이름>`)을 쓰고, 통합 브랜치가 하나로 정해지면 그 HEAD 를 기준으로 삼는다. 포트 임대·`.worktreeinclude` 복사·설치 명령도 같이 처리한다. 이 워크트리는 레인 대장에 등록하지 않는다. 설치 명령은 슬롯을 2분 안에 얻지 못하면 건너뛰고, 나중에 `wb-worktree setup <이름>` 으로 실행한다.
+
+**정리.** `wb-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 하고 `--gate-lock` 을 줄 때만 지운다. 프로세스는 끄지 않는다.
+
 ## 보안과 한계
 
 - 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.

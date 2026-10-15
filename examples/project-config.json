@@ -7,5 +7,7 @@
     { "glob": "src/**/*.{tsx,vue}", "style": "haeyo" },
     { "glob": "docs/**/*.md", "style": "report" }
   ] },
+  "worktree": { "setup": "npm ci" },
+  "slots": { "heavy": ["^make all$"] },
   "machine": { "lanes": { "max": 2 } }
 }

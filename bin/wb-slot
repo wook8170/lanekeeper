@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+// wb-slot — run a heavy command or a headless browser inside a machine-wide slot.
+//
+//   wb-slot [--kind heavy|browser|heavy,browser] [--lane <id>] [--timeout <sec>] [--poll <sec>] -- <command...>
+//   wb-slot status [--json]
+//   wb-slot reap [--json]
+//
+// The command starts only when a slot of every requested kind is free and the
+// load average is below machine.load.max. A lease is renewed while the command
+// runs and released when it ends. Leases of dead processes, and leases not
+// renewed for machine.slots.stale_after_min, are reclaimed by the next caller.
+// Commands run by wb-slot see WB_SLOT_HELD, so a nested wb-slot for a kind
+// already held does not wait for itself.
+import fs from 'node:fs'
+import path from 'node:path'
+import { spawn } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const load = (m) => import(pathToFileURL(path.join(libDir, m)).href)
+const { resolveConfig, projectRoot, stateDir, expandHome } = await load('config.mjs')
+const { translator } = await load('i18n.mjs')
+const slots = await load('slots.mjs')
+const { readLanes } = await load('ledger.mjs')
+
+const argv = process.argv.slice(2)
+const dash = argv.indexOf('--')
+const head = dash === -1 ? argv : argv.slice(0, dash)
+const command = dash === -1 ? [] : argv.slice(dash + 1)
+const opts = { _: [] }
+for (let i = 0; i < head.length; i++) {
+  const a = head[i]
+  if (a.startsWith('--')) {
+    const [k, v] = a.slice(2).split('=')
+    if (v !== undefined) opts[k] = v
+    else if (head[i + 1] !== undefined && !head[i + 1].startsWith('--')) opts[k] = head[++i]
+    else opts[k] = true
+  } else opts._.push(a)
+}
+
+const env = process.env
+const cwd = process.cwd()
+const root = projectRoot(cwd, env)
+const resolved = resolveConfig({ projectDir: root, env })
+const t = translator(resolved.effective.language)
+const err = (s) => process.stderr.write(`[wb-slot] ${s}\n`)
+const settings = slots.slotSettings(resolved, (p) => expandHome(p, env.HOME))
+const deps = slots.defaultDeps()
+
+if (resolved.errors.length) {
+  const e = resolved.errors[0]
+  err(t('slot.config_error', { file: e.file, key: e.path, msg: e.msg }))
+  process.exit(2)
+}
+
+const sub = opts._[0]
+if (sub === 'status' || sub === 'reap') {
+  const reaped = sub === 'reap' ? slots.KINDS.flatMap((k) => slots.reapKind(k, settings, deps)) : []
+  const st = slots.status(settings, deps)
+  if (opts.json) {
+    process.stdout.write(`${JSON.stringify({ leaseDir: settings.leaseDir, loadMax: settings.loadMax, load: deps.loadavg(settings.loadSample), slots: st, reaped }, null, 2)}\n`)
+  } else {
+    for (const r of reaped) process.stdout.write(`${t('slot.reaped', { kind: r.kind, slot: r.slot, reason: r.reason, pid: r.owner?.pid ?? '-' })}\n`)
+    process.stdout.write(`${t('slot.load', { load: deps.loadavg(settings.loadSample).toFixed(2), max: settings.loadMax })}\n`)
+    for (const k of st) {
+      process.stdout.write(`${t('slot.kind_line', { kind: k.kind, used: k.held.length, count: k.count })}\n`)
+      for (const h of k.held) {
+        const o = h.owner || {}
+        process.stdout.write(`  slot${h.slot}  pid ${o.pid ?? '-'}  ${o.lane ?? '-'}  ${o.started ?? '-'}  ${(o.command || '').slice(0, 80)}${h.stale ? `  (${t('slot.stale')}: ${h.stale})` : ''}\n`)
+      }
+    }
+  }
+  process.exit(0)
+}
+
+if (sub || command.length === 0) {
+  err(t('slot.usage'))
+  process.exit(2)
+}
+
+const kinds = String(opts.kind || 'heavy').split(',').map((k) => k.trim()).filter(Boolean)
+for (const k of kinds) {
+  if (!slots.KINDS.includes(k)) {
+    err(t('slot.bad_kind', { kind: k }))
+    process.exit(2)
+  }
+}
+const held = new Set(String(env.WB_SLOT_HELD || '').split(',').filter(Boolean))
+const need = kinds.filter((k) => !held.has(k))
+
+function laneOf() {
+  if (opts.lane) return String(opts.lane)
+  if (env.WB_LANE) return env.WB_LANE
+  const sd = stateDir(root)
+  if (!sd) return null
+  try {
+    const hit = readLanes(sd).lanes.find((l) => l.worktree && path.resolve(l.worktree) === path.resolve(root))
+    return hit?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+const text = command.join(' ')
+const info = { lane: laneOf(), command: text, cwd, pid: process.pid }
+let lastWait = ''
+const waitMessage = (w) => (w.reason === 'load' ? t('slot.wait_load', { load: w.load.toFixed(2), max: settings.loadMax }) : t('slot.wait_busy', { kind: w.kind, count: settings.counts[w.kind] }))
+const res = await slots.acquire(
+  need,
+  settings,
+  info,
+  {
+    timeoutMs: opts.timeout != null ? Number(opts.timeout) * 1000 : null,
+    pollMs: opts.poll != null ? Number(opts.poll) * 1000 : 5000,
+    onWait: (w) => {
+      const msg = waitMessage(w)
+      if (msg !== lastWait) err(msg)
+      lastWait = msg
+    },
+  },
+  deps,
+)
+if (res.timeout) {
+  if (res.last && waitMessage(res.last) !== lastWait) err(waitMessage(res.last))
+  err(t('slot.timeout', { sec: opts.timeout }))
+  process.exit(75)
+}
+const leases = res.leases
+const releaseAll = () => {
+  for (const l of leases.splice(0)) slots.release(l)
+}
+err(t('slot.start', { slots: leases.map((l) => `${l.kind}#${l.slot}`).join(' ') || '-', cmd: text.slice(0, 120) }))
+
+const beat = setInterval(() => {
+  for (const l of leases) slots.renew(l, deps)
+}, Math.max(1000, Math.min(60_000, Math.floor(settings.staleMs / 3))))
+beat.unref()
+
+const childEnv = { ...env, WB_SLOT_HELD: [...new Set([...held, ...kinds])].join(',') }
+const child = command.length === 1 && /\s/.test(command[0])
+  ? spawn('sh', ['-c', command[0]], { stdio: 'inherit', env: childEnv })
+  : spawn(command[0], command.slice(1), { stdio: 'inherit', env: childEnv })
+
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => {
+    try {
+      child.kill(sig)
+    } catch {}
+  })
+}
+process.on('exit', releaseAll)
+child.on('error', (e) => {
+  clearInterval(beat)
+  releaseAll()
+  err(t('slot.spawn_error', { cmd: command[0], msg: e.message }))
+  process.exit(127)
+})
+child.on('exit', (code, signal) => {
+  clearInterval(beat)
+  releaseAll()
+  process.exit(code ?? 128 + ({ SIGINT: 2, SIGTERM: 15, SIGHUP: 1, SIGKILL: 9 }[signal] || 1))
+})

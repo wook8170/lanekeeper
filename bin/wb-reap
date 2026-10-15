@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+// wb-reap — find and clear leftovers.
+//
+//   wb-reap [--apply] [--gate-lock] [--json]
+//
+// Always reclaims run slots whose owner died or stopped renewing (the same
+// rule wb-slot applies on its own). With --apply it also drops port leases
+// and lanes.json entries whose worktree no longer exists. A gate.lock older
+// than machine.slots.stale_after_min is only reported, and removed with
+// --gate-lock. Processes are never killed here.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const load = (m) => import(pathToFileURL(path.join(libDir, m)).href)
+const { resolveConfig, projectRoot, stateDir, expandHome } = await load('config.mjs')
+const { translator } = await load('i18n.mjs')
+const slots = await load('slots.mjs')
+const ports = await load('ports.mjs')
+const { readLanes, removeLane } = await load('ledger.mjs')
+const { parseArgs } = await load('cli.mjs')
+
+const args = parseArgs(process.argv.slice(2), ['apply', 'gate-lock', 'json'])
+const env = process.env
+const root = projectRoot(process.cwd(), env)
+const resolved = resolveConfig({ projectDir: root, env })
+const t = translator(resolved.effective.language)
+if (resolved.errors.length) {
+  const e = resolved.errors[0]
+  process.stderr.write(`[wb-reap] ${t('slot.config_error', { file: e.file, key: e.path, msg: e.msg })}\n`)
+  process.exit(2)
+}
+const settings = slots.slotSettings(resolved, (p) => expandHome(p, env.HOME))
+const deps = slots.defaultDeps()
+const result = { slots: slots.KINDS.flatMap((k) => slots.reapKind(k, settings, deps)), leases: [], lanes: [], gateLock: null }
+
+const sd = stateDir(root)
+if (sd) {
+  const file = ports.portsFile(resolved.config, sd)
+  const missing = (p) => p && !fs.existsSync(p)
+  if (args.apply) {
+    result.leases = ports.reapLeases(file)
+    result.lanes = removeLane(sd, (l) => missing(l.worktree))
+  } else {
+    result.leases = ports.readLeases(file).filter((l) => missing(l.worktree))
+    result.lanes = readLanes(sd).lanes.filter((l) => missing(l.worktree))
+  }
+  const lock = path.join(sd, 'gate.lock')
+  if (fs.existsSync(lock)) {
+    const ageMin = (Date.now() - fs.statSync(lock).mtimeMs) / 60000
+    const stale = ageMin * 60000 > settings.staleMs
+    result.gateLock = { path: lock, ageMin: Math.round(ageMin), stale, removed: false }
+    if (stale && args['gate-lock']) {
+      fs.rmSync(lock, { force: true })
+      result.gateLock.removed = true
+    }
+  }
+}
+
+if (args.json) process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
+else {
+  const say = (s) => process.stdout.write(`${s}\n`)
+  for (const r of result.slots) say(t('slot.reaped', { kind: r.kind, slot: r.slot, reason: r.reason, pid: r.owner?.pid ?? '-' }))
+  for (const l of result.leases) say(t(args.apply ? 'reap.lease_dropped' : 'reap.lease_stale', { lane: l.lane, path: l.worktree }))
+  for (const l of result.lanes) say(t(args.apply ? 'reap.lane_dropped' : 'reap.lane_stale', { lane: l.id, path: l.worktree }))
+  if (result.gateLock) say(t(result.gateLock.removed ? 'reap.gate_removed' : result.gateLock.stale ? 'reap.gate_stale' : 'reap.gate_active', result.gateLock))
+  if (!args.apply && (result.leases.length || result.lanes.length)) say(t('reap.hint_apply'))
+  if (!result.slots.length && !result.leases.length && !result.lanes.length && !result.gateLock) say(t('reap.clean'))
+}

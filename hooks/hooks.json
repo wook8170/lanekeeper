@@ -6,6 +6,12 @@
         "hooks": [
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/safety/pretool.mjs", "timeout": 20 }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/slots/slot-guard.mjs", "timeout": 20 }
+        ]
       }
     ],
     "UserPromptExpansion": [
@@ -13,6 +19,20 @@
         "matcher": "wb:approve",
         "hooks": [
           { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/safety/approve.mjs", "timeout": 20 }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/wb-worktree hook-create", "timeout": 600 }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/wb-worktree hook-remove", "timeout": 120 }
         ]
       }
     ]

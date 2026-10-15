@@ -6,7 +6,8 @@
     "heavy":   { "count": 2, "patterns": ["full-test", "e2e", "typecheck-all", "build", "install", "codegraph-index"] },
     "browser": { "count": 2, "patterns": ["chrome-headless", "playwright", "cdp"] },
     "lease_dir": "~/.wb/run/slots",
-    "stale_after_min": 90
+    "stale_after_min": 90,
+    "guard": "warn"
   },
   "ports": {
     "protected": [],
