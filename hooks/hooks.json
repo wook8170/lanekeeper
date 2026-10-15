@@ -1,3 +1,20 @@
 {
-  "hooks": {}
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|Skill",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/safety/pretool.mjs", "timeout": 20 }
+        ]
+      }
+    ],
+    "UserPromptExpansion": [
+      {
+        "matcher": "wb:approve",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/safety/approve.mjs", "timeout": 20 }
+        ]
+      }
+    ]
+  }
 }
