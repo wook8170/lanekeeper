@@ -145,7 +145,7 @@ test('hooks.json wires the slot guard; worktree hooks are opt-in (not in hooks.j
 
 test('messages used by the slot, port, worktree and reap commands exist in both locales', () => {
   const keys = new Set(['safety.slot.unwrapped.why', 'safety.slot.unwrapped.fix'])
-  const files = ['bin/wb-slot', 'bin/wb-port', 'bin/wb-worktree', 'bin/wb-reap', 'hooks/scripts/slots/slot-guard.mjs', 'hooks/scripts/worktree/session-sync.mjs'].map((f) => path.join(ROOT, f))
+  const files = ['bin/wb-slot', 'bin/wb-port', 'bin/wb-worktree', 'bin/wb-reap', 'bin/wb-config', 'hooks/scripts/slots/slot-guard.mjs', 'hooks/scripts/worktree/session-sync.mjs'].map((f) => path.join(ROOT, f))
   for (const f of files) for (const m of fs.readFileSync(f, 'utf8').matchAll(/\bt\('([a-z][a-z_.-]+)'/g)) keys.add(m[1])
   for (const m of fs.readFileSync(path.join(ROOT, 'lib', 'worktree.mjs'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)
   for (const m of fs.readFileSync(path.join(ROOT, 'bin', 'wb-worktree'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)

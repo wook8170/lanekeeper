@@ -12,9 +12,23 @@
         ]
       },
       {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/dispatch/dispatch-guard.mjs",
+            "timeout": 20
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/slots/slot-guard.mjs", "timeout": 20 }
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/slots/slot-guard.mjs",
+            "timeout": 20
+          }
         ]
       }
     ],

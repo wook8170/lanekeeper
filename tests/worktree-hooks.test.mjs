@@ -141,3 +141,21 @@ test('CLI: wb-config init --worktree-hook yes, then wb-worktree hooks status and
   assert.equal(f.read().hooks, undefined)
   f.cleanup()
 })
+
+test('wb-config validate prints a translated fix line on a settings error (config.fix)', async () => {
+  const { fileURLToPath } = await import('node:url')
+  const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  const f = fixture()
+  fs.writeFileSync(path.join(f.env.WB_HOME, 'machine.json'), JSON.stringify({ lanes: { max: 0 } }))
+  for (const [lang, re] of [['en_US.UTF-8', /How to fix: /], ['ko_KR.UTF-8', /고치는 법: /]]) {
+    try {
+      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'wb-config'), 'validate'], { cwd: f.repo, env: { ...f.env, LANG: lang }, encoding: 'utf8' })
+      assert.fail('validate should fail')
+    } catch (e) {
+      assert.equal(e.status, 1)
+      assert.match(e.stdout, re)
+      assert.doesNotMatch(e.stdout, /^config\.fix$/m)
+    }
+  }
+  f.cleanup()
+})

@@ -67,6 +67,35 @@ wb-config doctor
 
 `routing.json` 은 작업 종류마다 모델 사슬과 바닥선을 둔다. 사슬에서 금지 모델과 사용 한도에 걸린 모델을 빼고, 남은 첫 모델이 바닥선 이상이면 그 모델을 쓴다. 바닥선 아래만 남으면 작업을 보내지 않고 알린 뒤 기다린다. 플러그인 기본값에는 금지 모델이 없다. 특정 모델을 쓰지 않으려면 개인 `routing.json` 의 `denied` 에 넣는다.
 
+`differ_from: implementer` 인 작업(적대적 리뷰)은 구현 모델을 사슬에서 뺀다. 바닥선 이상의 다른 모델이 없으면 같은 모델의 새 문맥으로 진행하고, 레인 보고서에 그 사실을 적게 한다.
+
+`wb-route` 로 결과를 미리 볼 수 있다.
+
+```
+wb-route tasks                                  작업 종류별 사슬과 바닥선
+wb-route resolve review                         쓸 모델(agent_param). 대기면 종료 코드 3
+wb-route explain adversarial --implementer opus 단계별 판정 과정
+wb-route check review --model sonnet            모델 선택 판정(차단이면 종료 코드 1)
+```
+
+### 디스패치 검사와 지시서
+
+서브에이전트를 보낼 때(Agent 도구) 훅이 다음을 검사한다.
+
+| 조건 | 결과 |
+|---|---|
+| 지시서 표지 없음, 필수 절·문구 누락, 채우지 않은 `{{…}}` | 차단(`project.dispatch.brief` 가 `warn` 이면 안내만) |
+| `model` 미지정 | 차단, 라우팅 결과를 안내 |
+| 금지 모델, 한도 소진 모델 | 차단, 사슬의 다음 모델을 안내 |
+| 지시서 표지의 작업 종류보다 낮은 모델, 사슬에 없는 모델 | 차단 |
+| 사슬 안이지만 첫 선택과 다른 모델 | 안내 |
+| 바닥선 이상 모델이 모두 소진 | 차단, 알림, 리셋 시각까지 대기, `/model` 안내 |
+| 새 레인인데 레인 수가 `machine.lanes.max` 에 도달 | 차단 |
+
+지시서 첫 줄 표지는 `<!-- wb-brief v1 type=<작업 종류> lane=<레인> template=<템플릿> -->` 형식이다. 필수 절은 목표·범위·금지·시험 규칙·보고 위치·커밋 규칙이고, 헤드리스 브라우저, 전체 시험 스위트 금지, 워크트리 기준 커밋 해시가 본문에 있어야 한다. 템플릿 7종(구현·수리·시안·조사·검수·문서·시험)은 `templates/briefs/ko`, `templates/briefs/en` 에 있다. `wb-check brief <파일>` 로 미리 점검한다. 지시서가 공통 지시서 파일을 가리키면 그 파일까지 함께 읽어 판정한다.
+
+`project.dispatch.exempt_agents` 에 적은 에이전트(기본: `fork`, `claude-code-guide`, `statusline-setup`)는 지시서 검사를 건너뛴다. 금지 모델 검사는 그대로 적용한다.
+
 ## 안전 훅
 
 `PreToolUse` 훅이 Bash·Write·Edit·MultiEdit·NotebookEdit·Skill 호출을 실행 전에 판정한다. 결과는 허용, 확인 요청, 차단 셋 중 하나다. 차단 메시지는 막은 이유, 고치는 법, 물어볼 곳 세 줄로 나온다.

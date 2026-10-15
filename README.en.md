@@ -67,6 +67,35 @@ Example files are in `examples/`.
 
 `routing.json` gives each kind of task a chain of models and a floor. wb removes denied models and models that hit their usage limit from the chain, then uses the first remaining model if it is at or above the floor. If only models below the floor remain, wb does not dispatch, notifies you and waits. The plugin defaults deny no model. To stop using a model, add it to `denied` in your personal `routing.json`.
 
+Tasks with `differ_from: implementer` (adversarial review) drop the implementer's model from the chain. If no other model at or above the floor is left, the same model runs in a fresh context and the lane report has to say so.
+
+`wb-route` previews the result.
+
+```
+wb-route tasks                                  chain and floor per task type
+wb-route resolve review                         model to use (agent_param); exit 3 while waiting
+wb-route explain adversarial --implementer opus step-by-step trace
+wb-route check review --model sonnet            judge a model choice (exit 1 when blocked)
+```
+
+### Dispatch checks and briefs
+
+When a subagent is dispatched (Agent tool), a hook checks:
+
+| Condition | Result |
+|---|---|
+| No brief marker, missing sections or statements, unfilled `{{…}}` | Block (`project.dispatch.brief: warn` only advises) |
+| No `model` | Block, names the routed model |
+| Denied or out-of-quota model | Block, names the next model in the chain |
+| Model below the declared task's floor or outside its chain | Block |
+| In the chain but not the first choice | Advice |
+| Every model at or above the floor is out of quota | Block, notify, wait until the reset, suggest `/model` |
+| New lane while `machine.lanes.max` lanes are live | Block |
+
+The first line of a brief is the marker `<!-- wb-brief v1 type=<task> lane=<lane> template=<template> -->`. Required sections are goal, scope, do-not, test rules, report location and commit rules; the text must also state headless browsers, no full test suite, and the worktree base commit hash. Seven templates (impl, fix, mockup, research, review, docs, test) are in `templates/briefs/ko` and `templates/briefs/en`. Check a brief with `wb-check brief <file>`. When a brief names a common brief file, that file is read and judged together with it.
+
+Agents listed in `project.dispatch.exempt_agents` (default: `fork`, `claude-code-guide`, `statusline-setup`) skip the brief check. The denied-model check still applies.
+
 ## Safety hooks
 
 A `PreToolUse` hook judges Bash, Write, Edit, MultiEdit, NotebookEdit and Skill calls before they run. The answer is allow, ask or deny. A block message has three lines: why it was blocked, how to fix it, where to ask.
