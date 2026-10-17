@@ -798,5 +798,9 @@
   "doctor.codegraphQueue": "index queue",
   "doctor.codegraphQueue.detail": "waiting {waiting} · running {running} · recent failures {failed}",
   "doctor.codegraphOrphans": "leftover indexes",
-  "doctor.codegraphOrphans.detail": "{count} · {size} — list them with `wb-index orphans`, clean up with `--apply`"
+  "doctor.codegraphOrphans.detail": "{count} · {size} — list them with `wb-index orphans`, clean up with `--apply`",
+  "doctor.codegraphOldKey": "codegraph auto-index setting",
+  "doctor.codegraphOldKey.detail": "`index_on_worktree` is the old name — use `auto_index` instead",
+  "doctor.codegraphAutoExclude": "automatic excludes",
+  "doctor.codegraphAutoExclude.detail": "wb added these to .git/info/exclude itself because `/wb:init` was not run: {lines}"
 }

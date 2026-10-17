@@ -798,5 +798,9 @@
   "doctor.codegraphQueue": "색인 대기열",
   "doctor.codegraphQueue.detail": "대기 {waiting} · 진행 {running} · 최근 실패 {failed}",
   "doctor.codegraphOrphans": "남은 색인",
-  "doctor.codegraphOrphans.detail": "{count}개 · {size} — `wb-index orphans` 로 목록을, `--apply` 로 정리해요"
+  "doctor.codegraphOrphans.detail": "{count}개 · {size} — `wb-index orphans` 로 목록을, `--apply` 로 정리해요",
+  "doctor.codegraphOldKey": "codegraph 자동 색인 설정",
+  "doctor.codegraphOldKey.detail": "`index_on_worktree` 는 옛 이름이에요 — `auto_index` 로 바꿔 쓰세요",
+  "doctor.codegraphAutoExclude": "자동 제외 항목",
+  "doctor.codegraphAutoExclude.detail": "`/wb:init` 을 거치지 않아 wb 가 .git/info/exclude 에 직접 추가했어요: {lines}"
 }

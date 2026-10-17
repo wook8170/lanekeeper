@@ -307,7 +307,7 @@ Use the code index (codegraph) for flow, callers and change impact; use text sea
 Do not call codegraph again for a path that has no index. Queue every new worktree for indexing when it is created.
 
 - Why: Most index tool failures came from new worktrees without an index, and calling the same path again only added cost.
-- Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, setting `project.codegraph.index_on_worktree`
+- Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, setting `project.codegraph.auto_index`
 - If blocked: Continue with grep and Read. `wb-index status` shows the queue; once the index exists the call works again in the same session. Queue a path yourself with `wb-index add <path>`.
 
 ## Planned

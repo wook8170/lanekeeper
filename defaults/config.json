@@ -32,7 +32,7 @@
     { "glob": "docs/**/*.md", "style": "report" }
   ] },
   "mockup": { "ui_globs": [], "tokens_css": "", "decision_required": true },
-  "codegraph": { "nudge": "warn", "index_on_worktree": true },
+  "codegraph": { "nudge": "warn", "auto_index": true },
   "ui_stability": { "enabled": false, "adapter": "uistab.adapter.ts" },
   "slots": { "heavy": [], "browser": [] },
   "worktree": { "setup": "", "hook": false },

@@ -1166,7 +1166,7 @@
         },
         {
           "kind": "config",
-          "key": "project.codegraph.index_on_worktree"
+          "key": "project.codegraph.auto_index"
         }
       ],
       "recover": {

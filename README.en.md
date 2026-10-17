@@ -317,7 +317,7 @@ wb-index metrics [--days N] # codegraph responses by class
 - When another worktree of the same repository (main checkout first) has an index, it is copied and `codegraph sync` re-reads only the changed files. The index stores relative paths and content hashes, so it works at a different path. The copy is a consistent `sqlite3 .backup` snapshot when `sqlite3` is available, otherwise the database and its WAL files. If the copy does not open or the sync fails, it is deleted and `codegraph init` builds a new one. Daemon files (pid, socket, log) are never copied.
 - The index folder (`.codegraph/`) is added to `<git-common-dir>/info/exclude` so it never shows in git status; otherwise git refuses to remove the worktree because of untracked files. `wb-worktree remove` does not count a lone `.codegraph/` as uncommitted work and deletes the index before removing the worktree.
 - The queue is `~/.wb/run/codegraph/queue.json` (machine-wide); the worker writes `worker.log` next to it.
-- Checkouts are queued automatically by `wb-worktree create`, the optional WorktreeCreate hook, a grep in an unindexed checkout and a "no index" response. `project.codegraph.index_on_worktree: false` turns all four off (`wb-index add` still works).
+- Checkouts are queued automatically by `wb-worktree create`, the optional WorktreeCreate hook, a grep in an unindexed checkout and a "no index" response. `project.codegraph.auto_index: false` (default `true`) turns all four off (`wb-index add` still works). The old name `index_on_worktree` is still read as an alias for one release; when both are set, `auto_index` wins. `/wb:doctor` flags configs that still use the old name.
 
 **Hooks.**
 

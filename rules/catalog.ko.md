@@ -307,7 +307,7 @@
 색인이 없는 경로로 codegraph 를 다시 부르지 않는다. 새 워크트리는 만들 때 색인 대기열에 넣는다.
 
 - 왜: 색인 도구 실패의 대부분은 새로 만든 워크트리에 색인이 없어서였고, 실패한 경로로 다시 부르는 시도가 비용만 늘렸다.
-- 어디서 지키나: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, 설정 `project.codegraph.index_on_worktree`
+- 어디서 지키나: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, 설정 `project.codegraph.auto_index`
 - 막혔을 때: grep 과 Read 로 진행한다. `wb-index status` 로 색인 진행을 보고, 색인이 생기면 같은 세션에서도 다시 부를 수 있다. 직접 넣으려면 `wb-index add <경로>` 를 쓴다.
 
 ## 추가 예정

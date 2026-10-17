@@ -339,7 +339,7 @@ wb-index metrics [--days N] # codegraph 응답 분류 집계
 - 같은 저장소의 다른 워크트리(주 체크아웃 우선)에 색인이 있으면 그 색인을 복사한 뒤 `codegraph sync` 로 바뀐 파일만 다시 읽는다. 색인은 상대 경로와 파일 내용 해시로 저장되므로 경로가 달라도 쓸 수 있다. 복사는 `sqlite3` 가 있으면 일관된 스냅숏(`.backup`)으로, 없으면 DB 와 WAL 파일을 복사한다. 복사한 색인이 열리지 않거나 sync 가 실패하면 지우고 `codegraph init` 으로 새로 만든다. 데몬 파일(pid·소켓·로그)은 복사하지 않는다.
 - 색인 폴더(`.codegraph/`)는 `<git-common-dir>/info/exclude` 에 추가해 git 상태에 나타나지 않게 한다. 이 처리가 없으면 git 이 추적하지 않는 파일이 있다는 이유로 워크트리 삭제를 거부한다. `wb-worktree remove` 는 `.codegraph/` 만 남은 경우를 미커밋 변경으로 보지 않고, 워크트리를 지우기 전에 색인을 지운다.
 - 대기열 파일은 `~/.wb/run/codegraph/queue.json`(머신 공용), 작업 기록은 같은 폴더의 `worker.log` 다.
-- 자동 등록은 `wb-worktree create`, 선택 기능인 WorktreeCreate 훅, 색인 없는 체크아웃에서의 grep, 색인 없음 응답 네 곳에서 일어난다. `project.codegraph.index_on_worktree` 를 `false` 로 두면 모두 끈다(`wb-index add` 는 그대로 쓸 수 있다).
+- 자동 등록은 `wb-worktree create`, 선택 기능인 WorktreeCreate 훅, 색인 없는 체크아웃에서의 grep, 색인 없음 응답 네 곳에서 일어난다. `project.codegraph.auto_index`(기본 `true`)를 `false` 로 두면 모두 끈다(`wb-index add` 는 그대로 쓸 수 있다). 옛 이름 `index_on_worktree` 는 한 판 동안 별칭으로 읽고, 두 이름이 함께 있으면 `auto_index` 를 따른다. `/wb:doctor` 가 옛 이름을 쓰는 설정을 알려 준다.
 
 **훅.**
 
@@ -350,7 +350,7 @@ wb-index metrics [--days N] # codegraph 응답 분류 집계
 | PostToolUse · PostToolUseFailure(codegraph MCP) | `codegraph/record` | 응답을 정상·빈 결과·미초기화·미적재·기타 오류로 분류해 `<주 체크아웃>/.wb/metrics/codegraph.jsonl` 에 한 줄씩 남긴다. 색인 없음 응답이면 경로를 표시하고 대기열에 넣은 뒤 grep 으로 진행하라고 바로 알린다 |
 | SessionStart | `codegraph/session-start` | codegraph 가 설치돼 있으면 짧은 사용 지침(`rules/codegraph.{ko,en}.md`)을 넣는다 |
 
-지침의 요지는 「흐름·호출처·변경 영향은 codegraph, 정확한 줄 번호와 문자열은 grep」이다. Vue `watch` 콜백 안의 호출과 배열로 등록하는 라우트는 그래프에서 빠질 수 있어 grep 으로 한 번 더 확인하게 한다. 지표 파일의 `.wb/metrics/` 는 처음 쓸 때 `info/exclude` 에 추가한다. 훅은 모두 오류가 나면 통과시킨다.
+지침의 요지는 「흐름·호출처·변경 영향은 codegraph, 정확한 줄 번호와 문자열은 grep」이다. Vue `watch` 콜백 안의 호출과 배열로 등록하는 라우트는 그래프에서 빠질 수 있어 grep 으로 한 번 더 확인하게 한다. `/wb:init` 이 `.wb/briefs/` · `.codegraph/` · `.wb/metrics/` 를 `info/exclude` 에 미리 넣는다(이미 있으면 생략). init 을 거치지 않은 저장소에서는 훅·작업 프로세스가 처음 쓸 때 추가하고, `/wb:doctor` 가 그 사실을 한 줄로 알린다. 훅은 모두 오류가 나면 통과시킨다.
 
 **점검.** `/wb:doctor` 는 codegraph 설치 여부, 현재 체크아웃의 색인 유무, 대기열(대기·진행·최근 실패), 워크트리가 아닌 폴더에 남은 색인의 개수와 크기를 보여 준다.
 

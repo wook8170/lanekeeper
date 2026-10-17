@@ -165,7 +165,7 @@ test('deadpath: first call goes through, a not-initialized response marks the pa
 })
 
 test('deadpath: "not loaded" without projectPath blocks the next call without projectPath; manual fix text when nothing is queued', () => {
-  const f = fixture({ project: { codegraph: { index_on_worktree: false } } })
+  const f = fixture({ project: { codegraph: { auto_index: false } } })
   const input = { hook_event_name: 'PostToolUseFailure', session_id: 's', cwd: f.repo, tool_name: 'mcp__codegraph__codegraph_search', tool_input: { query: 'x' }, error: 'No CodeGraph project is loaded' }
   const r = recordCall(input, f.env, { queue: noStart })
   assert.equal(r.row.class, 'no_project')
@@ -187,7 +187,7 @@ test('deadpath hook process: blocks the second call (ko text), passes when codeg
   assert.equal(first.status, 0)
   assert.equal(first.stdout, '')
   // record without starting a real worker: queue is off for this check
-  fs.writeFileSync(path.join(f.repo, '.wb', 'config.json'), JSON.stringify({ codegraph: { index_on_worktree: false } }))
+  fs.writeFileSync(path.join(f.repo, '.wb', 'config.json'), JSON.stringify({ codegraph: { auto_index: false } }))
   const rec = run('record.mjs', fail(f.repo, 'p'))
   assert.equal(rec.status, 0)
   assert.match(JSON.parse(rec.stdout).hookSpecificOutput.additionalContext, /색인이 없어요/)
@@ -313,7 +313,7 @@ test('queue: one entry per checkout, nothing without codegraph or outside git', 
   assert.equal(cg.enqueue(f.repo, { env: f.env }).skipped, 'already')
   assert.equal(cg.enqueue(f.base, { env: f.env }).skipped, 'not-git')
   assert.equal(cg.enqueue(f.repo, { env: { ...f.env, WB_CODEGRAPH: 'off' } }).skipped, 'missing')
-  assert.equal(cg.autoQueue(f.repo, { config: { project: { codegraph: { index_on_worktree: false } } }, env: f.env }).skipped, 'disabled')
+  assert.equal(cg.autoQueue(f.repo, { config: { project: { codegraph: { auto_index: false } } }, env: f.env }).skipped, 'disabled')
   assert.equal(cg.readQueue(f.env).items.length, 1)
   assert.ok(cg.dequeue(f.repo, f.env))
   assert.equal(cg.readQueue(f.env).items.length, 0)
@@ -414,8 +414,8 @@ test('worktree create queues the new checkout; remove drops the index and the qu
   f.index(l2.worktree)
   fs.writeFileSync(path.join(l2.worktree, 'work.txt'), 'x')
   assert.throws(() => wt.removeWorktree({ ...ctx, procsIn: () => [] }, { target: 'l2' }), (e) => e.code === 'wt.dirty' && e.vars.count === 1)
-  // index_on_worktree off and codegraph missing both skip quietly
-  const off = await wt.createWorktree({ ...ctx, config: { ...ctx.config, project: { ...ctx.config.project, codegraph: { index_on_worktree: false } } } }, { id: 'l3' })
+  // auto_index off and codegraph missing both skip quietly
+  const off = await wt.createWorktree({ ...ctx, config: { ...ctx.config, project: { ...ctx.config.project, codegraph: { auto_index: false } } } }, { id: 'l3' })
   assert.equal(off.index.skipped, 'disabled')
   const missing = await wt.createWorktree({ ...ctx, env: { ...f.env, WB_CODEGRAPH: 'off' } }, { id: 'l4' })
   assert.equal(missing.index.skipped, 'missing')
