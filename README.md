@@ -266,6 +266,39 @@ wb-check test-results [--json] [--require-pass]
 
 **문체 규칙.** `rules/writing-style.ko.md`·`.en.md` 에 문체별 규칙을 둔다. 기본 매핑은 `docs/**/*.md` → 보고서체이며, 화면 문구 경로는 프로젝트가 `style.map` 에 추가한다.
 
+## 코드 색인(codegraph)
+
+codegraph 는 선택 도구다. 설치돼 있지 않으면 아래 훅과 명령은 아무것도 하지 않고, `wb-index` 는 설치 방법만 알려 준다. 설치는 `/wb:init` 에서 사용자 동의를 받은 뒤에만 한다. `WB_CODEGRAPH=off` 로 이 기능 전체를 끌 수 있고, `WB_CODEGRAPH=<경로>` 로 실행 파일을 지정할 수 있다.
+
+**색인 대기열.** 색인은 새 워크트리를 만들 때 함께 만든다. 작업이 몰려도 한 번에 하나씩, 낮은 우선순위(`nice`)로, 무거운 실행 슬롯 안에서 돌린다. 따라서 1분 부하가 `machine.load.max` 이상이면 기다린다.
+
+```
+wb-index add [경로]         # 대기열에 넣고 작업 프로세스를 띄운다(기본: 현재 체크아웃)
+wb-index status             # 대기 중인 항목, 작업 프로세스, 최근 결과
+wb-index run                # 대기열을 지금 이 터미널에서 처리
+wb-index drop <경로>        # 대기열에서 빼고 그 경로의 .codegraph 를 지운다
+wb-index orphans [--apply]  # 워크트리가 아닌 폴더에 남은 색인과 크기, --apply 로 색인만 삭제
+wb-index metrics [--days N] # codegraph 응답 분류 집계
+```
+
+- 같은 저장소의 다른 워크트리(주 체크아웃 우선)에 색인이 있으면 그 색인을 복사한 뒤 `codegraph sync` 로 바뀐 파일만 다시 읽는다. 색인은 상대 경로와 파일 내용 해시로 저장되므로 경로가 달라도 쓸 수 있다. 복사는 `sqlite3` 가 있으면 일관된 스냅숏(`.backup`)으로, 없으면 DB 와 WAL 파일을 복사한다. 복사한 색인이 열리지 않거나 sync 가 실패하면 지우고 `codegraph init` 으로 새로 만든다. 데몬 파일(pid·소켓·로그)은 복사하지 않는다.
+- 색인 폴더(`.codegraph/`)는 `<git-common-dir>/info/exclude` 에 추가해 git 상태에 나타나지 않게 한다. 이 처리가 없으면 git 이 추적하지 않는 파일이 있다는 이유로 워크트리 삭제를 거부한다. `wb-worktree remove` 는 `.codegraph/` 만 남은 경우를 미커밋 변경으로 보지 않고, 워크트리를 지우기 전에 색인을 지운다.
+- 대기열 파일은 `~/.wb/run/codegraph/queue.json`(머신 공용), 작업 기록은 같은 폴더의 `worker.log` 다.
+- 자동 등록은 `wb-worktree create`, 선택 기능인 WorktreeCreate 훅, 색인 없는 체크아웃에서의 grep, 색인 없음 응답 네 곳에서 일어난다. `project.codegraph.index_on_worktree` 를 `false` 로 두면 모두 끈다(`wb-index add` 는 그대로 쓸 수 있다).
+
+**훅.**
+
+| 시점 | 스크립트 | 동작 |
+|---|---|---|
+| PreToolUse(Bash·Grep) | `codegraph/nudge` | 색인이 있는 체크아웃에서 식별자 하나(함수·타입·상수 이름)를 grep 하면 세션에 한 번 「호출처는 `codegraph_callers` 한 번으로 감싸는 함수까지 나온다」고 알린다. grep 은 막지 않는다. 색인이 없는 체크아웃이면 알리지 않고 대기열에 넣는다. `project.codegraph.nudge: "off"` 로 끈다 |
+| PreToolUse(codegraph MCP) | `codegraph/deadpath` | 이 세션에서 「색인 없음」 응답을 받은 경로로 다시 부르면 막는다(「색인 없음 · 대기열 등록 · grep 으로 진행」). 그 사이 색인이 생기면 다시 허용한다 |
+| PostToolUse · PostToolUseFailure(codegraph MCP) | `codegraph/record` | 응답을 정상·빈 결과·미초기화·미적재·기타 오류로 분류해 `<주 체크아웃>/.wb/metrics/codegraph.jsonl` 에 한 줄씩 남긴다. 색인 없음 응답이면 경로를 표시하고 대기열에 넣은 뒤 grep 으로 진행하라고 바로 알린다 |
+| SessionStart | `codegraph/session-start` | codegraph 가 설치돼 있으면 짧은 사용 지침(`rules/codegraph.{ko,en}.md`)을 넣는다 |
+
+지침의 요지는 「흐름·호출처·변경 영향은 codegraph, 정확한 줄 번호와 문자열은 grep」이다. Vue `watch` 콜백 안의 호출과 배열로 등록하는 라우트는 그래프에서 빠질 수 있어 grep 으로 한 번 더 확인하게 한다. 지표 파일의 `.wb/metrics/` 는 처음 쓸 때 `info/exclude` 에 추가한다. 훅은 모두 오류가 나면 통과시킨다.
+
+**점검.** `/wb:doctor` 는 codegraph 설치 여부, 현재 체크아웃의 색인 유무, 대기열(대기·진행·최근 실패), 워크트리가 아닌 폴더에 남은 색인의 개수와 크기를 보여 준다.
+
 ## 보안과 한계
 
 - 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.

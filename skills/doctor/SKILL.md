@@ -13,3 +13,4 @@ description: Check the wb setup — settings validity, where each value comes fr
    - Caps (`machine.lanes.max`, `machine.slots.heavy.count`, `machine.slots.browser.count`, `machine.load.max`): the smallest value among the non-default layers. The default applies only when no other layer sets it.
 4. For test result workbooks run `wb-test-report env`; it checks Python 3.8+ and openpyxl and prints the install commands.
 5. Companion tools (other plugins, codegraph) are listed for information only. Do not install anything from this skill.
+6. codegraph lines: a missing index of this checkout is built with `wb-index add .`; queue failures are listed by `wb-index status`; leftover indexes are listed by `wb-index orphans` and deleted (indexes only, never folders) with `wb-index orphans --apply` after the user agrees.

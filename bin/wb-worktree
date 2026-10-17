@@ -67,6 +67,7 @@ function printCreated(r) {
   if (r.ports) say(t('wt.ports', { ports: Object.entries(r.ports).map(([k, v]) => `${k}=${v}`).join(' ') }))
   if (r.portError) say(t('port.full', { max: r.portError.max }))
   if (r.copied.length) say(t('wt.copied', { count: r.copied.length }))
+  if (r.index?.queued || r.index?.skipped === 'already') say(t('wt.index_queued'))
   if (r.setup.status !== undefined) say(t(r.setup.status === 0 ? 'wt.setup_ok' : 'wt.setup_failed', { cmd: r.setup.command, status: r.setup.status }))
   else if (r.setup.skipped === 'slot-timeout') say(t('wt.setup_skipped', { id: r.id }))
 }

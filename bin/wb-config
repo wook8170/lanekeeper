@@ -148,6 +148,9 @@ switch (cmd) {
       let extra = ''
       if (c.id === 'projectConfig' && c.status !== 'ok') extra = ` — ${t('doctor.projectConfig.missing')}`
       if (c.id === 'codegraph' && c.status !== 'ok') extra = ` — ${t('doctor.codegraph.missing')}`
+      if (c.id === 'codegraphIndex' && c.status !== 'ok') extra = ` — ${t('doctor.codegraphIndex.missing')}`
+      if (c.id === 'codegraphQueue') extra = ` — ${t('doctor.codegraphQueue.detail', c.detail)}`
+      if (c.id === 'codegraphOrphans' && c.status !== 'ok') extra = ` — ${t('doctor.codegraphOrphans.detail', c.detail)}`
       if (c.id === 'git') label = `${label} (${c.detail})`
       print(`${mark[c.status]} ${label}: ${t(`doctor.${c.status}`)}${extra}`)
       if (c.id === 'config') printIssues(c)

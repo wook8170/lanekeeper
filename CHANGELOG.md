@@ -30,3 +30,5 @@
 - 초보자 계층(L8): `/wb:work`(요청 분류·단계별 모델·진행 한 줄), `/wb:explain`(막힘 설명·차단 코드 → 규칙 연결), `/wb:writing-style`(`style.map` 문체, 지시서 `{{style}}` 자동 채움), `/wb:decide`(결정 기록 `docs/decisions/`)
 - 규칙 카탈로그 `rules/catalog.json`(규칙 37개: 이유·지키는 위치·복구 방법, ko/en)과 생성 문서 `rules/catalog.{ko,en}.md`, 문체 규칙 `rules/writing-style.{ko,en}.md`
 - CLI `wb-work` · `wb-explain` · `wb-style` · `wb-rules` · `wb-decide`
+- 코드 색인(L12): 색인 대기열 `wb-index`(add · run · status · drop · orphans · metrics, 한 번에 하나·`nice`·무거운 실행 슬롯 안), 같은 저장소의 다른 워크트리 색인을 복사한 뒤 바뀐 파일만 sync, 실패 시 init. `wb-worktree create`·WorktreeCreate 훅이 새 워크트리를 대기열에 넣고, 제거 때 색인 삭제. 색인 폴더는 `info/exclude` 에 추가
+- codegraph 훅: grep 안내(식별자 하나·색인 있는 체크아웃·세션 1회, 차단 없음), 색인 없는 경로 두 번째 호출 차단, 응답 분류 기록(`.wb/metrics/codegraph.jsonl`), 세션 시작 지침 `rules/codegraph.{ko,en}.md`. `/wb:doctor` 에 색인·대기열·남은 색인 점검. 규칙 카탈로그 `codegraph-first` 를 실제 훅으로 연결하고 `codegraph-index-first` 추가(38개)

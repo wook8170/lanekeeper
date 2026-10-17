@@ -244,6 +244,39 @@ For users who do not know the lane workflow: start from one sentence, and read t
 
 **Writing rules.** `rules/writing-style.ko.md` and `.en.md` hold the rules per voice. The default map is `docs/**/*.md` → report; the project adds screen-text paths to `style.map`.
 
+## Code index (codegraph)
+
+codegraph is optional. Without it the hooks below do nothing and `wb-index` only explains how to install it. `/wb:init` installs it only after the user agrees. `WB_CODEGRAPH=off` turns the whole layer off; `WB_CODEGRAPH=<path>` names the binary.
+
+**Index queue.** A new worktree gets its index when it is created. Jobs run one at a time, at low priority (`nice`), inside a heavy run slot, so they wait while the 1-minute load is at or above `machine.load.max`.
+
+```
+wb-index add [path]         # queue a checkout and start the worker (default: this checkout)
+wb-index status             # queue, worker, recent results
+wb-index run                # work through the queue in this terminal
+wb-index drop <path>        # take it off the queue and delete its .codegraph
+wb-index orphans [--apply]  # indexes left in folders that are no longer worktrees, with sizes; --apply deletes the indexes only
+wb-index metrics [--days N] # codegraph responses by class
+```
+
+- When another worktree of the same repository (main checkout first) has an index, it is copied and `codegraph sync` re-reads only the changed files. The index stores relative paths and content hashes, so it works at a different path. The copy is a consistent `sqlite3 .backup` snapshot when `sqlite3` is available, otherwise the database and its WAL files. If the copy does not open or the sync fails, it is deleted and `codegraph init` builds a new one. Daemon files (pid, socket, log) are never copied.
+- The index folder (`.codegraph/`) is added to `<git-common-dir>/info/exclude` so it never shows in git status; otherwise git refuses to remove the worktree because of untracked files. `wb-worktree remove` does not count a lone `.codegraph/` as uncommitted work and deletes the index before removing the worktree.
+- The queue is `~/.wb/run/codegraph/queue.json` (machine-wide); the worker writes `worker.log` next to it.
+- Checkouts are queued automatically by `wb-worktree create`, the optional WorktreeCreate hook, a grep in an unindexed checkout and a "no index" response. `project.codegraph.index_on_worktree: false` turns all four off (`wb-index add` still works).
+
+**Hooks.**
+
+| When | Script | What it does |
+|---|---|---|
+| PreToolUse (Bash, Grep) | `codegraph/nudge` | A grep for one identifier (function, type or constant name) in an indexed checkout gets one note per session: callers come back with their enclosing functions in one `codegraph_callers` call. grep is never blocked. In an unindexed checkout there is no note; the checkout is queued. Turn it off with `project.codegraph.nudge: "off"` |
+| PreToolUse (codegraph MCP) | `codegraph/deadpath` | A second call for a path that answered "not initialized" in this session is blocked ("no index · queued · continue with grep"). Once the index exists the calls go through again |
+| PostToolUse, PostToolUseFailure (codegraph MCP) | `codegraph/record` | Each response is recorded as ok, empty, not initialized, not loaded or other error in `<main checkout>/.wb/metrics/codegraph.jsonl`. A "no index" response marks the path, queues it and tells Claude right away to continue with grep |
+| SessionStart | `codegraph/session-start` | With codegraph installed, adds the short guidance in `rules/codegraph.{ko,en}.md` |
+
+The guidance is "codegraph for flow, callers and change impact; grep for exact line numbers and strings". Calls inside Vue `watch` callbacks and routes registered as arrays can be missing from the graph, so those are checked with grep as well. The metrics folder `.wb/metrics/` is added to `info/exclude` on first write. Every codegraph hook lets the call through on its own errors.
+
+**Checks.** `/wb:doctor` shows whether codegraph is installed, whether this checkout has an index, the queue (waiting, running, recent failures), and the number and size of indexes left in folders that are no longer worktrees.
+
 ## Security and limits
 
 - Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.

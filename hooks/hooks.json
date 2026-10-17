@@ -30,6 +30,26 @@
             "timeout": 20
           }
         ]
+      },
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/codegraph/nudge.mjs",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*codegraph.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/codegraph/deadpath.mjs",
+            "timeout": 20
+          }
+        ]
       }
     ],
     "UserPromptExpansion": [
@@ -66,6 +86,11 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/worktree/session-sync.mjs",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/codegraph/session-start.mjs",
+            "timeout": 20
           }
         ]
       }
@@ -87,6 +112,16 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/token-guard/check.mjs",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*codegraph.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/codegraph/record.mjs",
             "timeout": 20
           }
         ]
@@ -157,6 +192,18 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/ledger/subagent.mjs",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "mcp__.*codegraph.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/codegraph/record.mjs",
             "timeout": 20
           }
         ]

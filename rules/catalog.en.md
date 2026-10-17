@@ -286,6 +286,22 @@ Documents and screen text use the style set per file kind (`style.map`).
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`, setting `project.style.map`
 - If blocked: Check the style with `wb-style of <file>` and fix the text by the rules from `wb-style rules <style>`.
 
+### codegraph-first
+
+Use the code index (codegraph) for flow, callers and change impact; use text search for exact line numbers and strings.
+
+- Why: Following callers one text search at a time multiplies the calls. The index alone misses line numbers and some call edges, so text search is never blocked.
+- Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`, setting `project.codegraph.nudge`
+- If blocked: When the note appears, ask the same question once with `codegraph_callers` or `codegraph_explore`. To turn the note off set `project.codegraph.nudge` to `off`.
+
+### codegraph-index-first
+
+Do not call codegraph again for a path that has no index. Queue every new worktree for indexing when it is created.
+
+- Why: Most index tool failures came from new worktrees without an index, and calling the same path again only added cost.
+- Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, setting `project.codegraph.index_on_worktree`
+- If blocked: Continue with grep and Read. `wb-index status` shows the queue; once the index exists the call works again in the same session. Queue a path yourself with `wb-index add <path>`.
+
 ## Planned
 
 ### mockup-first
@@ -303,11 +319,3 @@ Words in screen text follow the project glossary.
 - Why: Calling one concept by different names across screens confuses users.
 - Enforced in: not built yet (added by lane L10)
 - If blocked: Until the check ships, follow the haeyo rules and the words already on screen.
-
-### codegraph-first
-
-To understand code structure use the index tool first; use text search for line numbers and strings.
-
-- Why: Answering structure questions by text search multiplies the number of calls.
-- Enforced in: not built yet (added by lane L12)
-- If blocked: Until the hooks ship, follow the work-location text in the brief.

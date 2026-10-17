@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+// wb-index — codegraph index queue.
+//
+//   wb-index add [<path>] [--no-start] [--json]   queue a checkout (default: this one) and start the worker
+//   wb-index run [--quiet]                         run queued jobs now, one at a time, then exit
+//   wb-index status [--json]                       queue, worker, recent results
+//   wb-index drop <path>                           take a path off the queue and delete its .codegraph
+//   wb-index orphans [--apply] [--json]            indexes left in folders that are no longer worktrees
+//   wb-index metrics [--days <n>] [--json]         codegraph responses by class (ok · empty · not initialized · not loaded · error)
+//
+// Jobs run under nice inside a heavy slot, so they wait while the load is at or
+// above the threshold. A new checkout copies the index of another worktree of the
+// same repository and syncs only the changed files; with nothing to copy it runs
+// codegraph init. Without codegraph installed nothing is queued and the command
+// prints how to install it.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const load = (m) => import(pathToFileURL(path.join(libDir, m)).href)
+const { resolveConfig, projectRoot } = await load('config.mjs')
+const { translator } = await load('i18n.mjs')
+const cg = await load('codegraph.mjs')
+const { parseOptions } = await load('cli.mjs')
+
+const args = parseOptions(process.argv.slice(2), ['json', 'no-start', 'quiet', 'apply'])
+const [cmd, target] = args._
+const env = process.env
+const root = projectRoot(process.cwd(), env)
+const resolved = resolveConfig({ projectDir: root, env })
+const t = translator(resolved.effective.language)
+const say = (s) => process.stdout.write(`${s}\n`)
+const err = (s) => process.stderr.write(`[wb-index] ${s}\n`)
+const asJson = (v) => say(JSON.stringify(v, null, 2))
+const stamp = () => new Date().toISOString().slice(0, 19)
+
+function needBin() {
+  if (cg.findBin(env)) return true
+  err(t('cg.missing'))
+  process.exit(env.WB_CODEGRAPH === 'off' ? 0 : 3)
+}
+
+switch (cmd) {
+  case 'add': {
+    needBin()
+    const r = cg.enqueue(path.resolve(target || '.'), { reason: 'manual', env })
+    const started = r.queued || r.skipped === 'already' ? (args['no-start'] ? false : cg.startWorker(env)) : false
+    if (args.json) asJson({ ...r, worker: started || cg.workerPid(env) || null })
+    else if (r.skipped === 'not-git') {
+      err(t('cg.not_git', { path: path.resolve(target || '.') }))
+      process.exit(2)
+    } else say(t(r.queued ? 'cg.queued' : 'cg.already', { path: r.path }))
+    break
+  }
+  case 'run': {
+    needBin()
+    const quiet = Boolean(args.quiet)
+    const log = (kind, v) => {
+      if (kind === 'wait') say(`${stamp()} ${v.reason === 'load' ? t('slot.wait_load', { load: v.load.toFixed(2), max: resolved.effective.load_max }) : t('slot.wait_busy', { kind: v.kind, count: resolved.config.machine?.slots?.[v.kind]?.count ?? '-' })}`)
+      else if (kind === 'start') say(`${stamp()} ${t('cg.job_start', { path: v.path })}`)
+      else if (kind === 'done') say(`${stamp()} ${t('cg.job_done', { path: v.path, method: v.method, sec: (v.ms / 1000).toFixed(1) })}${v.error ? ` — ${v.error}` : ''}`)
+    }
+    const r = await cg.runWorker({ env, log: quiet ? (k, v) => (k === 'wait' ? null : log(k, v)) : log })
+    if (r.busy && !quiet) say(t('cg.worker_busy', { pid: cg.workerPid(env) || '-' }))
+    process.exit(r.done.some((d) => d.method === 'failed') ? 1 : 0)
+  }
+  case 'status': {
+    const q = cg.readQueue(env)
+    const info = { installed: Boolean(cg.findBin(env)), worker: cg.workerPid(env), items: q.items, history: q.history.slice(-10) }
+    if (args.json) asJson(info)
+    else {
+      if (!info.installed) say(t('cg.missing'))
+      say(t('cg.status_head', { waiting: q.items.filter((i) => i.state === 'queued').length, running: q.items.filter((i) => i.state === 'running').length, worker: info.worker || '-' }))
+      for (const i of q.items) say(`  ${i.state}  ${i.path}  (${i.reason})`)
+      for (const h of info.history) say(`  ${h.at.slice(0, 16)}  ${h.method}  ${(h.ms / 1000).toFixed(1)}s  ${h.path}${h.error ? `  — ${h.error}` : ''}`)
+    }
+    break
+  }
+  case 'drop': {
+    if (!target) {
+      err(t('cg.usage'))
+      process.exit(2)
+    }
+    const p = path.resolve(target)
+    const dq = cg.dequeue(p, env)
+    const removed = fs.existsSync(p) ? cg.dropIndex(p) : false
+    say(t('cg.dropped', { path: p, queue: dq ? 1 : 0, index: removed ? 1 : 0 }))
+    break
+  }
+  case 'orphans': {
+    const top = cg.checkoutOf(root)
+    if (!top) {
+      err(t('cg.not_git', { path: root }))
+      process.exit(2)
+    }
+    const s = cg.scanIndexes(top, resolved.config, env)
+    if (args.apply) for (const o of s.orphans) o.removed = cg.dropIndex(o.path)
+    if (args.json) asJson(s)
+    else {
+      const total = s.indexed.reduce((a, b) => a + b.bytes, 0)
+      say(t('cg.indexes', { count: s.indexed.length, size: cg.formatSize(total) }))
+      if (!s.orphans.length) say(t('cg.orphans_none'))
+      for (const o of s.orphans) say(`  ${o.removed ? t('cg.removed') : t('cg.orphan')}  ${cg.formatSize(o.bytes)}  ${o.path}`)
+      if (s.orphans.length && !args.apply) say(t('cg.orphans_fix'))
+    }
+    break
+  }
+  case 'metrics': {
+    const { file } = cg.metricsPath(root, resolved.config)
+    const days = args.days != null ? Number(args.days) : null
+    const s = cg.summarize(cg.readMetrics(file), { sinceMs: days ? Date.now() - days * 86400_000 : null })
+    if (args.json) asJson({ file, ...s })
+    else {
+      say(t('cg.metrics_head', { file, total: s.total, sessions: s.sessions }))
+      for (const c of cg.CLASSES) say(`  ${t(`cg.class.${c}`)}  ${s.counts[c]}`)
+      say(t('cg.metrics_rate', { rate: (s.error_rate * 100).toFixed(1), stale: s.stale }))
+    }
+    break
+  }
+  default:
+    say(t('cg.usage'))
+    process.exit(cmd ? 2 : 0)
+}

@@ -286,6 +286,22 @@
 - 어디서 지키나: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`, 설정 `project.style.map`
 - 막혔을 때: `wb-style of <파일>` 로 문체를 확인하고 `wb-style rules <문체>` 의 규칙대로 고친다.
 
+### codegraph-first
+
+흐름·호출처·변경 영향은 코드 색인(codegraph)으로 보고, 정확한 줄 번호와 문자열은 텍스트 검색으로 확인한다.
+
+- 왜: 호출처를 텍스트 검색으로 하나씩 따라가면 호출 수가 늘어난다. 반대로 색인만으로는 줄 번호와 일부 호출 관계가 빠지므로 텍스트 검색을 막지는 않는다.
+- 어디서 지키나: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`, 설정 `project.codegraph.nudge`
+- 막혔을 때: 안내가 나오면 같은 질문을 `codegraph_callers` 나 `codegraph_explore` 로 한 번 물어본다. 안내를 끄려면 `project.codegraph.nudge` 를 `off` 로 둔다.
+
+### codegraph-index-first
+
+색인이 없는 경로로 codegraph 를 다시 부르지 않는다. 새 워크트리는 만들 때 색인 대기열에 넣는다.
+
+- 왜: 색인 도구 실패의 대부분은 새로 만든 워크트리에 색인이 없어서였고, 실패한 경로로 다시 부르는 시도가 비용만 늘렸다.
+- 어디서 지키나: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, 설정 `project.codegraph.index_on_worktree`
+- 막혔을 때: grep 과 Read 로 진행한다. `wb-index status` 로 색인 진행을 보고, 색인이 생기면 같은 세션에서도 다시 부를 수 있다. 직접 넣으려면 `wb-index add <경로>` 를 쓴다.
+
 ## 추가 예정
 
 ### mockup-first
@@ -303,11 +319,3 @@
 - 왜: 같은 개념을 화면마다 다른 말로 부르면 사용자가 헷갈린다.
 - 어디서 지키나: 아직 없음(L10 레인에서 추가)
 - 막혔을 때: 사전 검사가 들어오기 전에는 `style.map` 의 haeyo 규칙과 기존 화면의 낱말을 따른다.
-
-### codegraph-first
-
-코드 구조를 파악할 때는 색인 도구를 먼저 쓰고, 줄 번호와 문자열 확인에만 텍스트 검색을 쓴다.
-
-- 왜: 구조 질문을 텍스트 검색으로 풀면 호출 수가 크게 늘어난다.
-- 어디서 지키나: 아직 없음(L12 레인에서 추가)
-- 막혔을 때: 해당 훅이 들어오기 전에는 지시서의 「작업 위치」 문구를 따른다.
