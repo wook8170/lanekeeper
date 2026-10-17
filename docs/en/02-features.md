@@ -188,7 +188,8 @@ Integration and final verification results are kept as an Excel workbook (xlsx) 
 ```
 wb-test-report env                          check the environment
 wb-test-report init                         write .wb/verify.config.json
-wb-test-report run --name integration       gate → each stage → workbook
+wb-test-report run --name integration       gate → each stage → workbook (gate pass stamp on a full pass)
+wb-test-report gate-pass                    run project.gate.command, gate pass stamp when it passes
 wb-test-report summary [--json]             figures of the newest result
 wb-check test-results                       the newest result exists and is committed
 ```
@@ -469,7 +470,7 @@ Merged wb/search/l1. New HEAD b572a921d734
 
 ```
 wb-test-report summary
-Test results docs/test-results/2026-10-17/integration-1338.xlsx · verdict passed · commit 425ace6
+Test results docs/test-results/2026-10-17/integration-2238.xlsx · verdict passed · commit 425ace6
   unit: total 2 · passed 2 · failed 0 · skipped 0 · flaky 0
   gate: 1 steps · failed 0 · not run 0
 ```

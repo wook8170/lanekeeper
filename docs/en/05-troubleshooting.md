@@ -37,7 +37,8 @@ Inside Claude Code, `/wb:explain` and `/wb:doctor` do the same. A block message 
 | `Lanes may not push.` | A lane tried to push | Commit only and report. The main session decides about pushing |
 | `Force pushes (--force, --force-with-lease, +refspec) are not allowed for anyone.` | Force push | Integrate the remote and push normally. Ask the owner if history must be rewritten |
 | `This action (…) on the protected branch … needs an owner grant, and there is none.` | Merge, push or commit on a protected branch | The owner types `/wb:approve merge-main` (or `push-main`, `commit-main`). When a push is blocked, the branch name in the message is the branch checked out now, not the target |
-| `There is no gate pass stamp for commit …` | A change to a protected branch in a project with `project.gate.command` | See the first item of "Known limitations" below |
+| `There is no gate pass stamp for commit …` | In a project with `project.gate.command`, the gate has not passed on the commit being applied | In the folder that has that commit checked out (usually the integration branch), pass `wb-test-report gate-pass` or `wb-test-report run` to the end. No stamp is written while there are uncommitted changes |
+| `The gate pass stamp belongs to another commit (…)` | Changes other than result files were committed after the stamp | Run the gate again on the current commit |
 | `A verification gate is running` | `wb-test-report run` holds the gate lock | Run again when it ends. If a crash left the lock, remove it with `wb-reap --gate-lock` |
 | `Feature branch pushes need confirmation` | `project.git.feature_push` is `ask` (default) | Approve in the confirmation prompt. To always allow, set it to `allow` |
 | `` `git reset --hard` discards uncommitted changes for good `` | A command that throws away changes | Check what would be lost with `git status`, leave a WIP commit if needed, then approve |
@@ -68,8 +69,8 @@ Inside Claude Code, `/wb:explain` and `/wb:doctor` do the same. A block message 
 
 | Message | Cause | Fix |
 |---|---|---|
-| `8. Test results — The report has no test result (passed count)` | The passed count could not be read from the report. A number after the word, as in "passed 1", is not read | Put the number first, as in "1 passed" or "12 passed" |
-| `8. Test results — The report shows … failing tests` | The report has a failure count. A count on the failure-before-the-fix line, as in "failure before the fix: 1 failed", also counts | Do not put a number on the failure-before-the-fix line. Example: "Failure before the fix: added the filter test first and saw it fail" |
+| `8. Test results — The report has no test result (passed count)` | The passed count could not be read from the report | Write the passed count, as in `tests: 12 passed / 0 failed` or `passed: 12` |
+| `8. Test results — The report shows … failing tests` | The report has a count of tests failing now. A record of the failure before the fix, such as `failed before the fix: 1`, is not counted | Fix the failing tests, then update the result line |
 | `6. Captures checked — UI change without captures` | Screen files changed and there are no captures | Put the before and after capture paths in the lane report. The main session opens them and then passes `--captures-seen` |
 | `7. Served code marker — Web UI change without a URL (--serve-url) and a marker (--marker) to check` | A web screen change without a serving check | Restart the server and pass `--serve-url http://127.0.0.1:<port>/… --marker <text only this change adds>`. Only addresses on this machine are allowed |
 | `5. Brief scope` fails | Files outside the brief's owned files changed | Revert the out-of-scope changes or fix the brief and send again |
@@ -78,7 +79,7 @@ Inside Claude Code, `/wb:explain` and `/wb:doctor` do the same. A block message 
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `wb-check brief` ends with `Error: ENOENT` | The brief file does not exist | Check the path. init does not create `.wb/briefs/`, so create it with `mkdir -p .wb/briefs` |
+| `The brief file … does not exist` | The brief file given to `wb-check brief` does not exist | Check the path. init does not create `.wb/briefs/`, so create it with `mkdir -p .wb/briefs` |
 | `wb-worktree remove` says `Processes are running inside …, so it was not removed (PID …)` | A server or watcher started in that folder is still alive | Stop the listed PIDs one by one with `kill <PID>` and run it again |
 | `wb-worktree remove` says `… uncommitted change(s)` | Uncommitted changes | Commit them, or add `--force` only when you are sure they can go |
 | `wb-worktree create` says `… live lanes reach the limit of …` | Lane cap | Remove finished lanes |
@@ -110,14 +111,11 @@ No. The skill creates a grant only when a person types it in the prompt. Subagen
 **Do I need codegraph?**
 No. Without it the related hooks and commands do nothing. With it, every new worktree gets its index through the queue.
 
-**The time in the test result file name differs from the clock.**
-Release 0.1.0 names the file with the date and `HHMM` in Coordinated Universal Time (UTC). The raw log folder uses local time. See "Known limitations" below.
+**Which time zone does the time in the result file name use?**
+The start time of the run in this machine's time zone (system setting, `TZ` environment variable). The raw log folder name uses the same local time.
 
 **After committing the results I get `The run commit … differs from the current HEAD …`.**
-Committing the result files moves HEAD. If only the result files were committed, the code under test is the same and there is no need to run again. If code changed, run again.
-
-**`/wb:init` mentioned `/wb:ui-check`, but there is no such skill.**
-Release 0.1.0 does not ship it. Ignore that line.
+A commit after the run changed files outside the results folder. When only result files were committed, the check passes with `Only result files changed` instead of this warning. Code changed, so run again.
 
 **There is no `progress.md` and the handoff hook says nothing.**
 The handoff hooks work only in a repository that has `progress.md`. Create it once yourself.
@@ -129,15 +127,5 @@ In the default permission mode (`default`), tools that need approval are refused
 
 | Item | Effect | What you can do now |
 |---|---|---|
-| No command writes the gate pass stamp | In a project with `project.gate.command`, merges and pushes to a protected branch inside a Claude session stay blocked with `There is no gate pass stamp` even with a `/wb:approve merge-main` or `push-main` grant. A passing gate in `wb-test-report run` does not write the stamp | The owner merges or pushes from a terminal outside Claude Code, or leaves the gate command empty |
-| Result file names use UTC | The date and time in the file name differ from local time | Read the run time from the raw log folder name (`test-results/runs/<name>-<date>-<time>`, local time) |
-| Language of the `wb-test-report run` output | The workbook result line is always in Korean and the `[verify]` line always in English, whatever the language setting | The figures are the same; `wb-test-report summary` gives the summary in your language |
-| Committing results makes `wb-check test-results` warn about HEAD | The warning stays even when only results were committed | Make sure only result files were committed and ignore the warning |
-| Branch name in the protected push block message | The branch checked out now is named instead of the target branch | The verdict itself uses the target branch correctly |
-| Expiry time of an owner grant | Shown in UTC (`…Z`) | Convert it to local time |
-| Test count format in lane reports | A number after the word ("passed 1") is not read as the passed count, and a count on the failure-before-the-fix line is counted as a failure | Write "1 passed", and put no number on the failure-before-the-fix line |
-| Branch field of a return brief | It says "lane branch" instead of the lane branch name | Replace it with the real branch name before sending |
-| Output of `wb-explain code safety.kill.pattern` | The first line keeps the `{cmd}` placeholder | The rule part is correct |
-| `wb-check brief` with a missing file | It ends with a Node.js error (`ENOENT`) instead of a message | Check the path |
-| UI stability check (`/wb:ui-check`) and term check | Not part of this release. Their settings keys (`project.ui_stability.*`, `project.glossary.terms_scan` and `copy_globs`) are reserved | They come in a later release |
+| UI stability check and term check | Not part of this release. Their settings keys (`project.ui_stability.*`, `project.glossary.terms_scan` and `copy_globs`) are reserved | They come in a later release |
 | Reach of the safety hooks | Commands inside script files, and git or kill calls from python or node, are not judged | Do not wrap risky work in scripts |

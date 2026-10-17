@@ -109,7 +109,6 @@ wb-config init --kind web-ui --lang en --gate "npm test" --worktree-hook no
 ```
 Wrote: ~/work/list-app/.wb/config.json
 Wrote: ~/.wb/personal.json
-This project has a UI. You can install UI stability checks with `/wb:ui-check`.
 Initialization finished. Run `/wb:doctor` to review the result.
 ```
 
@@ -117,7 +116,6 @@ What init does:
 
 - It writes `.wb/config.json` (project settings) and `~/.wb/personal.json` (personal settings). Existing files are not overwritten; they are reported as `Kept:`.
 - It adds `.wb/briefs/`, `.codegraph/` and `.wb/metrics/` to `.git/info/exclude` so they stay out of git status.
-- For a project with screens it mentions `/wb:ui-check`. Release 0.1.0 does not ship that skill, so ignore the line.
 - It does not commit. Commit `.wb/config.json`, since the team shares it.
 
 Check the result with `/wb:doctor` (or `wb-config doctor`).
@@ -346,7 +344,7 @@ The lane commits only to its own lane branch and writes its result to the report
 [■■■■□□□] 4/7 Review · 1 in review
 ```
 
-The lane report holds the new HEAD, the test results and what remains. Review reads this file as the source of truth. Write the test result with the number first, as in "1 passed".
+The lane report holds the new HEAD, the test results and what remains. Review reads this file as the source of truth. Write the test result on one line, such as `tests: 12 passed / 0 failed`. Record the failure before the fix separately, such as `failed before the fix: 1`; review does not count that record as a failure.
 
 ```
 # l1 report — list search box
@@ -440,20 +438,25 @@ wb-test-report run --name integration
 [gate] 1 steps · passed 1 · failed 0 · …/gate.json
 [wb-slot] Running in slot heavy#1: sh -c python3 -m pytest tests -q --junitxml=…
 2 passed in 0.01s
-~/work/list-app/docs/test-results/2026-10-17/integration-1338.xlsx: 판정 통과 · 스위트 1 · gate 1단계 · 실패 0 · 간헐 0 · 원장 불일치 0 · 시험 행 0
+~/work/list-app/docs/test-results/2026-10-17/integration-2238.xlsx: verdict passed · suites 1 · gate 1 steps · failed 0 · flaky 0 · ledger mismatches 0 · test rows 0
+
+[verify] results folder ~/work/list-app/test-results/runs/integration-20261017-2238 · failed stages none
+Gate pass stamp written: commit 425ace6… · ~/work/list-app/.git/wb/wb-gate-pass.json
 ```
 
-The workbook line is printed in Korean whatever the language setting (see "Known limitations" in [Troubleshooting](05-troubleshooting.md)). Commit the workbook with the `.json` of the same name and confirm with `wb-check test-results`. The raw log folder (`test-results/runs/`) is not committed, so add a `.gitignore` line that points only at the top-level folder, such as `/test-results/`. Writing `test-results/` also hides `docs/test-results/`.
+The date and time in the workbook name are the local time (system time zone) when the run started. When the gate and every stage pass and there are no uncommitted changes, the run writes the gate pass stamp. Section 4.10 uses the stamp for changes to a protected branch.
+
+Commit the workbook with the `.json` of the same name and confirm with `wb-check test-results`. The raw log folder (`test-results/runs/`) is not committed, so add a `.gitignore` line that points only at the top-level folder, such as `/test-results/`. Writing `test-results/` also hides `docs/test-results/`.
 
 ```
 Test result check passed.
-  ✓ Newest result workbook: docs/test-results/2026-10-17/integration-1338.xlsx
-  ✓ Committed: docs/test-results/2026-10-17/integration-1338.xlsx
+  ✓ Newest result workbook: docs/test-results/2026-10-17/integration-2238.xlsx
+  ✓ Committed: docs/test-results/2026-10-17/integration-2238.xlsx
   ✓ Verdict: passed
-  ⚠ The run commit 425ace6 differs from the current HEAD 599d4cd. Run the verification again for an integration or final check.
+  ✓ Only result files changed after the run commit 425ace6 (HEAD 599d4cd). The run still counts.
 ```
 
-The last warning appears because committing the result files moved HEAD. If only the result files were committed, there is no need to run again. See [Troubleshooting](05-troubleshooting.md).
+Committing the result files moves HEAD, but when nothing outside the results folder changed after the run, the run still counts. When code changed, `The run commit … differs from the current HEAD …` appears and the run must be repeated.
 
 ### 4.8 Report
 
@@ -512,10 +515,22 @@ To merge into or push to a protected branch such as `main`, the owner types this
 ```
 
 ```
-[wb] Owner grant recorded: merge-main · wb/search/int · commit 2c2d39f56 · 15 min (expires 2026-10-17T13:55:35.519Z) · one use. Only this commit can be applied. A gate pass stamp for the same commit is also required: …/.git/wb/wb-gate-pass.json
+[wb] Owner grant recorded: merge-main · wb/search/int · commit 2c2d39f56 · 15 min (expires 2026-10-17 22:55 (UTC+09:00)) · one use. Only this commit can be applied. A gate pass stamp for the same commit is also required: …/.git/wb/wb-gate-pass.json
 ```
 
-A grant is valid once, for 15 minutes, and only for the commit current when it was typed. The expiry is shown in UTC. A project with `project.gate.command` also needs a gate pass stamp. Release 0.1.0 has no command that writes the stamp, so in such a project a merge inside the Claude session stays blocked. The owner then merges from a terminal outside Claude Code (see "Known limitations" in [Troubleshooting](05-troubleshooting.md)).
+A grant is valid once, for 15 minutes, and only for the commit current when it was typed. The expiry is shown in this machine's local time. A project with `project.gate.command` also needs a gate pass stamp for the same commit. `wb-test-report run` in section 4.7 writes it on a full pass. A project that sets only the gate command, without a verification file (`.wb/verify.config.json`), runs `wb-test-report gate-pass` in the integration branch folder. That command runs `project.gate.command` and writes the stamp when it passes.
+
+```
+wb-test-report gate-pass
+```
+
+```
+Running the gate: npm test
+…
+Gate pass stamp written: commit 2c2d39f56 · ~/work/list-app/.git/wb/wb-gate-pass.json
+```
+
+If only result files were committed after the stamp, it stays valid. Any other change blocks the merge with `The gate pass stamp belongs to another commit (…)`, so run it again.
 
 ## What to read next
 

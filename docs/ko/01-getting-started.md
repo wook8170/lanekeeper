@@ -109,7 +109,6 @@ wb-config init --kind web-ui --lang ko --gate "npm test" --worktree-hook no
 ```
 작성: ~/work/list-app/.wb/config.json
 작성: ~/.wb/personal.json
-화면이 있는 프로젝트입니다. UI 안정성 점검은 `/wb:ui-check` 로 설치할 수 있습니다.
 초기화를 마쳤습니다. `/wb:doctor` 로 결과를 확인하세요.
 ```
 
@@ -117,7 +116,6 @@ init 이 하는 일은 다음과 같다.
 
 - `.wb/config.json`(프로젝트 설정)과 `~/.wb/personal.json`(개인 설정)을 만든다. 이미 있는 파일은 덮어쓰지 않고 `유지:` 로 알린다.
 - `.git/info/exclude` 에 `.wb/briefs/`, `.codegraph/`, `.wb/metrics/` 를 넣어 git 상태에 나타나지 않게 한다.
-- 화면이 있는 프로젝트이면 `/wb:ui-check` 를 안내한다. 0.1.0 에는 이 스킬이 들어 있지 않으므로 이 줄은 무시한다.
 - 커밋은 하지 않는다. `.wb/config.json` 은 팀이 함께 쓰는 설정이므로 커밋한다.
 
 결과는 `/wb:doctor`(또는 `wb-config doctor`)로 확인한다.
@@ -346,7 +344,7 @@ w1/l1      진행*  opus  impl-multi  1/0          0/2    0/0        0     0m
 [■■■■□□□] 4/7 검수 · 검수 대기 1
 ```
 
-레인 보고 파일에는 새 HEAD, 시험 결과, 남은 것을 적는다. 검수는 이 파일을 정본으로 읽는다. 시험 결과는 「1건 통과」처럼 숫자를 앞에 쓴다.
+레인 보고 파일에는 새 HEAD, 시험 결과, 남은 것을 적는다. 검수는 이 파일을 정본으로 읽는다. 시험 결과는 `시험: 통과 12 / 실패 0` 처럼 한 줄로 쓴다. 수정 전 실패 기록은 `수정 전 실패 1건` 처럼 따로 적으며, 검수는 이 기록을 실패로 세지 않는다.
 
 ```
 # l1 보고 — 목록 검색 상자
@@ -440,20 +438,25 @@ wb-test-report run --name integration
 [gate] 1 steps · passed 1 · failed 0 · …/gate.json
 [wb-slot] 슬롯 heavy#1 에서 실행합니다: sh -c python3 -m pytest tests -q --junitxml=…
 2 passed in 0.01s
-~/work/list-app/docs/test-results/2026-10-17/integration-1338.xlsx: 판정 통과 · 스위트 1 · gate 1단계 · 실패 0 · 간헐 0 · 원장 불일치 0 · 시험 행 0
+~/work/list-app/docs/test-results/2026-10-17/integration-2238.xlsx: 판정 통과 · 스위트 1 · gate 1단계 · 실패 0 · 간헐 0 · 원장 불일치 0 · 시험 행 0
+
+[verify] 결과 폴더 ~/work/list-app/test-results/runs/integration-20261017-2238 · 실패 단계 없음
+게이트 통과 표식을 남겼습니다: 커밋 425ace6… · ~/work/list-app/.git/wb/wb-gate-pass.json
 ```
+
+엑셀 파일 이름의 날짜와 시각은 실행을 시작한 현지 시각(시스템 시간대)이다. 게이트와 모든 단계가 통과하고 커밋하지 않은 변경이 없으면 게이트 통과 표식을 남긴다. 표식은 4.10 절의 보호 브랜치 반영에 쓰인다.
 
 엑셀과 같은 이름의 `.json` 을 커밋하고 `wb-check test-results` 로 확인한다. 원본 로그 폴더(`test-results/runs/`)는 커밋하지 않으므로 `.gitignore` 에 `/test-results/` 처럼 저장소 맨 위 폴더만 가리키는 줄을 넣는다. `test-results/` 로 적으면 `docs/test-results/` 까지 가려진다.
 
 ```
 시험 결과 점검 통과.
-  ✓ 최신 결과 엑셀: docs/test-results/2026-10-17/integration-1338.xlsx
-  ✓ 커밋됨: docs/test-results/2026-10-17/integration-1338.xlsx
+  ✓ 최신 결과 엑셀: docs/test-results/2026-10-17/integration-2238.xlsx
+  ✓ 커밋됨: docs/test-results/2026-10-17/integration-2238.xlsx
   ✓ 종합 판정: passed
-  ⚠ 실행 커밋 425ace6 이 현재 HEAD 599d4cd 와 다릅니다. 통합·최종 검증이면 다시 돌리십시오.
+  ✓ 실행 커밋 425ace6 뒤로는 시험 결과 파일만 바뀌었습니다(현재 HEAD 599d4cd). 같은 결과로 봅니다.
 ```
 
-마지막 경고는 결과 파일을 커밋하면서 HEAD 가 바뀌었기 때문에 나온다. 결과 파일만 커밋했다면 다시 돌리지 않아도 된다. 자세한 내용은 [문제 해결](05-troubleshooting.md)에 있다.
+결과 파일을 커밋하면 HEAD 가 바뀌지만, 그 뒤로 결과 폴더 밖의 파일이 바뀌지 않았으면 같은 실행으로 본다. 코드가 바뀌었으면 `실행 커밋 … 이 현재 HEAD … 와 다릅니다` 경고가 나오고 다시 돌려야 한다.
 
 ### 4.8 보고
 
@@ -512,10 +515,22 @@ wb-worktree remove l1 --delete-branch
 ```
 
 ```
-[wb] 소유자 허가를 기록했습니다: merge-main · wb/search/int · 커밋 2c2d39f56 · 15분(만료 2026-10-17T13:55:35.519Z) · 1회. 이 커밋이 아니면 반영되지 않습니다. 게이트 통과 표식도 같은 커밋으로 있어야 합니다: …/.git/wb/wb-gate-pass.json
+[wb] 소유자 허가를 기록했습니다: merge-main · wb/search/int · 커밋 2c2d39f56 · 15분(만료 2026-10-17 22:55 (UTC+09:00)) · 1회. 이 커밋이 아니면 반영되지 않습니다. 게이트 통과 표식도 같은 커밋으로 있어야 합니다: …/.git/wb/wb-gate-pass.json
 ```
 
-허가는 15분 동안 한 번, 입력할 때의 커밋에만 유효하다. 만료 시각은 UTC 로 표시된다. `project.gate.command` 를 설정한 프로젝트는 게이트 통과 표식도 필요하다. 0.1.0 에서는 이 표식을 만드는 명령이 없어, 게이트를 설정한 프로젝트에서는 Claude 세션 안의 병합이 막힌다. 이때는 소유자가 Claude Code 밖의 터미널에서 직접 병합한다([문제 해결](05-troubleshooting.md)의 「알려진 제한」).
+허가는 15분 동안 한 번, 입력할 때의 커밋에만 유효하다. 만료 시각은 이 머신의 현지 시각으로 표시된다. `project.gate.command` 를 설정한 프로젝트는 같은 커밋의 게이트 통과 표식도 필요하다. 표식은 4.7 절의 `wb-test-report run` 이 전체 통과 때 남긴다. 검증 설정(`.wb/verify.config.json`) 없이 게이트 명령만 정한 프로젝트는 통합 브랜치 폴더에서 `wb-test-report gate-pass` 를 실행한다. 이 명령은 `project.gate.command` 를 실행하고, 통과하면 표식을 남긴다.
+
+```
+wb-test-report gate-pass
+```
+
+```
+게이트 실행: npm test
+…
+게이트 통과 표식을 남겼습니다: 커밋 2c2d39f56 · ~/work/list-app/.git/wb/wb-gate-pass.json
+```
+
+표식을 남긴 뒤 결과 파일만 커밋했다면 표식은 그대로 유효하다. 다른 변경이 들어가면 병합이 `게이트 통과 표식이 다른 커밋(…)의 것입니다` 로 막히므로 다시 돌린다.
 
 ## 다음에 읽을 문서
 

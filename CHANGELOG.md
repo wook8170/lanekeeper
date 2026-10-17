@@ -5,6 +5,11 @@
 ## [Unreleased]
 
 ### Added
+- `wb-test-report gate-pass`: `project.gate.command` 를 실행하고, 통과하면 게이트 통과 표식을 남긴다
+- 게이트 통과 표식 기록: `wb-test-report run`(일부 단계만 고르지 않은 실행)과 `gate-pass` 가 커밋하지 않은 변경 없이 통과하면 `<git 공용 폴더>/wb/<git.gate_stamp>.json` 에 커밋 HEAD·시각·명령을 남긴다. 표식이 다른 커밋의 것이면 차단 메시지가 표식의 커밋과 다시 돌릴 명령을 알려 준다
+- 결과 파일만 바뀐 커밋 인정: 표식·실행 커밋 뒤에 결과 폴더(`paths.test_results`) 안의 파일만 바뀐 커밋은 보호 브랜치 반영 판정과 `wb-check test-results`(새 항목 `head_results_only`)에서 같은 커밋으로 본다
+- 레인 지시서 틀(구현·수정·시험)에 시험 결과 줄 형식 안내(`시험: 통과 12 / 실패 0`, 수정 전 실패는 따로)
+- 회귀 시험 `tests/manual-findings.test.mjs`(설명서 따라 해 보기에서 찾은 결함 1~12·14), 파이썬 시험 2건(현지 시각 파일 이름, 결과 줄 언어)
 - 사용 설명서 `docs/`(한국어 `docs/ko/`, 영어 `docs/en/` 각 5장: 시작하기와 처음 30분, 기능 안내와 스킬 17개, 설정 키 전체 참조, 규칙 안내, 문제 해결)와 목차 `docs/README.md`. 루트 README 에서 연결
 - `wb-rules manual [--lang ko|en] [--write]`: 규칙 카탈로그에서 설명서 규칙 장(`docs/<언어>/04-rules.md`)을 읽는 순서대로 만든다(메시지 코드·관련 설정 포함)
 - 설명서 시험 `tests/docs.test.mjs`: 스킬 이름·`wb-*` 명령과 하위 명령·설정 키와 기본값·규칙 수·규칙 장 재생성·링크·한영 구성을 코드와 대조
@@ -47,6 +52,14 @@
 - codegraph 훅: grep 안내(식별자 하나·색인 있는 체크아웃·세션 1회, 차단 없음), 색인 없는 경로 두 번째 호출 차단, 응답 분류 기록(`.wb/metrics/codegraph.jsonl`), 세션 시작 지침 `rules/codegraph.{ko,en}.md`. `/wb:doctor` 에 색인·대기열·남은 색인 점검. 규칙 카탈로그 `codegraph-first` 를 실제 훅으로 연결하고 `codegraph-index-first` 추가(38개)
 
 ### Changed
+- 저작권자·연락처: LICENSE·`plugin.json`·`marketplace.json` 저작권자를 「윤결파파」로, SECURITY 신고 메일을 공개 연락 메일로 채웠다. 내부 정보 검사는 이 메일을 정해진 파일에서만 허용한다
+- 시험 결과 파일 이름의 날짜·`HHMM` 을 이 머신의 현지 시각(시스템 시간대)으로 붙인다(이전에는 UTC)
+- `wb-test-report run` 의 `[verify]` 줄과 엑셀 결과 줄을 설정 언어로 출력한다(`verify-all.mjs --lang`, `build_xlsx.py --lang`)
+- 검수 8번 항목이 「통과 1」·「passed: 7」처럼 숫자가 뒤에 오는 형식도 읽고, 「수정 전 실패 1건」 같은 수정 전 기록은 실패로 세지 않는다
+- 소유자 허가의 만료 시각을 현지 시각과 시간대 차이로 보여 준다(예 `2026-10-17 22:55 (UTC+09:00)`)
+- 규칙 카탈로그에서 아직 지키는 곳이 없는 규칙의 문구를 「아직 없음(이후 판에서 추가)」로 바꿨다(내부 작업 이름 제거)
+- SECURITY 의 토큰 가드 항목: 훅은 예산을 정하기 전에는 대화 기록을 읽지 않고, `wb-token status`·`calibrate` 는 예산과 관계없이 읽는다고 고쳐 적었다
+- 설명서(한국어·영어): 시작하기 4.7·4.10 절, 기능 안내 명령 목록, 문제 해결 메시지 표·자주 묻는 질문·알려진 제한을 고친 동작에 맞췄다
 - 규칙 카탈로그 문구를 처음 쓰는 관리자가 읽기 쉬운 업무 문체로 다시 썼다(규칙·이유·복구, ko/en). 규칙마다 짧은 이름(`title`)을 더했고, 생성 문서의 제목은 `### <이름> (\`<id>\`)` 형식이다. 머리말에 레인·웨이브·취합 담당·소유자·게이트의 뜻을 적었다. `wb-rules list` 는 이름을 보여 준다
 - 큰 설계 트랙 플러그인 이름을 코드에서 빼고 개인 설정 `design_plugin`(기본 빈 값)으로 옮겼다. 비어 있으면 `wb-work plan` 이 설정 방법을 안내한다
 - 쓰이지 않던 기본 설정 `paths.progress`(실제 경로는 `personal.handoff.file`)와 `paths.waves`(원장은 `<git 공용 폴더>/wb/`)를 지웠다
@@ -56,6 +69,15 @@
 - 세션 시작 훅·`wb-waves resume`·`/wb:pickup`·`/wb:resume` 은 `progress.md` 전체를 보여 주고 아카이브 검색 방법(`grep -n '<키워드>' docs/progress-archive/*.md`)을 안내한다. 기준 줄 수를 넘은 누적형 파일만 최신 절을 보여 준다
 - 종료 가드 문구가 아카이브 덧붙임 → 통째로 다시 쓰기 → 두 파일 함께 커밋 순서를 요구하고, 파일이 기준을 넘으면 옮기는 방법을 덧붙인다
 - 규칙 카탈로그 `progress-handoff` 의 규칙·이유·복구 문구와 지키는 위치(`bin/wb-waves`, `personal.handoff`)를 갱신
+
+### Fixed
+- 게이트 명령(`project.gate.command`)을 둔 프로젝트에서 표식을 쓰는 곳이 없어 `/wb:approve merge-main`·`push-main` 허가가 있어도 보호 브랜치 병합·push 가 항상 막히던 문제
+- 결과 엑셀만 커밋해도 `wb-check test-results` 가 「다시 돌리십시오」 경고를 내던 문제
+- 보호 브랜치 push 차단 메시지가 대상 브랜치 대신 지금 체크아웃한 브랜치 이름을 적던 문제
+- `/wb:init` 과 init 스킬이 들어 있지 않은 스킬(`ui-check`·`advanced`)을 안내하던 문제
+- 되돌림 지시서의 브랜치 칸에 실제 이름 대신 「레인 브랜치」가 들어가던 문제(`--lane-dir` 체크아웃 또는 레인 대장에서 읽는다)
+- `wb-explain code` 첫 줄에 `{cmd}` 같은 자리가 그대로 나오던 문제(`<cmd>` 로 표시)
+- `wb-check brief <없는 파일>` 이 Node.js 스택으로 끝나던 문제(안내 문구와 종료 코드 2)
 
 ### Security
 - 검수 9항목의 화면 확인(`--serve-url`)이 이 머신 주소(`localhost`·`127.0.0.0/8`·`[::1]`)만 읽는다. 다른 주소는 `serving.not_local` 로 실패한다

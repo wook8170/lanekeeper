@@ -246,11 +246,12 @@ wb-waves handoff migrate [--force]          기준을 넘은 progress.md 를 아
 wb-test-report init                  .wb/verify.config.json 생성(gate 와 stages 를 프로젝트에 맞게 고친다)
 wb-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
 wb-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
+wb-test-report gate-pass             project.gate.command 실행, 통과하면 게이트 통과 표식
 wb-test-report latest | summary [--json]
 wb-check test-results [--json] [--require-pass]
 ```
 
-`wb-test-report run`·`gate` 는 실행하는 동안 `<git 공용 폴더>/wb/gate.lock` 을 잡아 둔다. 그동안 병합은 기다리고, 다른 게이트 실행은 종료 코드 3 으로 멈춘다. 실행이 끝나면 잠금을 지운다.
+`wb-test-report run`·`gate` 는 실행하는 동안 `<git 공용 폴더>/wb/gate.lock` 을 잡아 둔다. 그동안 병합은 기다리고, 다른 게이트 실행은 종료 코드 3 으로 멈춘다. 실행이 끝나면 잠금을 지운다. `run`(일부만 고르는 `--only`·`--skip` 없이)이나 `gate-pass` 가 통과하고 커밋하지 않은 변경이 없으면 `<git 공용 폴더>/wb/<git.gate_stamp>.json` 에 게이트 통과 표식(커밋 HEAD·시각·명령)을 남긴다. 보호 브랜치 반영 판정은 이 표식을 읽고, 표식 뒤에 결과 폴더(`paths.test_results`) 안의 파일만 바뀐 커밋은 같은 커밋으로 본다. `wb-check test-results` 의 HEAD 비교도 같은 규칙을 따른다.
 
 단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `wb-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
 

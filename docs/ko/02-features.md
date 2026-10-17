@@ -188,7 +188,8 @@ wb-waves handoff migrate                    기준을 넘은 누적형 파일을
 ```
 wb-test-report env                          준비 확인
 wb-test-report init                         .wb/verify.config.json 생성
-wb-test-report run --name integration       게이트 → 단계별 시험 → 엑셀
+wb-test-report run --name integration       게이트 → 단계별 시험 → 엑셀(전체 통과면 게이트 통과 표식)
+wb-test-report gate-pass                    project.gate.command 실행, 통과하면 게이트 통과 표식
 wb-test-report summary [--json]             최신 결과 수치
 wb-check test-results                       최신 결과가 있고 커밋됐는지 확인
 ```
@@ -470,7 +471,7 @@ wb/search/l1 를 병합했습니다. 새 HEAD b572a921d734
 
 ```
 wb-test-report summary
-시험 결과 docs/test-results/2026-10-17/integration-1338.xlsx · 판정 통과 · 커밋 425ace6
+시험 결과 docs/test-results/2026-10-17/integration-2238.xlsx · 판정 통과 · 커밋 425ace6
   unit: 총 2 · 통과 2 · 실패 0 · 건너뜀 0 · 간헐 0
   gate: 1단계 · 실패 0 · 미실행 0
 ```

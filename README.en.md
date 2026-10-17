@@ -221,11 +221,12 @@ The result of an integration or final verification is saved as an Excel workbook
 wb-test-report init                  create .wb/verify.config.json (edit gate and stages for the project)
 wb-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
 wb-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
+wb-test-report gate-pass             run project.gate.command; a pass writes the gate pass stamp
 wb-test-report latest | summary [--json]
 wb-check test-results [--json] [--require-pass]
 ```
 
-`wb-test-report run` and `gate` hold `<git common dir>/wb/gate.lock` while they run. Merges wait meanwhile, and a second gate run stops with exit code 3. The lock is removed when the run ends.
+`wb-test-report run` and `gate` hold `<git common dir>/wb/gate.lock` while they run. Merges wait meanwhile, and a second gate run stops with exit code 3. The lock is removed when the run ends. When `run` (without `--only` or `--skip`, which pick a part) or `gate-pass` passes with no uncommitted changes, it writes the gate pass stamp (HEAD commit, time, command) to `<git common dir>/wb/<git.gate_stamp>.json`. The protected-branch check reads that stamp, and treats commits after it that change only files in the results folder (`paths.test_results`) as the same commit. The HEAD comparison in `wb-check test-results` follows the same rule.
 
 Each stage names an `adapter` (vitest, jest, playwright, pytest), a `kind` (unit, integration, e2e, uistab), a `cmd` (`{file}` is where the structured output goes) and a `slot` (`heavy`, `heavy,browser`, `none`). Heavy stages run inside `wb-slot`. A run that only left logs is read with `build --input adapter:kind:name=log=<log>`.
 
