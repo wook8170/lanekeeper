@@ -708,12 +708,12 @@
       "id": "progress-handoff",
       "group": "session",
       "rule": {
-        "ko": "세션을 시작하면 `progress.md` 를 먼저 읽고, 작업 단위가 끝날 때마다 갱신한다. 세션이 낡은 `progress.md` 로 끝나지 않게 한다.",
-        "en": "Read `progress.md` first when a session starts and update it at the end of each unit of work. A session must not end with a stale `progress.md`."
+        "ko": "세션을 시작하면 `progress.md` 를 처음부터 끝까지 읽고, 작업 단위가 끝날 때마다 통째로 다시 쓴다. `progress.md` 는 지금 유효한 상태만 담고(기본 300줄 이하), 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 에 덧붙인다. 세션이 낡은 `progress.md` 로 끝나지 않게 한다.",
+        "en": "When a session starts, read `progress.md` from start to end, and rewrite it whole at the end of each unit of work. `progress.md` holds the current state only (300 lines or fewer by default); finished content is appended to `docs/progress-archive/progress-<YYYY-MM>.md`. A session must not end with a stale `progress.md`."
       },
       "why": {
-        "ko": "맥락이 지워진 새 세션은 `progress.md` 만 보고 이어받는다. 낡아 있으면 끝난 일을 다시 하거나 중간 상태를 놓친다.",
-        "en": "A new session with a cleared context picks up from `progress.md` alone. If it is stale, finished work is repeated or half-done state is missed."
+        "ko": "맥락이 지워진 새 세션은 `progress.md` 만 보고 이어받는다. 낡아 있으면 끝난 일을 다시 하거나 중간 상태를 놓친다. 이전 절을 쌓아 두면 파일이 커져 새 세션이 앞부분만 읽고 현재 상태를 놓친다.",
+        "en": "A new session with a cleared context picks up from `progress.md` alone. If it is stale, finished work is repeated or half-done state is missed. If old sections pile up, the file grows until a new session reads only the beginning and misses the current state."
       },
       "enforced": [
         {
@@ -729,11 +729,20 @@
         {
           "kind": "skill",
           "path": "skills/pickup/SKILL.md"
+        },
+        {
+          "kind": "tool",
+          "path": "bin/wb-waves",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.handoff"
         }
       ],
       "recover": {
-        "ko": "완료한 것, 진행 중인 것, 바로 할 일, 확인 대기, 주의할 점을 `progress.md` 에 적고 커밋한 뒤 종료한다.",
-        "en": "Write what is done, in progress, next, waiting and the pitfalls into `progress.md`, commit, then stop."
+        "ko": "끝난 내용을 아카이브에 덧붙이고(`wb-waves handoff archive \"<요지>\"` 는 지금 파일 전체를 덧붙인다), 목표와 오너 결정 · 브랜치와 서버 · 진행 중 · 다음 할 일 · 확인 대기 · 시스템 지식 · 재개 명령을 `progress.md` 에 새로 적어 두 파일을 함께 커밋한다. 이미 누적형으로 커졌으면 `wb-waves handoff migrate` 로 통째로 옮긴 뒤 새로 쓴다.",
+        "en": "Append finished content to the archive (`wb-waves handoff archive \"<summary>\"` appends the whole current file), write goals and owner decisions, branches and servers, in progress, next, waiting for answers, system notes and resume commands into `progress.md` anew, and commit both files together. If the file has already grown by accumulation, move it whole with `wb-waves handoff migrate` and then write it anew."
       }
     },
     {

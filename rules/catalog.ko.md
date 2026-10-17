@@ -198,11 +198,11 @@
 
 ### progress-handoff
 
-세션을 시작하면 `progress.md` 를 먼저 읽고, 작업 단위가 끝날 때마다 갱신한다. 세션이 낡은 `progress.md` 로 끝나지 않게 한다.
+세션을 시작하면 `progress.md` 를 처음부터 끝까지 읽고, 작업 단위가 끝날 때마다 통째로 다시 쓴다. `progress.md` 는 지금 유효한 상태만 담고(기본 300줄 이하), 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 에 덧붙인다. 세션이 낡은 `progress.md` 로 끝나지 않게 한다.
 
-- 왜: 맥락이 지워진 새 세션은 `progress.md` 만 보고 이어받는다. 낡아 있으면 끝난 일을 다시 하거나 중간 상태를 놓친다.
-- 어디서 지키나: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`
-- 막혔을 때: 완료한 것, 진행 중인 것, 바로 할 일, 확인 대기, 주의할 점을 `progress.md` 에 적고 커밋한 뒤 종료한다.
+- 왜: 맥락이 지워진 새 세션은 `progress.md` 만 보고 이어받는다. 낡아 있으면 끝난 일을 다시 하거나 중간 상태를 놓친다. 이전 절을 쌓아 두면 파일이 커져 새 세션이 앞부분만 읽고 현재 상태를 놓친다.
+- 어디서 지키나: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`, `bin/wb-waves`, 설정 `personal.handoff`
+- 막혔을 때: 끝난 내용을 아카이브에 덧붙이고(`wb-waves handoff archive "<요지>"` 는 지금 파일 전체를 덧붙인다), 목표와 오너 결정 · 브랜치와 서버 · 진행 중 · 다음 할 일 · 확인 대기 · 시스템 지식 · 재개 명령을 `progress.md` 에 새로 적어 두 파일을 함께 커밋한다. 이미 누적형으로 커졌으면 `wb-waves handoff migrate` 로 통째로 옮긴 뒤 새로 쓴다.
 
 ### wave-checkpoint
 

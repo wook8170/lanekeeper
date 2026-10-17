@@ -38,5 +38,5 @@ Run `wb-work progress` whenever the user asks "where are we" and after every lan
 ## 4. Finish
 
 1. Review each lane (`/wb:review-lane`, when installed), integrate, then report: what was checked, what was not, what remains. Keep checked and unchecked apart.
-2. At the end of every wave update `progress.md`, commit it, and tell the user to run `/clear`; say that the handoff is written so the next session can continue.
+2. At the end of every wave hand off: append finished content to `docs/progress-archive/progress-<YYYY-MM>.md` (or run `wb-waves handoff archive "<summary>"`), rewrite `progress.md` as the current state only, commit both, and tell the user to run `/clear`; say that the handoff is written so the next session can continue.
 3. Do not push or merge into a protected branch. The owner grants that with `/wb:approve`.

@@ -5,8 +5,8 @@ description: Resume interrupted wave work. Builds a report from progress.md, git
 
 # wb resume
 
-1. Run `wb-waves resume` and show the whole report. Sections: latest handoff, git state, lanes with a verdict, stale items, next steps.
-2. **Report stale items first**, before any new work: progress.md older than the last work, lanes marked running with no activity, missing or unregistered worktrees, uncommitted changes in a lane worktree, dispatches that never started an agent, agents with no stop record. Wait for the user's answer when an item needs a decision (delete a worktree, discard changes).
+1. Run `wb-waves resume` and show the whole report. Sections: current state (the whole `progress.md`; only the newest section when the file is an oversized accumulated one), the archive location, git state, lanes with a verdict, stale items, next steps. Past history is in `docs/progress-archive/`; search it with `grep -n '<keyword>' docs/progress-archive/*.md` only when a lane needs an earlier decision.
+2. **Report stale items first**, before any new work: progress.md older than the last work, progress.md over the line target (`wb-waves handoff migrate` moves an accumulated file to the archive), lanes marked running with no activity, missing or unregistered worktrees, uncommitted changes in a lane worktree, dispatches that never started an agent, agents with no stop record. Wait for the user's answer when an item needs a decision (delete a worktree, discard changes).
 3. Lane verdicts:
    - `done`, `agent running`, `recently active`: leave alone.
    - `waiting for review`: review it (`/wb:review-lane`); do not start it again.

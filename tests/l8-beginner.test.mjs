@@ -278,7 +278,7 @@ test('explain: broken settings are a block with the file and key', () => {
 test('explain: every item id has what, why and fix text in ko and en, and a known rule', () => {
   const src = read('lib/explain.mjs')
   const ids = new Set([...src.matchAll(/add\('(\w+)'/g)].map((m) => m[1]))
-  for (const id of ['limit', 'limit_all', 'progress_stale', 'progress_missing', 'lane_dirty', 'worktree_missing', 'worktree_unregistered']) ids.add(id)
+  for (const id of ['limit', 'limit_all', 'progress_stale', 'progress_missing', 'progress_oversize', 'lane_dirty', 'worktree_missing', 'worktree_unregistered']) ids.add(id)
   assert.ok(ids.size >= 15)
   const ruleIds = new Set(rules.map((r) => r.id))
   for (const id of ids) {

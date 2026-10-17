@@ -205,7 +205,9 @@ test('resume report: progress, git, lane verdicts, stale items, re-dispatch prom
   git(repo, 'worktree', 'add', '-q', '-b', 'stray', stray)
   const rep = buildResume({ cwd: repo, state: sd, now: Date.now() + 3600_000 })
   assert.match(rep.progress.excerpt, /next: do x/)
-  assert.doesNotMatch(rep.progress.excerpt, /^old$/m)
+  assert.match(rep.progress.excerpt, /^old$/m, 'a current-state file is shown whole')
+  assert.deepEqual([rep.progress.lines, rep.progress.max, rep.progress.over, rep.progress.archive], [7, 300, false, 'docs/progress-archive'])
+  assert.ok(!rep.stale.some((s) => s.code === 'progress_oversize'))
   assert.equal(rep.git.log[0].subject, 'add progress')
   assert.ok(rep.git.worktrees.length >= 2)
   const v = Object.fromEntries(rep.lanes.map((l) => [l.lane, l.verdict]))
@@ -236,6 +238,24 @@ test('resume reports a stale progress.md and works without a ledger', () => {
   const rep = buildResume({ cwd: repo, state: null })
   assert.ok(rep.stale.some((s) => s.code === 'progress_stale'))
   assert.equal(buildResume({ cwd: repo, state: null, progressFile: 'none.md' }).stale[0].code, 'progress_missing')
+})
+
+test('resume: an oversized progress.md is a stale item and shows only its newest section; the CLI names the archive', () => {
+  const { repo, env } = tmp()
+  const body = '# progress\n\n## newest\nnext: do x\n\n## older\nold\n' + Array.from({ length: 30 }, (_, i) => `- ${i}`).join('\n') + '\n'
+  fs.writeFileSync(path.join(repo, 'progress.md'), body)
+  const rep = buildResume({ cwd: repo, state: null, maxLines: 20, archiveDir: 'docs/hist' })
+  assert.equal(rep.progress.over, true)
+  assert.doesNotMatch(rep.progress.excerpt, /^old$/m)
+  const s = rep.stale.find((x) => x.code === 'progress_oversize')
+  assert.deepEqual(s.vars, { file: 'progress.md', lines: 37, max: 20, archive: 'docs/hist' })
+  assert.match(t('resume.stale.progress_oversize', s.vars), /wb-waves handoff migrate/)
+  fs.mkdirSync(path.join(env.WB_HOME), { recursive: true })
+  fs.writeFileSync(path.join(env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, handoff: { max_lines: 20 } }))
+  const out = bin('wb-waves', ['resume'], env, repo).stdout
+  assert.match(out, /37\/20 lines\. Past history is in `docs\/progress-archive\/`/)
+  assert.match(out, /grep -n '<keyword>' docs\/progress-archive\/\*\.md/)
+  assert.match(out, /has 37 lines, over the 20-line target/)
 })
 
 test('wb-waves CLI: create, status, todo, board, metrics, resume --prompt (ko)', () => {

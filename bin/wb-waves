@@ -12,6 +12,9 @@
 //   wb-waves statusline                             one line for subagentStatusLine
 //   wb-waves metrics [--lane L] [--json]            runs, tokens and models per lane
 //   wb-waves resume [--json] [--stale-min N] [--prompt WAVE/LANE]
+//   wb-waves handoff check [--json]                   progress.md lines against the target, archive files
+//   wb-waves handoff archive "<summary>" [--from FILE] append FILE (default: the whole progress.md) to the monthly archive
+//   wb-waves handoff migrate [--force]                move an oversized progress.md to the archive, write a fresh one
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -27,7 +30,7 @@ const argv = process.argv.slice(2)
 // "--todo" may repeat on `lane`; collect before the generic parser keeps only the last.
 const todos = []
 for (let i = 0; i < argv.length; i++) if (argv[i] === '--todo' && argv[i + 1]) todos.push(argv[i + 1])
-const ctx = context(argv)
+const ctx = context(argv, ['force'])
 const { args, t, print } = ctx
 const [cmd, a, b, c, d] = args._
 
@@ -103,7 +106,9 @@ const COMMANDS = {
   async resume() {
     const { buildResume, resumePrompt } = await imp('resume.mjs')
     const staleMin = Number(args['stale-min'] || getPath(ctx.resolved.config, 'project.waves.stale_min') || 20)
-    const rep = buildResume({ cwd: ctx.root, state: ctx.state(), progressFile: getPath(ctx.resolved.config, 'personal.handoff.file') || 'progress.md', staleMin })
+    const { handoffSettings } = await imp('handoff.mjs')
+    const hs = handoffSettings(getPath(ctx.resolved.config, 'personal.handoff') || {})
+    const rep = buildResume({ cwd: ctx.root, state: ctx.state(), progressFile: hs.file, maxLines: hs.maxLines, archiveDir: hs.archiveDir, staleMin })
     if (args.prompt) {
       const [wave, lane] = String(args.prompt).split('/')
       const rec = rep.lanes.find((x) => x.wave === wave && x.lane === lane)
@@ -113,6 +118,7 @@ const COMMANDS = {
     if (args.json) return ctx.json(rep)
     print(`# ${t('resume.h.progress')}`)
     print(rep.progress ? rep.progress.excerpt : t('resume.no_progress'))
+    if (rep.progress) print(`\n${t('resume.archive', { archive: hs.archiveDir, lines: rep.progress.lines, max: hs.maxLines })}`)
     print(`\n# ${t('resume.h.git')}`)
     print(`${t('resume.branch')}: ${rep.git.branch || '-'}`)
     print(rep.git.status.length ? rep.git.status.slice(0, 30).join('\n') : t('resume.clean'))
@@ -130,6 +136,45 @@ const COMMANDS = {
       print(`\n# ${t('resume.h.next')}`)
       for (const n of rep.next) print(`  - ${t(`resume.next.${n.action}`, { wave: n.wave, lane: n.lane })}`)
     }
+  },
+  async handoff() {
+    const H = await imp('handoff.mjs')
+    const hs = H.handoffSettings(getPath(ctx.resolved.config, 'personal.handoff') || {})
+    const cwd = ctx.root
+    const vars = { file: hs.file, max: hs.maxLines, archive: hs.archiveDir }
+    if (a === 'check' || a === undefined) {
+      const size = H.sizeCheck(cwd, hs.file, hs.maxLines)
+      const dir = path.join(cwd, hs.archiveDir)
+      const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : []
+      if (size.over) process.exitCode = 1
+      if (args.json) return ctx.json({ ...size, file: hs.file, archive: hs.archiveDir, archive_files: files })
+      if (!size.exists) print(t('handoff.cli.missing', vars))
+      else print(t(size.over ? 'handoff.cli.over' : 'handoff.cli.ok', { ...vars, lines: size.lines }))
+      print(t('handoff.cli.archive', { ...vars, count: files.length }))
+      for (const f of files) print(`  ${path.join(hs.archiveDir, f)}`)
+      return
+    }
+    if (a === 'archive') {
+      need(2)
+      if (args.from && args.from !== true) {
+        const src = path.resolve(process.cwd(), String(args.from))
+        if (!fs.existsSync(src)) ctx.fail('handoff_no_from', { path: src })
+        const to = H.appendArchive({ cwd, archiveDir: hs.archiveDir, title: b, body: fs.readFileSync(src, 'utf8') })
+        return print(t('handoff.cli.archived', { ...vars, to }))
+      }
+      const r = H.archiveCurrent({ cwd, file: hs.file, archiveDir: hs.archiveDir, title: b })
+      if (!r.archived) ctx.fail('handoff_no_file', vars)
+      print(t('handoff.cli.archived', { ...vars, to: r.to }))
+      return print(t('handoff.cli.rewrite', vars))
+    }
+    if (a === 'migrate') {
+      const r = H.migrateLegacy({ cwd, file: hs.file, archiveDir: hs.archiveDir, maxLines: hs.maxLines, t, force: args.force === true })
+      if (r.reason === 'missing') ctx.fail('handoff_no_file', vars)
+      if (!r.moved) return print(t('handoff.cli.small', { ...vars, lines: r.lines }))
+      print(t('handoff.cli.migrated', { ...vars, to: r.to, lines: r.lines }))
+      return print(t('handoff.cli.rewrite', vars))
+    }
+    ctx.fail('usage', { usage: 'wb-waves handoff check|archive "<summary>" [--from FILE]|migrate [--force]' }, 2)
   },
 }
 

@@ -198,11 +198,11 @@ A lane checks at the start that the worktree HEAD equals the base commit in the 
 
 ### progress-handoff
 
-Read `progress.md` first when a session starts and update it at the end of each unit of work. A session must not end with a stale `progress.md`.
+When a session starts, read `progress.md` from start to end, and rewrite it whole at the end of each unit of work. `progress.md` holds the current state only (300 lines or fewer by default); finished content is appended to `docs/progress-archive/progress-<YYYY-MM>.md`. A session must not end with a stale `progress.md`.
 
-- Why: A new session with a cleared context picks up from `progress.md` alone. If it is stale, finished work is repeated or half-done state is missed.
-- Enforced in: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`
-- If blocked: Write what is done, in progress, next, waiting and the pitfalls into `progress.md`, commit, then stop.
+- Why: A new session with a cleared context picks up from `progress.md` alone. If it is stale, finished work is repeated or half-done state is missed. If old sections pile up, the file grows until a new session reads only the beginning and misses the current state.
+- Enforced in: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`, `bin/wb-waves`, setting `personal.handoff`
+- If blocked: Append finished content to the archive (`wb-waves handoff archive "<summary>"` appends the whole current file), write goals and owner decisions, branches and servers, in progress, next, waiting for answers, system notes and resume commands into `progress.md` anew, and commit both files together. If the file has already grown by accumulation, move it whole with `wb-waves handoff migrate` and then write it anew.
 
 ### wave-checkpoint
 

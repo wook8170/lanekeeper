@@ -29,7 +29,9 @@
   "handoff": {
     "enabled": true,
     "file": "progress.md",
-    "throttle_min": 20
+    "throttle_min": 20,
+    "max_lines": 300,
+    "archive_dir": "docs/progress-archive"
   },
   "checkpoint": {
     "enabled": true

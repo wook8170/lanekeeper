@@ -4,7 +4,16 @@
 
 ## [Unreleased]
 
+### Changed
+- 핸드오프 파일 방식 변경: `progress.md` 는 지금 유효한 상태만 담고(기본 300줄 이하) 매 웨이브 통째로 다시 쓴다. 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 끝에 `## <YYYY-MM-DD HH:MM> — <요지>` 절로 덧붙인다. 「최신 절을 맨 위에 추가하고 이전 절 유지」 안내를 없앴다
+- 세션 시작 훅·`wb-waves resume`·`/wb:pickup`·`/wb:resume` 은 `progress.md` 전체를 보여 주고 아카이브 검색 방법(`grep -n '<키워드>' docs/progress-archive/*.md`)을 안내한다. 기준 줄 수를 넘은 누적형 파일만 최신 절을 보여 준다
+- 종료 가드 문구가 아카이브 덧붙임 → 통째로 다시 쓰기 → 두 파일 함께 커밋 순서를 요구하고, 파일이 기준을 넘으면 옮기는 방법을 덧붙인다
+- 규칙 카탈로그 `progress-handoff` 의 규칙·이유·복구 문구와 지키는 위치(`bin/wb-waves`, `personal.handoff`)를 갱신
+
 ### Added
+- `wb-waves handoff check | archive "<요지>" [--from 파일] | migrate [--force]`: 줄 수 점검, 이번 달 아카이브에 날짜 절 덧붙이기(제목 단계를 한 단계 내림), 누적형 파일을 `docs/progress-archive/progress-until-<YYYY-MM-DD>.md` 로 통째로 옮기고(추적 중이면 `git mv`) 현재 상태 양식으로 새로 만들기
+- 개인 설정 키 `handoff.max_lines`(기본 300) · `handoff.archive_dir`(기본 `docs/progress-archive`)
+- 재개 보고 오래된 항목 `progress_oversize`, `/wb:explain` 항목 `progress_oversize`
 - 플러그인 매니페스트(`wb`)와 마켓플레이스 파일, 사용자 설정 2종(메시지 언어, 채팅 보고 분량)
 - 디렉터리 골격: hooks · skills · agents · bin · templates · rules · defaults · locales
 - 설정 기본값 4종(`defaults/routing.json` · `machine.json` · `personal.json` · `config.json`)

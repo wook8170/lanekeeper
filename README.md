@@ -133,7 +133,7 @@ wb-route check review --model sonnet            모델 선택 판정(차단이�
 
 | 기능 | 동작 | 설정 키 | 관리 |
 |---|---|---|---|
-| 핸드오프 | 새 세션과 `/clear` 때 `progress.md` 의 최신 섹션을 넣는다. 마지막 갱신 뒤에 커밋이나 파일 변경이 있으면 턴 종료를 한 번 막아 갱신을 요구한다. 같은 세션은 20분 동안 다시 막지 않는다 | `personal.handoff.{enabled, file, throttle_min}` | |
+| 핸드오프 | `progress.md` 는 지금 유효한 상태만 담는다(기본 300줄 이하). 새 세션과 `/clear` 때 파일 전체와 아카이브 검색 방법을 넣는다. 마지막 갱신 뒤에 커밋이나 파일 변경이 있으면 턴 종료를 한 번 막고, 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 에 덧붙이고 `progress.md` 를 통째로 다시 쓰라고 요구한다. 같은 세션은 20분 동안 다시 막지 않는다. 기준 줄 수를 넘으면 세션 시작·종료·재개 보고에서 알리고, 누적형 파일은 `wb-waves handoff migrate` 로 옮기게 안내한다 | `personal.handoff.{enabled, file, throttle_min, max_lines, archive_dir}` | `wb-waves handoff` |
 | 자동 재개 | 사용량 한도로 턴이 끝나면 리셋 시각 2분 뒤에 같은 세션을 헤드리스로 재개한다. 예약은 macOS 는 launchd, Linux 는 systemd 사용자 타이머, 그 밖에는 백그라운드 대기 프로세스로 한다. 한도에 걸린 모델은 `limits.json` 에 기록한다 | `personal.auto_retry.{enabled, permission_mode, bypass_ack}`, `routing.limits_state` | `wb-retry`, `/wb:auto-retry` |
 | 토큰 가드 | 최근 구간(기본 5시간)의 로컬 토큰 사용량을 예산에 대한 비율로 환산하고, 단계가 오를 때만 지침을 넣는다. 90%는 작업 단위 축소, 95%는 웨이브마다 핸드오프, 99%는 마지막 핸드오프와 알림 후 대기다 | `personal.token_guard.{enabled, stages, budget, window_hours}` | `wb-token`, `/wb:token-guard` |
 | 간결 모드 | 켠 저장소에서 세션 시작 때 출력·도구 호출을 줄이는 규칙을 넣는다 | `personal.terse`, 저장소 스위치 | `wb-terse`, `/wb:terse` |
@@ -212,9 +212,14 @@ wb-waves board [--json]        웨이브·레인 상태표
 wb-waves metrics [--lane 레인]  레인별 실행·토큰·모델
 wb-waves statusline            한 줄 상태(플러그인 settings.json 의 subagentStatusLine)
 wb-waves resume [--stale-min N] [--prompt 웨이브/레인]
+wb-waves handoff check [--json]             progress.md 줄 수와 아카이브 파일 목록(기준 초과 시 종료 코드 1)
+wb-waves handoff archive "<요지>" [--from 파일]  파일(기본: progress.md 전체)을 이번 달 아카이브 끝에 날짜 절로 덧붙임
+wb-waves handoff migrate [--force]          기준을 넘은 progress.md 를 아카이브로 옮기고 새 현재 상태 파일을 만듦
 ```
 
-`/wb:lanes` 가 진행판을 보여 주고, `/wb:pickup` 과 `/wb:resume` 이 세션 시작·재개 보고를 만든다. 재개 보고는 `progress.md` 최신 절, `git status`, 워크트리 목록, 최근 커밋 5건, 레인 판정을 보여 주고 오래된 항목을 먼저 알린다. 오래된 항목은 `progress.md` 가 작업보다 낡음, 활동이 `project.waves.stale_min`(기본 20분) 넘게 없는 진행 레인, 사라진 워크트리, 레인 대장에 없는 워크트리, 워크트리의 미커밋 변경, 시작으로 이어지지 않은 디스패치, 종료 기록 없는 에이전트다. 워크트리와 브랜치는 이 단계에서 지우지 않는다.
+`/wb:lanes` 가 진행판을 보여 주고, `/wb:pickup` 과 `/wb:resume` 이 세션 시작·재개 보고를 만든다. 재개 보고는 `progress.md` 전체(기준 줄 수를 넘은 누적형 파일은 최신 절만)와 아카이브 위치, `git status`, 워크트리 목록, 최근 커밋 5건, 레인 판정을 보여 주고 오래된 항목을 먼저 알린다. 오래된 항목은 `progress.md` 가 작업보다 낡음, `progress.md` 가 기준 줄 수(`personal.handoff.max_lines`, 기본 300)를 넘음, 활동이 `project.waves.stale_min`(기본 20분) 넘게 없는 진행 레인, 사라진 워크트리, 레인 대장에 없는 워크트리, 워크트리의 미커밋 변경, 시작으로 이어지지 않은 디스패치, 종료 기록 없는 에이전트다. 워크트리와 브랜치는 이 단계에서 지우지 않는다.
+
+**progress.md 와 아카이브.** `progress.md` 는 지금 유효한 상태만 담는다. 맨 위에 아카이브 위치와 검색 방법 한 줄을 두고, 목표와 오너 결정 · 브랜치와 서버 · 진행 중(표) · 다음 할 일 · 확인 대기 · 시스템 지식 · 재개 명령 절을 쓴다. 매 웨이브마다 통째로 다시 쓴다. 끝난 내용(완료한 웨이브, 해소된 확인 대기, 더는 맞지 않는 상태)은 `docs/progress-archive/progress-<YYYY-MM>.md` 끝에 `## <YYYY-MM-DD HH:MM> — <요지>` 절로 덧붙인다. 끝난 것과 남은 것을 가려내기 어려우면 `wb-waves handoff archive "<요지>"` 로 지금 파일 전체를 덧붙인 뒤 새로 쓴다. 덧붙인 내용의 제목은 날짜 절 아래로 한 단계씩 내린다. 이미 누적형으로 커진 파일은 `wb-waves handoff migrate` 가 통째로 `docs/progress-archive/progress-until-<YYYY-MM-DD>.md` 로 옮기고(추적 중이면 `git mv`) 위 절을 갖춘 새 파일을 만든다. 이력은 지우지 않으며, 필요한 부분은 `grep -n '<키워드>' docs/progress-archive/*.md` 로 찾는다. 폴더는 `personal.handoff.archive_dir` 로 바꿀 수 있다.
 
 **번호 예약.** 마이그레이션·결정 문서처럼 번호가 붙는 파일을 레인이 동시에 만들 때 번호를 `wb-number` 로 받는다. 계열은 `.wb/config.json` 에 선언한다.
 
