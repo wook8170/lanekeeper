@@ -82,6 +82,9 @@ Kept in the personal file `~/.wb/machine.json`. Port numbers live only in this f
 | `machine.load.max` | `"auto"` | Slot runs wait at or above this 1-minute load. `auto` is logical cores × 2. Cap rule | `16` |
 | `machine.load.auto_rule` | `"logical_cores * 2"` | Description of the `auto` formula (reserved) | keep the default |
 | `machine.load.sample` | `"1min"` | Load average to compare: `1min` · `5min` · `15min` | `"5min"` |
+| `machine.load.tiers.hold_new_lanes` | `"auto"` | New lanes (Agent dispatches) are refused at or above this 1-minute load. A dispatch to an existing lane is not held. `auto` is logical cores × 2 | `20` |
+| `machine.load.tiers.stop_heavy` | `"auto"` | A verifier lane's heavy run is refused at once at or above this 1-minute load. Slots already held are left alone. `auto` is logical cores × 2.8 (rounded). Raised to the hold-new-lanes threshold when smaller | `28` |
+| `machine.load.check_every_min` | `30` | Minutes between load checks when a prompt is sent. One line is added only when a threshold is reached. `0` turns it off | `0` |
 | `machine.slots.heavy.count` | `2` | Heavy run slots. Cap rule | `3` |
 | `machine.slots.heavy.patterns` | `["full-test","e2e","typecheck-all","build","install","codegraph-index"]` | Pattern group names treated as heavy runs (`defaults/heavy-patterns.json`) | `["full-test","e2e"]` |
 | `machine.slots.browser.count` | `2` | Browser slots. Cap rule | `1` |
@@ -276,4 +279,5 @@ With both files in place, `machine.lanes.max` is 2 by the cap rule, because the 
 | `WB_PROJECT_DIR` | Sets the project root directly |
 | `WB_CODEGRAPH` | `off` turns off every codegraph feature. A path selects that executable |
 | `WB_SLOT_HELD` | Set by `wb-slot` for the command it runs. Do not set it yourself |
+| `WB_LOAD_FAKE` | A number used in place of the load average. For tests; leave it unset |
 | `WB_LANE`, `WB_PORT_<name>` | Lane name and ports passed to the `project.worktree.setup` command |

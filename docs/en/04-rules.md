@@ -1,6 +1,6 @@
 # Rules
 
-wb keeps the 39 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
+wb keeps the 40 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
 
 A hook gives one of three verdicts. Block: the command does not run. Ask: the user is asked whether to go on. Note: the command runs and the hook says what to do next.
 
@@ -34,25 +34,26 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 18 | Review uses a different model | `implementer-verifier-differ` | Models and briefs |
 | 19 | Lanes start from a brief | `brief-required` | Models and briefs |
 | 20 | A cap on lanes at the same time | `lane-cap` | Models and briefs |
-| 21 | Lanes run only their own tests | `lane-test-scope` | Models and briefs |
-| 22 | Report in a file and in the reply | `report-twice` | Models and briefs |
-| 23 | Check the base commit | `base-commit` | Models and briefs |
-| 24 | Hand over through progress.md | `progress-handoff` | Sessions and handoff |
-| 25 | Commit the record after each wave | `wave-checkpoint` | Sessions and handoff |
-| 26 | Act at each usage stage | `token-stages` | Sessions and handoff |
-| 27 | Automatic resume uses the default permissions | `auto-retry-default-permission` | Sessions and handoff |
-| 28 | Terse mode keeps the evidence | `terse-mode` | Sessions and handoff |
-| 29 | Tests change with the feature | `tests-with-change` | Quality and documents |
-| 30 | Test results saved as a workbook | `test-results-workbook` | Quality and documents |
-| 31 | Reserve numbers first | `number-reservation` | Quality and documents |
-| 32 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
-| 33 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
-| 34 | Writing style per file kind | `style-per-file` | Quality and documents |
-| 35 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
-| 36 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
-| 37 | Code flow through the code index | `codegraph-first` | Quality and documents |
-| 38 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
-| 39 | Screen words follow the glossary | `glossary-terms` | Planned |
+| 21 | Lanes follow the load tiers | `load-tiers` | Models and briefs |
+| 22 | Lanes run only their own tests | `lane-test-scope` | Models and briefs |
+| 23 | Report in a file and in the reply | `report-twice` | Models and briefs |
+| 24 | Check the base commit | `base-commit` | Models and briefs |
+| 25 | Hand over through progress.md | `progress-handoff` | Sessions and handoff |
+| 26 | Commit the record after each wave | `wave-checkpoint` | Sessions and handoff |
+| 27 | Act at each usage stage | `token-stages` | Sessions and handoff |
+| 28 | Automatic resume uses the default permissions | `auto-retry-default-permission` | Sessions and handoff |
+| 29 | Terse mode keeps the evidence | `terse-mode` | Sessions and handoff |
+| 30 | Tests change with the feature | `tests-with-change` | Quality and documents |
+| 31 | Test results saved as a workbook | `test-results-workbook` | Quality and documents |
+| 32 | Reserve numbers first | `number-reservation` | Quality and documents |
+| 33 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
+| 34 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
+| 35 | Writing style per file kind | `style-per-file` | Quality and documents |
+| 36 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
+| 37 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
+| 38 | Code flow through the code index | `codegraph-first` | Quality and documents |
+| 39 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
+| 40 | Screen words follow the glossary | `glossary-terms` | Planned |
 
 ## Git and branches
 
@@ -235,7 +236,16 @@ Checks the model and the brief when a subagent is sent. The dispatch hook judges
 - Related settings: `machine.lanes.max`
 - Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-worktree`
 
-### 21. Lanes run only their own tests (`lane-test-scope`)
+### 21. Lanes follow the load tiers (`load-tiers`)
+
+- Rule: At or above the hold-new-lanes threshold of the 1-minute load, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped.
+- Why: Starting more lanes on a loaded machine makes every lane's tests time out. Verification can wait for the executors without changing its result.
+- If blocked: Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. Dispatch again once the load drops.
+- Message codes: `dispatch.load_hold`, `safety.slot.load_stop_heavy`
+- Related settings: `machine.load.tiers`
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`
+
+### 22. Lanes run only their own tests (`lane-test-scope`)
 
 - Rule: A lane runs only the test files it wrote or changed. The controller runs the full suite and the all-package checks once.
 - Why: When every lane runs the full suite, the load stacks up and tests time out. Time also goes into producing the same result several times.
@@ -243,7 +253,7 @@ Checks the model and the brief when a subagent is sent. The dispatch hook judges
 - Message codes: `dispatch.brief_incomplete`, `safety.slot.*`
 - Enforced in: `templates/briefs/ko/impl.md`, `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`
 
-### 22. Report in a file and in the reply (`report-twice`)
+### 23. Report in a file and in the reply (`report-twice`)
 
 - Rule: A lane writes its report to a file and returns the same content in its final reply. It leaves an interim note after each large item.
 - Why: The results must survive an empty reply or an interrupted run.
@@ -251,7 +261,7 @@ Checks the model and the brief when a subagent is sent. The dispatch hook judges
 - Message codes: `dispatch.brief_incomplete`
 - Enforced in: `templates/briefs/ko/impl.md`, `hooks/scripts/dispatch/dispatch-guard.mjs`
 
-### 23. Check the base commit (`base-commit`)
+### 24. Check the base commit (`base-commit`)
 
 - Rule: At the start, a lane checks that the current commit of its worktree is the base commit in the brief. If not, it reports before working.
 - Why: Working from an old base fixes problems that are already fixed, or makes merge conflicts larger.
@@ -263,7 +273,7 @@ Checks the model and the brief when a subagent is sent. The dispatch hook judges
 
 Lets work continue after a session ends or a usage limit stops it.
 
-### 24. Hand over through progress.md (`progress-handoff`)
+### 25. Hand over through progress.md (`progress-handoff`)
 
 - Rule: When a session starts, read `progress.md` from start to end. Rewrite the file whole at the end of each unit of work. It holds only the current state (300 lines or fewer by default). Finished content is appended to `docs/progress-archive/progress-<YYYY-MM>.md`.
 - Why: A new session that does not know the earlier conversation picks up from `progress.md` alone. If the file is out of date, finished work is done again or work in progress is missed. If old records pile up, the file grows until a new session reads only the beginning and misses the current state.
@@ -271,14 +281,14 @@ Lets work continue after a session ends or a usage limit stops it.
 - Related settings: `personal.handoff`
 - Enforced in: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`, `bin/wb-waves`
 
-### 25. Commit the record after each wave (`wave-checkpoint`)
+### 26. Commit the record after each wave (`wave-checkpoint`)
 
 - Rule: When a wave ends, commit the progress record and tell the user to clear the conversation with `/clear`.
 - Why: A long conversation hits the usage limit and the session stops. A record written early lets a new session continue from any point.
 - If blocked: Build the resume report with `/wb:resume` and clear the stale items first.
 - Enforced in: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`
 
-### 26. Act at each usage stage (`token-stages`)
+### 27. Act at each usage stage (`token-stages`)
 
 - Rule: When usage reaches 90%, 95% and 99%, follow the stage instructions. Usage is the higher of the official five-hour and seven-day figures, with an estimate of the local use since they were fetched. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait.
 - Why: Stopping suddenly at the limit loses work that was not recorded.
@@ -286,7 +296,7 @@ Lets work continue after a session ends or a usage limit stops it.
 - Related settings: `personal.token_guard`
 - Enforced in: `hooks/scripts/token-guard/check.mjs`, `skills/token-guard/SKILL.md`
 
-### 27. Automatic resume uses the default permissions (`auto-retry-default-permission`)
+### 28. Automatic resume uses the default permissions (`auto-retry-default-permission`)
 
 - Rule: A session stopped by a usage limit is resumed automatically only in the default permission mode.
 - Why: If a session nobody is watching skips the permission prompts, risky actions can run without a check.
@@ -294,7 +304,7 @@ Lets work continue after a session ends or a usage limit stops it.
 - Related settings: `personal.auto_retry.permission_mode`
 - Enforced in: `hooks/scripts/auto-retry/detect.mjs`, `skills/auto-retry/SKILL.md`
 
-### 28. Terse mode keeps the evidence (`terse-mode`)
+### 29. Terse mode keeps the evidence (`terse-mode`)
 
 - Rule: Terse mode reduces output and tool calls. It does not reduce verification evidence or the final report.
 - Why: Terse mode is for saving tokens. It does not allow reporting results that were not checked.
@@ -305,21 +315,21 @@ Lets work continue after a session ends or a usage limit stops it.
 
 Keeps reviews, reports and documents to the same standard. Most of these are guided by commands and skills; a few are blocked by hooks.
 
-### 29. Tests change with the feature (`tests-with-change`)
+### 30. Tests change with the feature (`tests-with-change`)
 
 - Rule: When a feature is added, changed or removed, its tests are updated in the same change. A defect that cannot be fixed now is marked pending and recorded, without lowering the test.
 - Why: A change without tests, a test that still checks a removed feature and an expectation that differs from the behavior all cause trouble in the next change.
 - If blocked: Update the tests as the brief's test rules say. Record a defect you cannot fix with `wb-defects add`.
 - Enforced in: `templates/briefs/ko/impl.md`, `bin/wb-defects`, `bin/wb-cases`
 
-### 30. Test results saved as a workbook (`test-results-workbook`)
+### 31. Test results saved as a workbook (`test-results-workbook`)
 
 - Rule: Test results are saved as a workbook and committed. A report cannot be closed without it.
 - Why: "It passed" alone cannot show later what was checked and how many cases ran.
 - If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
 - Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 
-### 31. Reserve numbers first (`number-reservation`)
+### 32. Reserve numbers first (`number-reservation`)
 
 - Rule: Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.
 - Why: If parallel lanes use the same number, the merge conflicts and the numbers must be reassigned.
@@ -327,14 +337,14 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.numbers`
 - Enforced in: `bin/wb-number`, `lib/numbers.mjs`
 
-### 32. Remove finished lane worktrees (`worktree-cleanup`)
+### 33. Remove finished lane worktrees (`worktree-cleanup`)
 
 - Rule: A finished lane worktree is merged into its target branch and then removed. Before removal, the processes started in it are stopped by PID.
 - Why: Processes left in an old worktree keep using the CPU. If work continues in a leftover folder, the handoff record splits in two.
 - If blocked: See what to clean up with `wb-reap` and remove the worktree with `wb-worktree remove <lane>`.
 - Enforced in: `bin/wb-worktree`, `bin/wb-reap`, `skills/resume/SKILL.md`
 
-### 33. Owner decisions are written down (`owner-decisions-recorded`)
+### 34. Owner decisions are written down (`owner-decisions-recorded`)
 
 - Rule: What the owner decides is kept as a decision record (`docs/decisions/`).
 - Why: A decision made only in conversation is unknown to the next session, so the same question is asked again.
@@ -342,7 +352,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.paths.decisions`
 - Enforced in: `skills/decide/SKILL.md`, `bin/wb-decide`
 
-### 34. Writing style per file kind (`style-per-file`)
+### 35. Writing style per file kind (`style-per-file`)
 
 - Rule: Documents and screen text use the style set for each file kind (`style.map`).
 - Why: Without separate styles for screen text and reports, the text in one product reads inconsistently.
@@ -350,7 +360,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.style.map`
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`
 
-### 35. Mockup before a screen structure change (`mockup-first`)
+### 36. Mockup before a screen structure change (`mockup-first`)
 
 - Rule: A change to the structure of a screen shows a mockup and gets a decision before it is implemented.
 - Why: If the structure is rejected after implementation, the work starts over.
@@ -359,7 +369,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.mockup`
 - Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`
 
-### 36. Finished work is reported as an artifact (`report-artifact`)
+### 37. Finished work is reported as an artifact (`report-artifact`)
 
 - Rule: A report made with `/wb:report` publishes its result as an artifact. A project that keeps test result workbooks also has its newest workbook checked.
 - Why: A report given only in words cannot be checked from elsewhere, and its evidence such as captures and figures is not kept.
@@ -368,7 +378,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.report.artifact_check`
 - Enforced in: `hooks/scripts/report/artifact-check.mjs`, `bin/wb-art`, `skills/report/SKILL.md`
 
-### 37. Code flow through the code index (`codegraph-first`)
+### 38. Code flow through the code index (`codegraph-first`)
 
 - Rule: Flow, callers and the impact of a change are checked with the code index (codegraph). Exact line numbers and strings are checked with text search.
 - Why: Following callers one text search at a time multiplies the searches. The index lacks line numbers and some call links, so text search is never blocked.
@@ -376,7 +386,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.codegraph.nudge`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`
 
-### 38. No repeat calls on paths without an index (`codegraph-index-first`)
+### 39. No repeat calls on paths without an index (`codegraph-index-first`)
 
 - Rule: codegraph is not called again for a path that has no index. Every new worktree is queued for indexing when it is created.
 - Why: Most index tool errors came from new worktrees that had no index yet. Calling the same path again only added cost.
@@ -389,7 +399,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 Rules in the catalog with nothing that enforces them yet.
 
-### 39. Screen words follow the glossary (`glossary-terms`)
+### 40. Screen words follow the glossary (`glossary-terms`)
 
 - Rule: Words in screen text follow the project glossary.
 - Why: Calling one thing by different names on different screens confuses users.

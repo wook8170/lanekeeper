@@ -82,6 +82,9 @@ wb-config validate
 | `machine.load.max` | `"auto"` | 이 1분 부하 이상이면 슬롯 실행을 기다린다. `auto` 는 논리 코어 수 × 2. 상한 규칙 | `16` |
 | `machine.load.auto_rule` | `"logical_cores * 2"` | `auto` 계산식 설명(예약) | 기본값 유지 |
 | `machine.load.sample` | `"1min"` | 비교할 부하 평균. `1min` · `5min` · `15min` | `"5min"` |
+| `machine.load.tiers.hold_new_lanes` | `"auto"` | 이 1분 부하 이상이면 새 레인(Agent 디스패치)을 막는다. 이미 있는 레인으로 보내는 디스패치는 막지 않는다. `auto` 는 논리 코어 수 × 2 | `20` |
+| `machine.load.tiers.stop_heavy` | `"auto"` | 이 1분 부하 이상이면 검수 레인의 무거운 실행을 바로 거부한다. 이미 잡힌 슬롯은 그대로 둔다. `auto` 는 논리 코어 수 × 2.8(반올림). 새 레인 보류 문턱보다 작으면 그 값으로 올린다 | `28` |
+| `machine.load.check_every_min` | `30` | 프롬프트를 보낼 때 부하를 보는 간격(분). 문턱을 넘었을 때만 한 줄을 알린다. `0` 은 끔 | `0` |
 | `machine.slots.heavy.count` | `2` | 무거운 실행 슬롯 수. 상한 규칙 | `3` |
 | `machine.slots.heavy.patterns` | `["full-test","e2e","typecheck-all","build","install","codegraph-index"]` | 무거운 실행으로 볼 패턴 묶음 이름(`defaults/heavy-patterns.json`) | `["full-test","e2e"]` |
 | `machine.slots.browser.count` | `2` | 브라우저 슬롯 수. 상한 규칙 | `1` |
@@ -276,4 +279,5 @@ wb-config validate
 | `WB_PROJECT_DIR` | 프로젝트 루트를 직접 지정 |
 | `WB_CODEGRAPH` | `off` 면 codegraph 기능 전체를 끈다. 경로를 주면 그 실행 파일을 쓴다 |
 | `WB_SLOT_HELD` | `wb-slot` 이 실행하는 명령에 넣어 주는 값. 직접 설정하지 않는다 |
+| `WB_LOAD_FAKE` | 부하 평균 대신 쓸 숫자. 시험용이며 평소에는 설정하지 않는다 |
 | `WB_LANE`, `WB_PORT_<이름>` | `project.worktree.setup` 명령에 넣어 주는 레인 이름과 포트 |

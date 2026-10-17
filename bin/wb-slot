@@ -4,6 +4,8 @@
 //   wb-slot [--kind heavy|browser|heavy,browser] [--lane <id>] [--timeout <sec>] [--poll <sec>] -- <command...>
 //   wb-slot status [--json]
 //   wb-slot reap [--json]
+//   wb-slot reap --orphans [--dry-run | --kill] [--json]
+//   wb-slot check [--json]
 //
 // The command starts only when a slot of every requested kind is free and the
 // load average is below machine.load.max. A lease is renewed while the command
@@ -11,6 +13,15 @@
 // renewed for machine.slots.stale_after_min, are reclaimed by the next caller.
 // Commands run by wb-slot see WB_SLOT_HELD, so a nested wb-slot for a kind
 // already held does not wait for itself.
+//
+// Load tiers (machine.load.tiers): at or above stop_heavy a verifier lane
+// (lanes.json role, or the role in its brief) is refused at once with exit 75
+// instead of waiting; executor lanes wait as before.
+// reap --orphans lists vite/tsx/esbuild/vitest/headless-chrome processes left
+// in lane folders that are gone or not in lanes.json (--dry-run, the default);
+// --kill stops exactly those PIDs, never by pattern. Processes of this session
+// and processes listening on protected ports are left alone and shown with the reason.
+// check prints the load, the tier, lanes, slots and orphan candidates on one screen.
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -22,6 +33,7 @@ const { resolveConfig, projectRoot, stateDir, expandHome } = await load('config.
 const { translator } = await load('i18n.mjs')
 const slots = await load('slots.mjs')
 const { readLanes } = await load('ledger.mjs')
+const loadLib = await load('load.mjs')
 
 const argv = process.argv.slice(2)
 const dash = argv.indexOf('--')
@@ -54,6 +66,52 @@ if (resolved.errors.length) {
 }
 
 const sub = opts._[0]
+const ls = loadLib.loadSettings(resolved)
+const loadNow = () => loadLib.readLoad(ls.sample, env)
+const sd = stateDir(root)
+
+function orphanScan() {
+  const lanes = sd ? readLanes(sd).lanes : []
+  return loadLib.findOrphans({ lanes, areas: loadLib.laneAreas(resolved.config, root), protectedPorts: loadLib.protectedPortSet(resolved.config) })
+}
+const orphanLine = (o) => `  pid ${o.pid}  ${t(`load.orphan.${o.reason}`)}  ${o.path}${o.detail ? `  (${o.detail})` : ''}  ${o.command.slice(0, 100)}`
+
+if (sub === 'reap' && opts.orphans) {
+  const scan = orphanScan()
+  const kill = Boolean(opts.kill) && !opts['dry-run']
+  const killed = kill ? loadLib.killOrphans(scan.candidates) : []
+  if (opts.json) process.stdout.write(`${JSON.stringify({ ...scan, killed, dryRun: !kill }, null, 2)}\n`)
+  else {
+    process.stdout.write(`${t('load.orphan.head', { count: scan.candidates.length })}\n`)
+    for (const o of scan.candidates) process.stdout.write(`${orphanLine(o)}\n`)
+    if (scan.excluded.length) process.stdout.write(`${t('load.orphan.excluded', { count: scan.excluded.length })}\n`)
+    for (const o of scan.excluded) process.stdout.write(`${orphanLine(o)}\n`)
+    for (const k of killed) process.stdout.write(`${t(`load.orphan.kill_${k.result}`, { pid: k.pid, msg: k.msg || '' })}\n`)
+    if (!kill && scan.candidates.length) process.stdout.write(`${t('load.orphan.dry_run')}\n`)
+  }
+  process.exit(0)
+}
+
+if (sub === 'check') {
+  const l = loadNow()
+  const tier = loadLib.tierOf(l, ls.tiers)
+  const lanes = sd ? readLanes(sd).lanes : []
+  const max = resolved.config.machine?.lanes?.max
+  const st = slots.status(settings, deps)
+  const scan = orphanScan()
+  if (opts.json) {
+    process.stdout.write(`${JSON.stringify({ load: l, sample: ls.sample, tiers: ls.tiers, tier, loadMax: settings.loadMax, lanes: { count: lanes.length, max, roles: lanes.map((x) => ({ id: x.id, role: loadLib.laneRole(sd, x).role })) }, slots: st, orphans: scan }, null, 2)}\n`)
+  } else {
+    process.stdout.write(`${t('load.check.load', { load: l.toFixed(2), sample: ls.sample, tier: t(`load.tier.${tier}`) })}\n`)
+    process.stdout.write(`${t('load.check.tiers', { hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy, max: settings.loadMax })}\n`)
+    process.stdout.write(`${t('load.check.lanes', { count: lanes.length, max: max ?? '-', roles: lanes.map((x) => `${x.id}:${loadLib.laneRole(sd, x).role}`).join(' ') || '-' })}\n`)
+    for (const k of st) process.stdout.write(`${t('slot.kind_line', { kind: k.kind, used: k.held.length, count: k.count })}\n`)
+    process.stdout.write(`${t('load.orphan.head', { count: scan.candidates.length })}\n`)
+    for (const o of scan.candidates) process.stdout.write(`${orphanLine(o)}\n`)
+  }
+  process.exit(0)
+}
+
 if (sub === 'status' || sub === 'reap') {
   const reaped = sub === 'reap' ? slots.KINDS.flatMap((k) => slots.reapKind(k, settings, deps)) : []
   const st = slots.status(settings, deps)
@@ -103,6 +161,16 @@ function laneOf() {
 
 const text = command.join(' ')
 const info = { lane: laneOf(), command: text, cwd, pid: process.pid }
+if (need.length) {
+  const l = loadNow()
+  const laneEntry = info.lane ? (sd ? readLanes(sd).lanes.find((x) => x.id === info.lane) : null) || { id: info.lane } : null
+  const v = loadLib.stopVerdict(l, ls.tiers, loadLib.laneRole(sd, laneEntry).role)
+  if (v) {
+    err(t('safety.slot.load_stop_heavy.why', { ...v.vars, lane: info.lane || '-', cmd: text.slice(0, 120) }))
+    err(t('safety.slot.load_stop_heavy.fix', { ...v.vars, lane: info.lane || '-', cmd: text.slice(0, 120) }))
+    process.exit(75)
+  }
+}
 let lastWait = ''
 const waitMessage = (w) => (w.reason === 'load' ? t('slot.wait_load', { load: w.load.toFixed(2), max: settings.loadMax }) : t('slot.wait_busy', { kind: w.kind, count: settings.counts[w.kind] }))
 const res = await slots.acquire(

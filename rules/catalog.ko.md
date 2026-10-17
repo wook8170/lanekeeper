@@ -170,6 +170,14 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-worktree`, 설정 `machine.lanes.max`
 - 막혔을 때: 끝난 레인을 합치고 작업 폴더를 정리한 뒤 새 레인을 연다. 진행 중인 레인은 `/wb:lanes` 로 확인한다.
 
+### 부하 단계에 따른 레인 조정 (`load-tiers`)
+
+1분 부하가 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.
+
+- 왜: 부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.
+- 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`, 설정 `machine.load.tiers`
+- 막혔을 때: `wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 부하가 내려가면 다시 디스패치한다.
+
 ### 레인은 자기 시험만 실행 (`lane-test-scope`)
 
 레인은 자기가 만들거나 고친 시험 파일만 실행한다. 전체 시험과 전체 패키지 점검은 취합 담당이 한 번만 실행한다.

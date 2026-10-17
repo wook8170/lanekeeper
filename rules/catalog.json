@@ -696,6 +696,56 @@
       }
     },
     {
+      "id": "load-tiers",
+      "group": "dispatch",
+      "title": {
+        "ko": "부하 단계에 따른 레인 조정",
+        "en": "Lanes follow the load tiers"
+      },
+      "rule": {
+        "ko": "1분 부하가 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.",
+        "en": "At or above the hold-new-lanes threshold of the 1-minute load, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped."
+      },
+      "why": {
+        "ko": "부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.",
+        "en": "Starting more lanes on a loaded machine makes every lane's tests time out. Verification can wait for the executors without changing its result."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/dispatch/dispatch-guard.mjs",
+          "codes": [
+            "dispatch.load_hold"
+          ]
+        },
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/slots/slot-guard.mjs",
+          "codes": [
+            "safety.slot.load_stop_heavy"
+          ]
+        },
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/load/check.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "bin/wb-slot",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "machine.load.tiers"
+        }
+      ],
+      "recover": {
+        "ko": "`wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 부하가 내려가면 다시 디스패치한다.",
+        "en": "Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. Dispatch again once the load drops."
+      }
+    },
+    {
       "id": "lane-test-scope",
       "group": "dispatch",
       "title": {

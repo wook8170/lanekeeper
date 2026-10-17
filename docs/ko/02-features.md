@@ -118,6 +118,24 @@ Claude 가 무거운 명령을 슬롯 없이 실행하면 기본(`machine.slots.
 [wb] `npx playwright test` 은(는) 무거운 실행이라 슬롯(browser,heavy) 안에서 돌려야 합니다. 다음처럼 감싸서 다시 실행하세요: `wb-slot --kind browser,heavy -- sh -c 'npx playwright test'`
 ```
 
+**부하 단계.** 1분 부하를 두 문턱(`machine.load.tiers`)과 비교한다. 기본값 `auto` 는 논리 코어 수 기준으로, 새 레인 보류는 코어 수 × 2, 무거운 실행 중지는 코어 수 × 2.8(반올림)이다. 숫자로 직접 정할 수도 있다.
+
+| 단계 | 조건 | 동작 |
+|---|---|---|
+| 정상 | 새 레인 보류 문턱 미만 | 제한 없음 |
+| 새 레인 보류 | 새 레인 보류 문턱 이상 | 새 레인(Agent 디스패치)을 막는다(`load_hold`). lanes.json 에 이미 있는 레인으로 보내는 디스패치는 막지 않는다 |
+| 무거운 실행 중지 | 무거운 실행 중지 문턱 이상 | 검수 레인의 무거운 실행을 바로 거부한다(`load_stop_heavy`). 실행 레인과 메인 세션은 기존처럼 `machine.load.max` 아래로 내려갈 때까지 기다린다. 이미 슬롯을 잡은 실행은 멈추지 않는다 |
+
+레인 종류는 lanes.json 의 `role`(`executor` · `verifier`, `wb-worktree create <id> --role verifier`)로 정한다. 없으면 그 레인 지시서 표지의 `role=` 이나 지시서의 `역할:` 줄을 읽는다. 둘 다 없으면 실행 레인으로 본다. 검수 지시서 템플릿 표지에는 `role=verifier` 가 들어 있다.
+
+`wb-slot check` 는 부하·단계·레인 수·슬롯 점유·고아 프로세스 후보를 한 화면에 보여 준다. 고아 프로세스는 지워졌거나 lanes.json 에 없는 레인 폴더에서 뜬 vite · tsx · esbuild · vitest · 헤드리스 Chrome 이다. `wb-slot reap --orphans` 는 목록만 보여 주고, `--kill` 을 붙였을 때만 그 PID 만 하나씩 종료한다. 이 세션의 프로세스와 보호 포트(`machine.ports.protected`, `machine.servers`)에서 듣고 있는 프로세스는 사유와 함께 제외한다. 프롬프트를 보낼 때 `machine.load.check_every_min`(기본 30분)마다 부하를 보고, 문턱을 넘었을 때만 한 줄을 알린다.
+
+```
+wb-slot check
+wb-slot reap --orphans
+wb-slot reap --orphans --kill
+```
+
 **포트.** 보호 포트와 레인 포트 대역의 숫자는 머신 설정(`~/.wb/machine.json`)에만 둔다. 문서와 지시서는 이름만 쓰고 `wb-port get <이름> [--lane <레인>]` 으로 숫자를 얻는다. 레인 대역은 41000 부터 레인마다 20칸이며, 이름별 포트(web·web2·api·db·aux)를 빌려 준다.
 
 ```
@@ -350,7 +368,7 @@ wb-token status
 ### /wb:doctor
 
 - 언제: 설치 직후, wb 가 예상과 다르게 동작할 때, 웨이브를 시작하기 전.
-- 어떻게: `wb-config doctor` 결과를 보여 주고 `✗` 줄마다 원인과 고칠 방법을 설명한다. 특정 값의 출처는 `wb-config explain <키>` 로 확인한다. 시험 결과 엑셀 환경은 `wb-test-report env` 로 확인한다. 이 스킬은 아무것도 설치하지 않는다.
+- 어떻게: `wb-config doctor` 결과를 보여 주고 `✗` 줄마다 원인과 고칠 방법을 설명한다. 특정 값의 출처는 `wb-config explain <키>` 로 확인한다. 시험 결과 엑셀 환경은 `wb-test-report env` 로 확인한다. 끝 줄에 실제로 적용되는 부하 문턱(`load.max`, `load.tiers`)이 나온다. 이 스킬은 아무것도 설치하지 않는다.
 - 예시: 「machine.lanes.max 가 왜 3 이야?」
 
 ```
@@ -427,7 +445,7 @@ wb-decide list --pending
 ### /wb:lanes
 
 - 언제: 어떤 레인이 돌고 있는지 볼 때, 웨이브와 레인을 만들 때.
-- 어떻게: `wb-waves board` 결과를 그대로 보여 준다. 토큰과 모델 합계는 `wb-waves metrics` 다. 「진행」인데 `*` 가 없고 경과 시간이 늘어나는 레인은 멈췄을 가능성이 높으므로 `/wb:resume` 을 권한다.
+- 어떻게: `wb-waves board` 결과를 그대로 보여 준다. 토큰과 모델 합계는 `wb-waves metrics` 다. 「진행」인데 `*` 가 없고 경과 시간이 늘어나는 레인은 멈췄을 가능성이 높으므로 `/wb:resume` 을 권한다. 표 아래에 `wb-slot check` 의 부하 단계와 고아 프로세스 후보를 함께 보여 준다.
 - 예시:
 
 ```

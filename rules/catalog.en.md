@@ -170,6 +170,14 @@ The number of lanes running at the same time stays within the cap (3 by default)
 - Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-worktree`, setting `machine.lanes.max`
 - If blocked: Land finished lanes and clean up their worktrees before opening a new one. See the running lanes with `/wb:lanes`.
 
+### Lanes follow the load tiers (`load-tiers`)
+
+At or above the hold-new-lanes threshold of the 1-minute load, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped.
+
+- Why: Starting more lanes on a loaded machine makes every lane's tests time out. Verification can wait for the executors without changing its result.
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`, setting `machine.load.tiers`
+- If blocked: Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. Dispatch again once the load drops.
+
 ### Lanes run only their own tests (`lane-test-scope`)
 
 A lane runs only the test files it wrote or changed. The controller runs the full suite and the all-package checks once.

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "lanes": { "max": 3 },
-  "load": { "max": "auto", "auto_rule": "logical_cores * 2", "sample": "1min" },
+  "load": { "max": "auto", "auto_rule": "logical_cores * 2", "sample": "1min", "tiers": { "hold_new_lanes": "auto", "stop_heavy": "auto" }, "check_every_min": 30 },
   "slots": {
     "heavy":   { "count": 2, "patterns": ["full-test", "e2e", "typecheck-all", "build", "install", "codegraph-index"] },
     "browser": { "count": 2, "patterns": ["chrome-headless", "playwright", "cdp"] },

@@ -15,6 +15,13 @@
 - 설명서 문제 해결에 「시간대를 지정하는 설정 키는 없고 시스템 시간대를 쓴다」를 명시
 
 ### Added
+- 부하 단계(`machine.load.tiers`): 1분 부하가 `hold_new_lanes` 이상이면 디스패치 가드가 새 레인을 막고(`dispatch.load_hold`, lanes.json 에 이미 있는 레인으로 보내는 디스패치는 통과), `stop_heavy` 이상이면 슬롯 가드와 `wb-slot` 이 검수 레인의 무거운 실행을 바로 거부한다(`safety.slot.load_stop_heavy`, `wb-slot` 은 종료 코드 75). 실행 레인과 메인 세션은 기존처럼 `machine.load.max` 대기. 이미 잡힌 슬롯은 건드리지 않는다. 기본값 `auto` = 논리 코어 수 × 2 / × 2.8(반올림), 숫자 지정 가능
+- 레인 종류: lanes.json 의 `role`(`executor`|`verifier`, `wb-worktree create <id> --role verifier`), 없으면 레인 지시서 표지의 `role=` 이나 `역할:` 줄, 둘 다 없으면 실행 레인. 검수 지시서 템플릿 표지에 `role=verifier`
+- `wb-slot check`: 부하·단계·문턱·레인 수와 종류·슬롯 점유·고아 프로세스 후보를 한 화면에(`--json`)
+- `wb-slot reap --orphans [--dry-run|--kill]`: 지워졌거나 lanes.json 에 없는 레인 폴더에서 뜬 vite·tsx·esbuild·vitest·헤드리스 Chrome 을 PID 로 찾아 보여 주고, `--kill` 때만 그 PID 만 하나씩 종료한다(종료 직전에 명령이 그대로인지 다시 확인, 패턴 종료 없음). 이 세션의 프로세스와 보호 포트(`machine.ports.protected`·`machine.servers`)에서 듣는 프로세스는 사유와 함께 제외
+- UserPromptSubmit 훅 `hooks/scripts/load/check.mjs`: `machine.load.check_every_min`(기본 30, 0 = 끔)분마다 부하를 보고 문턱을 넘었을 때만 한 줄을 알린다
+- 규칙 `load-tiers`(규칙 40개), `/wb:lanes`·`/wb:doctor`·`wb-config doctor` 에 부하 단계 표시, 시험용 환경 변수 `WB_LOAD_FAKE`
+- 시험 `tests/load-governor.test.mjs`: 문턱 환산(auto·숫자), 가드 막음·통과 경계, 검수 레인 우선 거부, 고아 탐지(가짜 ps 출력, 보호 포트·자기 세션 제외), 점검 주기
 - `wb-token calibrate --five <n> [--seven <n>] [--at HH:MM]`: 앱의 `/usage` 에서 본 값을 보정점으로 넣는다. `wb-token calibrate --check`: 같은 창 안 보정점 쌍별 비율 목록(가중식 점검용)
 - 개인 설정 키 `token_guard.fresh_min`(기본 10), `token_guard.source`(`auto`|`official`|`local`, 기본 `auto`)
 - 시험 `tests/l3-token-official.test.mjs`: 공식 캐시 읽기, 신선도, 창 시작 비율·두 점 차이 보정, 리셋 경과, 계정 전환, 대체 예산·환산, 출처 설정, 한도 도달 점, 훅·명령 출력

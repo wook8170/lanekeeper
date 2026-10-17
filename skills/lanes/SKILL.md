@@ -13,6 +13,10 @@ The lane ledger is `<git-common-dir>/wb/waves.json`; every worktree sees the sam
 2. Columns: status, model, task, runs/returns, to-dos done/total, checks pass/fail, tokens, idle time. `*` after the status means an agent is running now.
 3. For token and model totals per lane run `wb-waves metrics`.
 4. A lane in `review` has a finished agent and waits for the controller. A lane in `running` with a growing idle time and no `*` has probably stopped: tell the user and suggest `/wb:resume`.
+5. Run `wb-slot check` and show its lines below the board: the 1-minute load, the tier (normal · new lanes held · heavy runs stopped), the thresholds (`machine.load.tiers`), the lanes with their role, slot use and orphan process candidates.
+   - Tier "new lanes held": do not dispatch a new lane; messages to existing lanes are fine.
+   - Tier "heavy runs stopped": verifier lanes' heavy runs are refused; executors wait for a slot.
+   - Orphan candidates: suggest `wb-slot reap --orphans` to review them and, after the user agrees, `wb-slot reap --orphans --kill` (it stops exactly the listed PIDs, never by pattern).
 
 ## Create and update (controller)
 
@@ -24,6 +28,7 @@ wb-waves return <wave> <lane> --reason "<what to fix>"
 ```
 
 - `<lane>` is the same id as the lane worktree (`wb-worktree create <id>`) and the `lane=` attribute of the brief marker. The SubagentStart hook uses it to bind the agent to the lane, record the model and brief hashes, and count runs, returns and tokens.
+- Mark a verifier lane with `wb-worktree create <id> --role verifier` or `role=verifier` in its brief marker, so a high load stops its heavy runs first.
 - `return` is for a reviewer who sends a lane back. It counts one return and sets the lane to `pending`.
 - An executor records its own progress with `wb-waves todo <wave> <lane> done <id>`, `wb-waves verify <wave> <lane> <name> pass|fail|skip` and `wb-waves note`. Add this rule to the brief.
 

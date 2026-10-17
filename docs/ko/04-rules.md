@@ -1,6 +1,6 @@
 # 규칙 안내
 
-wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규칙마다 무엇을 막는지, 왜 막는지, 걸렸을 때 어떻게 고치는지를 적었다.
+wb 는 아래 규칙 40개를 훅과 명령으로 지킨다. 이 문서는 규칙마다 무엇을 막는지, 왜 막는지, 걸렸을 때 어떻게 고치는지를 적었다.
 
 훅의 판정은 세 가지다. 차단은 명령을 실행하지 않는다. 확인 요청은 사용자에게 진행 여부를 묻는다. 안내는 명령을 실행하고 다음에 할 일을 알려 준다.
 
@@ -34,25 +34,26 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 | 18 | 검수는 구현과 다른 모델로 | `implementer-verifier-differ` | 모델과 지시서 |
 | 19 | 레인은 지시서로 시작 | `brief-required` | 모델과 지시서 |
 | 20 | 동시 레인 수 상한 | `lane-cap` | 모델과 지시서 |
-| 21 | 레인은 자기 시험만 실행 | `lane-test-scope` | 모델과 지시서 |
-| 22 | 보고는 파일과 응답 두 곳에 | `report-twice` | 모델과 지시서 |
-| 23 | 시작 커밋 확인 | `base-commit` | 모델과 지시서 |
-| 24 | progress.md 로 다음 세션에 인계 | `progress-handoff` | 세션과 인계 |
-| 25 | 작업 단위마다 기록 커밋 | `wave-checkpoint` | 세션과 인계 |
-| 26 | 사용량 단계별 대응 | `token-stages` | 세션과 인계 |
-| 27 | 자동 재개는 기본 권한으로 | `auto-retry-default-permission` | 세션과 인계 |
-| 28 | 간결 모드에서도 근거는 유지 | `terse-mode` | 세션과 인계 |
-| 29 | 기능과 시험은 함께 변경 | `tests-with-change` | 품질과 문서 |
-| 30 | 시험 결과는 엑셀로 저장 | `test-results-workbook` | 품질과 문서 |
-| 31 | 번호는 먼저 예약 | `number-reservation` | 품질과 문서 |
-| 32 | 끝난 작업 폴더 정리 | `worktree-cleanup` | 품질과 문서 |
-| 33 | 소유자 결정은 문서로 | `owner-decisions-recorded` | 품질과 문서 |
-| 34 | 파일 종류별 문체 | `style-per-file` | 품질과 문서 |
-| 35 | 화면 구조 변경은 시안 먼저 | `mockup-first` | 품질과 문서 |
-| 36 | 끝난 작업은 아티팩트로 보고 | `report-artifact` | 품질과 문서 |
-| 37 | 코드 흐름은 코드 색인으로 확인 | `codegraph-first` | 품질과 문서 |
-| 38 | 색인 없는 경로는 다시 조회하지 않음 | `codegraph-index-first` | 품질과 문서 |
-| 39 | 화면 낱말은 용어 사전대로 | `glossary-terms` | 추가 예정 |
+| 21 | 부하 단계에 따른 레인 조정 | `load-tiers` | 모델과 지시서 |
+| 22 | 레인은 자기 시험만 실행 | `lane-test-scope` | 모델과 지시서 |
+| 23 | 보고는 파일과 응답 두 곳에 | `report-twice` | 모델과 지시서 |
+| 24 | 시작 커밋 확인 | `base-commit` | 모델과 지시서 |
+| 25 | progress.md 로 다음 세션에 인계 | `progress-handoff` | 세션과 인계 |
+| 26 | 작업 단위마다 기록 커밋 | `wave-checkpoint` | 세션과 인계 |
+| 27 | 사용량 단계별 대응 | `token-stages` | 세션과 인계 |
+| 28 | 자동 재개는 기본 권한으로 | `auto-retry-default-permission` | 세션과 인계 |
+| 29 | 간결 모드에서도 근거는 유지 | `terse-mode` | 세션과 인계 |
+| 30 | 기능과 시험은 함께 변경 | `tests-with-change` | 품질과 문서 |
+| 31 | 시험 결과는 엑셀로 저장 | `test-results-workbook` | 품질과 문서 |
+| 32 | 번호는 먼저 예약 | `number-reservation` | 품질과 문서 |
+| 33 | 끝난 작업 폴더 정리 | `worktree-cleanup` | 품질과 문서 |
+| 34 | 소유자 결정은 문서로 | `owner-decisions-recorded` | 품질과 문서 |
+| 35 | 파일 종류별 문체 | `style-per-file` | 품질과 문서 |
+| 36 | 화면 구조 변경은 시안 먼저 | `mockup-first` | 품질과 문서 |
+| 37 | 끝난 작업은 아티팩트로 보고 | `report-artifact` | 품질과 문서 |
+| 38 | 코드 흐름은 코드 색인으로 확인 | `codegraph-first` | 품질과 문서 |
+| 39 | 색인 없는 경로는 다시 조회하지 않음 | `codegraph-index-first` | 품질과 문서 |
+| 40 | 화면 낱말은 용어 사전대로 | `glossary-terms` | 추가 예정 |
 
 ## git 과 브랜치
 
@@ -235,7 +236,16 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `machine.lanes.max`
 - 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-worktree`
 
-### 21. 레인은 자기 시험만 실행 (`lane-test-scope`)
+### 21. 부하 단계에 따른 레인 조정 (`load-tiers`)
+
+- 규칙: 1분 부하가 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.
+- 왜: 부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.
+- 막혔을 때: `wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 부하가 내려가면 다시 디스패치한다.
+- 메시지 코드: `dispatch.load_hold`, `safety.slot.load_stop_heavy`
+- 관련 설정: `machine.load.tiers`
+- 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`
+
+### 22. 레인은 자기 시험만 실행 (`lane-test-scope`)
 
 - 규칙: 레인은 자기가 만들거나 고친 시험 파일만 실행한다. 전체 시험과 전체 패키지 점검은 취합 담당이 한 번만 실행한다.
 - 왜: 레인마다 전체 시험을 돌리면 부하가 겹쳐 시간 초과 실패가 난다. 같은 결과를 여러 번 얻느라 시간도 쓴다.
@@ -243,7 +253,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 메시지 코드: `dispatch.brief_incomplete`, `safety.slot.*`
 - 어디서 지키나: `templates/briefs/ko/impl.md`, `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`
 
-### 22. 보고는 파일과 응답 두 곳에 (`report-twice`)
+### 23. 보고는 파일과 응답 두 곳에 (`report-twice`)
 
 - 규칙: 레인은 보고를 파일로 남기고, 같은 내용을 최종 응답으로도 돌려준다. 큰 항목을 끝낼 때마다 중간 기록을 남긴다.
 - 왜: 응답이 비어 있거나 작업이 중간에 끊겨도 결과가 남아야 한다.
@@ -251,7 +261,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 메시지 코드: `dispatch.brief_incomplete`
 - 어디서 지키나: `templates/briefs/ko/impl.md`, `hooks/scripts/dispatch/dispatch-guard.mjs`
 
-### 23. 시작 커밋 확인 (`base-commit`)
+### 24. 시작 커밋 확인 (`base-commit`)
 
 - 규칙: 레인은 시작할 때 작업 폴더의 현재 커밋이 지시서의 기준 커밋과 같은지 확인한다. 다르면 작업 전에 보고한다.
 - 왜: 오래된 기준에서 작업하면 이미 고친 문제를 다시 고치거나 병합 충돌이 커진다.
@@ -263,7 +273,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 
 세션이 끊기거나 한도에 걸려도 작업을 이어받을 수 있게 한다.
 
-### 24. progress.md 로 다음 세션에 인계 (`progress-handoff`)
+### 25. progress.md 로 다음 세션에 인계 (`progress-handoff`)
 
 - 규칙: 세션을 시작하면 `progress.md` 를 처음부터 끝까지 읽는다. 작업 단위가 끝날 때마다 이 파일을 새로 쓴다. 이 파일에는 지금 유효한 상태만 둔다(기본 300줄 이하). 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 에 덧붙인다.
 - 왜: 이전 대화를 모르는 새 세션은 `progress.md` 만 보고 일을 이어받는다. 내용이 오래되면 끝난 일을 다시 하거나 진행 중인 상태를 놓친다. 이전 기록이 쌓여 파일이 길어지면 새 세션이 앞부분만 읽고 현재 상태를 놓친다.
@@ -271,14 +281,14 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `personal.handoff`
 - 어디서 지키나: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`, `bin/wb-waves`
 
-### 25. 작업 단위마다 기록 커밋 (`wave-checkpoint`)
+### 26. 작업 단위마다 기록 커밋 (`wave-checkpoint`)
 
 - 규칙: 웨이브가 끝나면 진행 기록을 커밋하고, 사용자에게 `/clear` 로 대화를 비우라고 안내한다.
 - 왜: 대화가 길어지면 사용 한도에 걸려 세션이 멈춘다. 기록을 일찍 남겨 두면 새 세션이 어느 시점에서든 이어받을 수 있다.
 - 막혔을 때: `/wb:resume` 으로 재개 보고를 만들고, 오래된 항목부터 정리한다.
 - 어디서 지키나: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`
 
-### 26. 사용량 단계별 대응 (`token-stages`)
+### 27. 사용량 단계별 대응 (`token-stages`)
 
 - 규칙: 사용량이 90%, 95%, 99% 에 이르면 단계별 지침을 따른다. 사용량은 공식 5시간·7일 사용량(조회 이후 분은 로컬 추정을 더한 값) 중 높은 쪽이다. 90% 에서는 작업 단위를 줄인다. 95% 에서는 웨이브마다 인계 기록을 쓴다. 99% 에서는 마지막 인계 기록을 쓴 뒤 기다린다.
 - 왜: 한도에 걸려 갑자기 멈추면 기록하지 않은 작업이 사라진다.
@@ -286,7 +296,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `personal.token_guard`
 - 어디서 지키나: `hooks/scripts/token-guard/check.mjs`, `skills/token-guard/SKILL.md`
 
-### 27. 자동 재개는 기본 권한으로 (`auto-retry-default-permission`)
+### 28. 자동 재개는 기본 권한으로 (`auto-retry-default-permission`)
 
 - 규칙: 사용 한도로 멈춘 세션을 자동으로 다시 시작할 때는 기본 권한 모드만 쓴다.
 - 왜: 아무도 보지 않는 세션이 권한 확인을 건너뛰면 위험한 작업이 확인 없이 실행될 수 있다.
@@ -294,7 +304,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `personal.auto_retry.permission_mode`
 - 어디서 지키나: `hooks/scripts/auto-retry/detect.mjs`, `skills/auto-retry/SKILL.md`
 
-### 28. 간결 모드에서도 근거는 유지 (`terse-mode`)
+### 29. 간결 모드에서도 근거는 유지 (`terse-mode`)
 
 - 규칙: 간결 모드에서는 출력과 도구 호출을 줄인다. 검증 근거와 최종 보고는 줄이지 않는다.
 - 왜: 간결 모드의 목적은 토큰 절약이다. 확인하지 않은 결과를 보고해도 된다는 뜻이 아니다.
@@ -305,21 +315,21 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 
 검수·보고·문서가 같은 기준을 따르게 한다. 대부분 명령과 스킬이 안내하며, 일부는 훅이 막는다.
 
-### 29. 기능과 시험은 함께 변경 (`tests-with-change`)
+### 30. 기능과 시험은 함께 변경 (`tests-with-change`)
 
 - 규칙: 기능을 추가·수정·삭제할 때는 같은 변경에서 관련 시험도 맞춘다. 지금 고칠 수 없는 결함은 시험 기준을 낮추지 않고, 보류 표시와 결함 기록으로 남긴다.
 - 왜: 시험 없는 변경, 지운 기능을 계속 확인하는 시험, 실제 동작과 다른 기대값은 다음 변경에서 문제를 일으킨다.
 - 막혔을 때: 지시서의 시험 규칙대로 시험을 고친다. 고칠 수 없는 결함은 `wb-defects add` 로 기록한다.
 - 어디서 지키나: `templates/briefs/ko/impl.md`, `bin/wb-defects`, `bin/wb-cases`
 
-### 30. 시험 결과는 엑셀로 저장 (`test-results-workbook`)
+### 31. 시험 결과는 엑셀로 저장 (`test-results-workbook`)
 
 - 규칙: 시험 결과는 엑셀 파일로 저장하고 커밋한다. 결과 파일이 없으면 보고를 마칠 수 없다.
 - 왜: 「통과했다」는 말만으로는 무엇을 몇 건 확인했는지 나중에 알 수 없다.
 - 막혔을 때: `/wb:test-report` 로 결과 파일을 만들고 `wb-check test-results` 로 확인한다.
 - 어디서 지키나: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 
-### 31. 번호는 먼저 예약 (`number-reservation`)
+### 32. 번호는 먼저 예약 (`number-reservation`)
 
 - 규칙: 번호가 붙는 파일(데이터베이스 변경 스크립트, 결정 기록 등)은 번호를 먼저 예약한 뒤 만든다.
 - 왜: 병렬 레인이 같은 번호를 쓰면 병합 때 충돌하고 번호를 다시 매겨야 한다.
@@ -327,14 +337,14 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `project.numbers`
 - 어디서 지키나: `bin/wb-number`, `lib/numbers.mjs`
 
-### 32. 끝난 작업 폴더 정리 (`worktree-cleanup`)
+### 33. 끝난 작업 폴더 정리 (`worktree-cleanup`)
 
 - 규칙: 끝난 레인의 작업 폴더(워크트리)는 대상 브랜치에 병합한 뒤 지운다. 지우기 전에 그 폴더에서 시작한 프로세스를 PID 로 먼저 종료한다.
 - 왜: 남은 작업 폴더의 프로세스가 계속 CPU 를 쓴다. 남은 폴더에서 작업이 이어지면 인계 기록도 두 갈래로 나뉜다.
 - 막혔을 때: `wb-reap` 으로 정리할 대상을 확인하고 `wb-worktree remove <레인>` 으로 지운다.
 - 어디서 지키나: `bin/wb-worktree`, `bin/wb-reap`, `skills/resume/SKILL.md`
 
-### 33. 소유자 결정은 문서로 (`owner-decisions-recorded`)
+### 34. 소유자 결정은 문서로 (`owner-decisions-recorded`)
 
 - 규칙: 소유자가 정한 사항은 결정 기록(`docs/decisions/`)으로 남긴다.
 - 왜: 대화로만 정한 사항은 다음 세션이 알 수 없어 같은 질문을 다시 하게 된다.
@@ -342,7 +352,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `project.paths.decisions`
 - 어디서 지키나: `skills/decide/SKILL.md`, `bin/wb-decide`
 
-### 34. 파일 종류별 문체 (`style-per-file`)
+### 35. 파일 종류별 문체 (`style-per-file`)
 
 - 규칙: 문서와 화면 문구는 파일 종류마다 정한 문체(`style.map`)로 쓴다.
 - 왜: 화면 문구와 보고서의 문체를 구분하지 않으면 같은 제품 안에서 문구의 인상이 제각각이 된다.
@@ -350,7 +360,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `project.style.map`
 - 어디서 지키나: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`
 
-### 35. 화면 구조 변경은 시안 먼저 (`mockup-first`)
+### 36. 화면 구조 변경은 시안 먼저 (`mockup-first`)
 
 - 규칙: 화면 구조를 바꾸는 작업은 구현 전에 시안을 보여 주고 결정을 받는다.
 - 왜: 구현한 뒤에 구조가 반려되면 작업을 처음부터 다시 해야 한다.
@@ -359,7 +369,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `project.mockup`
 - 어디서 지키나: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`
 
-### 36. 끝난 작업은 아티팩트로 보고 (`report-artifact`)
+### 37. 끝난 작업은 아티팩트로 보고 (`report-artifact`)
 
 - 규칙: `/wb:report` 로 보고할 때는 결과를 아티팩트로 올린다. 시험 결과 엑셀을 쓰는 프로젝트는 최신 결과 파일도 확인한다.
 - 왜: 말로만 한 보고는 다른 곳에서 확인할 수 없고, 캡처나 수치 같은 근거도 남지 않는다.
@@ -368,7 +378,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `personal.report.artifact_check`
 - 어디서 지키나: `hooks/scripts/report/artifact-check.mjs`, `bin/wb-art`, `skills/report/SKILL.md`
 
-### 37. 코드 흐름은 코드 색인으로 확인 (`codegraph-first`)
+### 38. 코드 흐름은 코드 색인으로 확인 (`codegraph-first`)
 
 - 규칙: 흐름, 호출하는 곳, 변경 영향은 코드 색인(codegraph)으로 확인한다. 정확한 줄 번호와 문자열은 텍스트 검색으로 확인한다.
 - 왜: 호출하는 곳을 텍스트 검색으로 하나씩 따라가면 검색 횟수가 늘어난다. 색인에는 줄 번호와 일부 호출 관계가 없으므로 텍스트 검색은 막지 않는다.
@@ -376,7 +386,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 - 관련 설정: `project.codegraph.nudge`
 - 어디서 지키나: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`
 
-### 38. 색인 없는 경로는 다시 조회하지 않음 (`codegraph-index-first`)
+### 39. 색인 없는 경로는 다시 조회하지 않음 (`codegraph-index-first`)
 
 - 규칙: 색인이 없는 경로로 codegraph 를 다시 호출하지 않는다. 새 작업 폴더는 만들 때 색인 대기열에 넣는다.
 - 왜: 색인 도구 오류는 대부분 새로 만든 작업 폴더에 색인이 없어서 생겼다. 같은 경로로 다시 호출해도 비용만 늘었다.
@@ -389,7 +399,7 @@ wb 는 아래 규칙 39개를 훅과 명령으로 지킨다. 이 문서는 규�
 
 카탈로그에 있지만 아직 지키는 장치가 없는 규칙이다.
 
-### 39. 화면 낱말은 용어 사전대로 (`glossary-terms`)
+### 40. 화면 낱말은 용어 사전대로 (`glossary-terms`)
 
 - 규칙: 화면 문구의 낱말은 프로젝트 용어 사전을 따른다.
 - 왜: 같은 개념을 화면마다 다른 말로 부르면 사용자가 헷갈린다.

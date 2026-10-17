@@ -2,7 +2,7 @@
 // wb-worktree — lane worktrees.
 //
 //   wb-worktree create <id> [--branch <b>] [--integration <b>] [--base <ref>] [--path <dir>]
-//                           [--agent-id <id>] [--no-setup] [--slot-timeout <sec>] [--json]
+//                           [--agent-id <id>] [--role executor|verifier] [--no-setup] [--slot-timeout <sec>] [--json]
 //   wb-worktree setup <id|path> [--slot-timeout <sec>]
 //   wb-worktree remove <id|path> [--force] [--delete-branch] [--json]
 //   wb-worktree list [--json]
@@ -85,6 +85,7 @@ try {
       base: args.base,
       path: args.path,
       agentId: args['agent-id'],
+      role: args.role === 'verifier' || args.role === 'executor' ? args.role : undefined,
       setup: !args['no-setup'],
       slotTimeoutMs: args['slot-timeout'] != null ? Number(args['slot-timeout']) * 1000 : null,
     })

@@ -22,6 +22,8 @@ export function makeEnv(extra = {}) {
     CLAUDE_PLUGIN_DATA: path.join(base, 'data'),
     CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
     WB_NO_NOTIFY: '1',
+    // the real load average must not decide a test (load tiers); tests that need it set their own
+    WB_LOAD_FAKE: '0',
     LANG: 'en_US.UTF-8',
     PATH: process.env.PATH,
     GIT_CONFIG_GLOBAL: '/dev/null',

@@ -118,6 +118,24 @@ When Claude runs a heavy command without a slot, the default (`machine.slots.gua
 [wb] `npx playwright test` is a heavy run and should go through a slot (browser,heavy). Run it again wrapped like this: `wb-slot --kind browser,heavy -- sh -c 'npx playwright test'`
 ```
 
+**Load tiers.** The 1-minute load is compared with two thresholds (`machine.load.tiers`). The default `auto` follows the logical core count: hold new lanes at cores × 2, stop heavy runs at cores × 2.8 (rounded). Numbers can be set directly.
+
+| Tier | When | What happens |
+|---|---|---|
+| Normal | below the hold-new-lanes threshold | no limit |
+| Hold new lanes | at or above the hold-new-lanes threshold | a new lane (Agent dispatch) is refused (`load_hold`). A dispatch to a lane already in lanes.json is not held |
+| Stop heavy runs | at or above the stop-heavy threshold | a verifier lane's heavy run is refused at once (`load_stop_heavy`). Executor lanes and the main session wait as before until the load drops below `machine.load.max`. Runs that already hold a slot are not stopped |
+
+The lane kind comes from `role` in lanes.json (`executor` · `verifier`, `wb-worktree create <id> --role verifier`). Without it, the `role=` attribute of the lane's brief marker, or a `role:` line in the brief, is read. With neither, the lane counts as an executor. The review brief template carries `role=verifier` in its marker.
+
+`wb-slot check` shows the load, the tier, the lane count, slot use and orphan process candidates on one screen. Orphan processes are vite · tsx · esbuild · vitest · headless Chrome processes started in lane folders that are gone or not in lanes.json. `wb-slot reap --orphans` only lists them; with `--kill` it stops exactly those PIDs, one at a time. Processes of this session and processes listening on protected ports (`machine.ports.protected`, `machine.servers`) are excluded with the reason. When a prompt is sent, the load is looked at every `machine.load.check_every_min` minutes (30 by default), and one line is added only when a threshold is reached.
+
+```
+wb-slot check
+wb-slot reap --orphans
+wb-slot reap --orphans --kill
+```
+
 **Ports.** Protected port numbers and the lane port range live only in the machine settings (`~/.wb/machine.json`). Documents and briefs use names and get the number with `wb-port get <name> [--lane <lane>]`. The lane range starts at 41000 with 20 ports per lane, and lends named ports (web, web2, api, db, aux).
 
 ```
@@ -350,7 +368,7 @@ Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skil
 ### /wb:doctor
 
 - When: right after installation, when wb behaves unexpectedly, before starting a wave.
-- How: shows the `wb-config doctor` output and explains the cause and fix of every `✗` line. Where a value comes from is shown by `wb-config explain <key>`. The workbook environment is checked by `wb-test-report env`. This skill installs nothing.
+- How: shows the `wb-config doctor` output and explains the cause and fix of every `✗` line. Where a value comes from is shown by `wb-config explain <key>`. The workbook environment is checked by `wb-test-report env`. The last line shows the load thresholds in effect (`load.max`, `load.tiers`). This skill installs nothing.
 - Example: "Why is machine.lanes.max 3?"
 
 ```
@@ -426,7 +444,7 @@ wb-decide list --pending
 ### /wb:lanes
 
 - When: you want to see which lanes are running, or create waves and lanes.
-- How: shows the `wb-waves board` output as it is. Token and model totals come from `wb-waves metrics`. A lane in "running" with a growing idle time and no `*` has probably stopped, so `/wb:resume` is suggested.
+- How: shows the `wb-waves board` output as it is. Token and model totals come from `wb-waves metrics`. A lane in "running" with a growing idle time and no `*` has probably stopped, so `/wb:resume` is suggested. Below the board, the load tier and orphan process candidates from `wb-slot check` are shown.
 - Example:
 
 ```

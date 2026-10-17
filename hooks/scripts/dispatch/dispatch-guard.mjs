@@ -7,6 +7,8 @@
 //   - model: missing, unknown, denied, out of quota, below the task floor, outside the
 //     task chain, same as the implementer for differ_from tasks, not the first choice
 //   - lanes: a new lane while lanes.json already holds machine.lanes.max lanes
+//   - load: a new lane while the load is at or above machine.load.tiers.hold_new_lanes
+//     (a dispatch to a lane already in lanes.json is not held)
 //   - nothing left above the floor: block, notify, wait until the reset time
 // Not a safety hook: internal errors let the call through (fail-open) with a note.
 import os from 'node:os'
@@ -17,6 +19,7 @@ import { hookMain, notify, readJson, limitsFile } from '../../../lib/runtime.mjs
 import { classify, resolveRoute, checkModel, modelKeyFor, limitsMap } from '../../../lib/route.mjs'
 import { checkBrief, collectBrief } from '../../../lib/brief.mjs'
 import { recordDispatch } from '../../../lib/waves.mjs'
+import { readLoad, loadSettings, holdVerdict } from '../../../lib/load.mjs'
 
 const RANK = { info: 0, warn: 1, deny: 2 }
 
@@ -74,11 +77,20 @@ export function evaluate(input, env = process.env, overrides = {}) {
   const lane = brief.marker?.attrs?.lane
   const sd = overrides.stateDir !== undefined ? overrides.stateDir : stateDir(root)
   const max = getPath(cfg, 'machine.lanes.max')
+  const lanes = sd ? readJson(path.join(sd, 'lanes.json'))?.lanes || [] : []
+  const known = Boolean(lane) && lanes.some((l) => l.id === lane)
   if (lane && sd && max) {
-    const lanes = readJson(path.join(sd, 'lanes.json'))?.lanes || []
-    if (!lanes.some((l) => l.id === lane) && lanes.length >= max) {
+    if (!known && lanes.length >= max) {
       verdicts.push({ level: 'deny', code: 'lanes_full', vars: { count: lanes.length, max, lane } })
     }
+  }
+
+  // Load: hold new lanes at or above hold_new_lanes
+  if (!known) {
+    const ls = loadSettings(resolved)
+    const load = overrides.loadavg ? overrides.loadavg(ls.sample) : readLoad(ls.sample, env)
+    const v = holdVerdict(load, ls.tiers)
+    if (v) verdicts.push({ level: 'deny', ...v })
   }
 
   const level = verdicts.reduce((a, v) => (RANK[v.level] > RANK[a] ? v.level : a), 'info')
