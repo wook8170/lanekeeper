@@ -4,7 +4,7 @@
 
 ## Reporting a vulnerability
 
-Do not open a public issue for a vulnerability. Write to `SECURITY_CONTACT_PLACEHOLDER` instead. You get an acknowledgement within 7 days of receipt; the fix schedule is set once the impact is known. The latest 0.x release is supported.
+Do not open a public issue for a vulnerability. Write to `wook81701@gmail.com` instead. You get an acknowledgement within 7 days of receipt; the fix schedule is set once the impact is known. The latest 0.x release is supported.
 
 ## What wb protects against
 

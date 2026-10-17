@@ -96,6 +96,14 @@ const FORBIDDEN_RE = [
   [/\/home\/(?!user\b)[a-z][a-z0-9_-]*\//, 'home folder'],
 ]
 
+// Public contact the owner chose for publication (owner decision 2026-10-17):
+// copyright holder name and the security contact mail. Allowed only in these
+// files and only as this exact string; anything else still trips the guard.
+const PUBLIC_CONTACT = ['wook8', '1701', '@gm', 'ail.com'].join('')
+const PUBLIC_CONTACT_FILES = new Set([
+  'SECURITY.md', 'SECURITY.en.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
+])
+
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.name === '.git' || e.name === 'node_modules' || e.name === '__pycache__') continue
@@ -109,7 +117,8 @@ function walk(dir, out = []) {
 test('no project-specific, personal or machine-specific strings in the repository', () => {
   const hits = []
   for (const f of walk(ROOT)) {
-    const body = fs.readFileSync(f, 'utf8')
+    let body = fs.readFileSync(f, 'utf8')
+    if (PUBLIC_CONTACT_FILES.has(path.relative(ROOT, f).split(path.sep).join('/'))) body = body.split(PUBLIC_CONTACT).join('')
     for (const s of FORBIDDEN) if (body.toLowerCase().includes(s.toLowerCase())) hits.push(`${path.relative(ROOT, f)}: ${s}`)
     for (const [re, name] of FORBIDDEN_RE) {
       const m = re.exec(body)
@@ -117,4 +126,13 @@ test('no project-specific, personal or machine-specific strings in the repositor
     }
   }
   assert.deepEqual(hits, [])
+})
+
+test('copyright holder and contact are filled in (no placeholder left)', () => {
+  const files = ['LICENSE', 'SECURITY.md', 'SECURITY.en.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']
+  for (const f of files) assert.doesNotMatch(read(f), /[A-Z_]+_PLACEHOLDER/, f)
+  assert.match(read('LICENSE'), /^Copyright \(c\) 2026 윤결파파$/m)
+  assert.equal(json('.claude-plugin/plugin.json').author.name, '윤결파파')
+  assert.equal(json('.claude-plugin/marketplace.json').owner.name, '윤결파파')
+  for (const f of ['SECURITY.md', 'SECURITY.en.md']) assert.ok(read(f).includes(PUBLIC_CONTACT), f)
 })
