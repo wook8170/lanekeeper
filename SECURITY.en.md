@@ -66,7 +66,7 @@ Hooks and commands send no data off the machine. Metrics and records stay in loc
 
 | Feature | Reads | Writes |
 |---|---|---|
-| Token guard | Token usage fields of conversation logs under `~/.claude/projects` changed in the recent window. The hook reads nothing until a budget (`token_guard.budget`) is set. Running `wb-token status` or `wb-token calibrate` by hand reads them to show the usage, with or without a budget | Totals in `${CLAUDE_PLUGIN_DATA}/token-guard/` |
+| Token guard | The official usage entry (`cachedUsageUtilization`) and the account ID (`oauthAccount.accountUuid`) of `~/.claude.json`; no other entry and no credentials are read. Token usage fields and usage-limit rejections of conversation logs under `~/.claude/projects` changed in the recent window. With neither an official value nor a budget (`token_guard.budget`) the hook reads no conversation logs. Running `wb-token status` or `wb-token calibrate` by hand reads them to show the usage, with or without a budget | Totals in `${CLAUDE_PLUGIN_DATA}/token-guard/`, a record of official and manual usage (`official-history.jsonl`: time, account ID, percentages, reset times), per-account calibration ratios (`calib-<account>.json`) |
 | Automatic resume | The tail of the current session log (limit text, model name) | Schedule state in `${CLAUDE_PLUGIN_DATA}`, and the output log of the resumed session (readable by the user only) |
 | Lane ledger | Model names and token usage in subagent logs | Per-lane counts, models, tokens and brief hashes in `<git common dir>/wb/` |
 | Report check | Tool call names in the current session log | One block marker per session |

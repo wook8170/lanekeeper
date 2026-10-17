@@ -304,10 +304,10 @@ test('11 /wb:approve: the expiry is shown in local time with the offset', async 
 })
 
 // ── 12 SECURITY states what reads conversation logs ────────────────────
-test('12 SECURITY: the token guard row says the command reads logs without a budget', () => {
+test('12 SECURITY: the token guard row says what it reads from ~/.claude.json and that the command reads logs without a budget', () => {
   const root = path.join(HERE, '..')
-  assert.match(fs.readFileSync(path.join(root, 'SECURITY.md'), 'utf8'), /훅은 예산\(`token_guard\.budget`\)을 정하기 전에는 읽지 않는다\. 사람이 `wb-token status`/)
-  assert.match(fs.readFileSync(path.join(root, 'SECURITY.en.md'), 'utf8'), /The hook reads nothing until a budget .* Running `wb-token status`/)
+  assert.match(fs.readFileSync(path.join(root, 'SECURITY.md'), 'utf8'), /훅은 공식 사용량도 예산\(`token_guard\.budget`\)도 없으면 대화 기록을 읽지 않는다\. 사람이 `wb-token status`/)
+  assert.match(fs.readFileSync(path.join(root, 'SECURITY.en.md'), 'utf8'), /With neither an official value nor a budget .* the hook reads no conversation logs\. Running `wb-token status`/)
 })
 
 // ── 14 no internal lane names in rule text ─────────────────────────────

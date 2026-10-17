@@ -1,32 +1,108 @@
 #!/usr/bin/env node
 // wb-token — token guard.
 //
-//   wb-token status                  usage of the window, percentage, stage
-//   wb-token on | off                switch (personal.token_guard.enabled)
-//   wb-token calibrate [<weighted>]  set the budget; no value = current weighted usage
-//                                    (run it when the app shows the limit reached)
+//   wb-token status                       official usage, estimate, calibration, stage
+//   wb-token on | off                     switch (personal.token_guard.enabled)
+//   wb-token calibrate --five <n> [--seven <n>] [--at HH:MM]
+//                                         add the percentages /usage shows as a calibration point
+//   wb-token calibrate --check            list the calibration points and the rate between them
+//   wb-token calibrate [<weighted>]       set the fallback budget; no value = current weighted usage
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const lib = (n) => import(pathToFileURL(path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib', n)).href)
-const { parseArgs, load } = await lib('cli.mjs')
+const { load } = await lib('cli.mjs')
 const { translator } = await lib('i18n.mjs')
 const { getPath } = await lib('config.mjs')
-const { localUsage, percent, stagesOf, tierFor } = await lib('token.mjs')
+const { localUsage, percent, stagesOf, tierFor, estimateUsage, officialUsage, readHistory, manualSnapshot, windowUsage } = await lib('token.mjs')
 const { setPersonal } = await lib('runtime.mjs')
 
-const args = parseArgs(process.argv.slice(2))
+// --key value and --key=value; the rest are positional.
+const argv = process.argv.slice(2)
+const args = { _: [] }
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i]
+  if (!a.startsWith('--')) {
+    args._.push(a)
+    continue
+  }
+  const [k, v] = a.slice(2).split('=')
+  if (v !== undefined) args[k] = v
+  else if (['five', 'seven', 'at', 'project'].includes(k) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) args[k] = argv[++i]
+  else args[k] = true
+}
 const [cmd = 'status', val] = args._
 const { resolved } = load(args)
 const t = translator(resolved.effective.language)
 const cfg = getPath(resolved.config, 'personal.token_guard') || {}
 const hours = cfg.window_hours || 5
 const say = (s) => console.log(s)
+const pad = (n) => String(n).padStart(2, '0')
+const when = (ms) => {
+  if (!ms) return '-'
+  const d = new Date(ms)
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const tail8 = (a) => (a ? String(a).slice(-8) : '-')
+const dimName = (d) => (d === 'five' ? t('token.status.name.five') : t('token.status.name.seven'))
+const pct1 = (x) => (Math.round(x * 10) / 10).toString()
+const grp = (n) => Math.round(n).toLocaleString('en-US')
+// --at HH:MM (today, or yesterday when that is still ahead) or an ISO time; default now.
+const atArg = (v) => {
+  if (v === undefined) return Date.now()
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(v))
+  if (m) {
+    const d = new Date()
+    d.setHours(Number(m[1]), Number(m[2]), 0, 0)
+    if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1)
+    return d.getTime()
+  }
+  const t = Date.parse(String(v))
+  return Number.isFinite(t) && t <= Date.now() ? t : NaN
+}
+const pctArg = (v) => {
+  if (v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : NaN
+}
 
 if (cmd === 'on' || cmd === 'off') {
   setPersonal(process.env, 'token_guard.enabled', cmd === 'on')
   say(t(cmd === 'on' ? 'token.toggled.on' : 'token.toggled.off'))
+} else if (cmd === 'calibrate' && args.check) {
+  const { account } = officialUsage()
+  const hist = account ? readHistory(process.env, account) : []
+  say(t('token.calibrate.check.head', { account: tail8(account) }))
+  let rows = 0
+  for (const [dim, reset] of [['five', 'five_reset'], ['seven', 'seven_reset']]) {
+    const snaps = hist.filter((s) => s[dim] != null)
+    for (let i = 1; i < snaps.length; i++) {
+      const p = snaps[i - 1]
+      const q = snaps[i]
+      if (!(p[reset] && q[reset] && Math.abs(p[reset] - q[reset]) < 5 * 60e3)) continue
+      const w = windowUsage({ from: p.at, to: q.at }).weighted
+      const points = q[dim] - p[dim]
+      rows++
+      say(t('token.calibrate.check.row', { from: when(p.at), src1: p.source, to: when(q.at), src2: q.source, dim: dimName(dim), points: pct1(points), weighted: grp(w), rate: w > 0 ? ((points * 1e6) / w).toPrecision(3) : '-' }))
+    }
+  }
+  if (!rows) say(t('token.calibrate.check.none'))
+  say(t('token.calibrate.check.note'))
+} else if (cmd === 'calibrate' && (args.five !== undefined || args.seven !== undefined)) {
+  const five = pctArg(args.five)
+  const seven = pctArg(args.seven)
+  const at = atArg(args.at)
+  if (Number.isNaN(five) || Number.isNaN(seven) || Number.isNaN(at)) {
+    say(t('token.calibrate.usage'))
+    process.exit(1)
+  }
+  const snap = manualSnapshot({ now: at, five, seven })
+  if (!snap) {
+    say(t('token.calibrate.noaccount'))
+    process.exit(1)
+  }
+  say(t('token.calibrate.manual', { five: five == null ? '-' : `${five}%`, seven: seven == null ? '-' : `${seven}%`, at: when(snap.at), account: tail8(snap.account) }))
 } else if (cmd === 'calibrate') {
   const n = val ? Number(val) : localUsage({ hours }).weighted
   if (!Number.isInteger(n) || n <= 0) {
@@ -36,14 +112,45 @@ if (cmd === 'on' || cmd === 'off') {
   setPersonal(process.env, 'token_guard.budget', n)
   say(t('token.calibrate.set', { budget: n }))
 } else if (cmd === 'status') {
-  const u = localUsage({ hours })
   say(t(cfg.enabled === false ? 'token.status.off' : 'token.status.on'))
-  say(t('token.status.usage', { hours, ...u }))
-  if (cfg.budget > 0) {
-    const util = percent(u.weighted, cfg.budget)
-    const { tier } = tierFor(util, stagesOf(resolved))
-    say(t('token.status.budget', { budget: cfg.budget, util, tier: tier || '-' }))
-  } else say(t('token.status.uncalibrated'))
+  const now = Date.now()
+  const est = estimateUsage({ now, cfg })
+  const off = officialUsage()
+  const tierOf = (u) => tierFor(u, stagesOf(resolved)).tier || '-'
+  if (off.mismatch) say(t('token.status.mismatch', { cached: tail8(off.cached_account), account: tail8(off.account) }))
+  else if (!off.snapshot) say(t('token.status.nocache'))
+  else {
+    const s = off.snapshot
+    const freshMin = Number.isFinite(cfg.fresh_min) ? cfg.fresh_min : 10
+    const age = Math.floor((now - s.at) / 60e3)
+    say(t('token.status.official', { at: when(s.at), age, fresh: age <= freshMin ? t('token.status.fresh') : t('token.status.stale', { min: freshMin }), account: tail8(s.account), five: s.five ?? '-', five_reset: when(s.five_reset), seven: s.seven ?? '-', seven_reset: when(s.seven_reset) }))
+  }
+  if (est.source === 'official' || est.source === 'estimate') {
+    const dimText = (d) => {
+      if (!d) return '-'
+      if (d.reset_passed) return t('token.status.dim.reset', { pct: pct1(d.pct) })
+      const point = { official: t('token.status.point.official'), manual: t('token.status.point.manual'), limit: t('token.status.point.limit') }[d.source] || d.source
+      return t('token.status.dim', { pct: pct1(d.pct), point, at: when(d.at), official: d.official, delta: `${pct1(d.delta)}%` })
+    }
+    const srcKey = { official: t('token.src.official'), estimate: t('token.src.estimate') }[est.source]
+    say(t('token.status.estimate', { five: dimText(est.five), seven: dimText(est.seven), util: est.util, src: srcKey, tier: tierOf(est.util) }))
+    for (const dim of ['five', 'seven']) {
+      const c = est.calib && est.calib[dim]
+      if (!c || !(c.r > 0)) {
+        say(t('token.status.calib.none', { dim: dimName(dim) }))
+        continue
+      }
+      const basis = c.basis === 'pair' ? t('token.status.basis.pair') : c.approx ? t('token.status.basis.window.approx') : t('token.status.basis.window')
+      say(t('token.status.calib', { dim: dimName(dim), per: grp(1 / c.r), basis, from: when(c.from), to: when(c.to) }))
+    }
+  } else if (est.source === 'local') {
+    say(t('token.status.usage', { hours, ...localUsage({ hours }) }))
+    if (est.budget_from === 'budget') say(t('token.status.budget', { budget: est.budget, util: est.util, tier: tierOf(est.util) }))
+    else say(t('token.status.fallback', { budget: grp(est.budget), from: t('token.status.fallback.calibration'), util: est.util, tier: tierOf(est.util) }))
+  } else {
+    say(t('token.status.usage', { hours, ...localUsage({ hours }) }))
+    say(t('token.status.uncalibrated'))
+  }
 } else {
   say(t('token.calibrate.usage'))
   process.exit(1)

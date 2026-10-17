@@ -214,7 +214,7 @@ When a wave ends, commit the progress record and tell the user to clear the conv
 
 ### Act at each usage stage (`token-stages`)
 
-When token use reaches 90%, 95% and 99%, follow the stage instructions. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait.
+When usage reaches 90%, 95% and 99%, follow the stage instructions. Usage is the higher of the official five-hour and seven-day figures, with an estimate of the local use since they were fetched. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait.
 
 - Why: Stopping suddenly at the limit loses work that was not recorded.
 - Enforced in: `hooks/scripts/token-guard/check.mjs`, `skills/token-guard/SKILL.md`, setting `personal.token_guard`

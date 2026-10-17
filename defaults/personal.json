@@ -23,7 +23,9 @@
       99
     ],
     "budget": 0,
-    "window_hours": 5
+    "window_hours": 5,
+    "fresh_min": 10,
+    "source": "auto"
   },
   "terse": false,
   "handoff": {

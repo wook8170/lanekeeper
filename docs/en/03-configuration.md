@@ -121,8 +121,10 @@ Kept in the personal file `~/.wb/personal.json`. `language` and `report.chat_det
 | `personal.paths.scratch_root` | `"~/.wb-scratch/{project}"` | Scratch folder that is never committed. `{project}` is the repository folder name | `"~/scratch/{project}"` |
 | `personal.token_guard.enabled` | `true` | Token guard | `false` |
 | `personal.token_guard.stages` | `[90,95,99]` | Stage thresholds (%) | `[85,95,99]` |
-| `personal.token_guard.budget` | `0` | Budget (weighted tokens). At 0 the guard is silent. Written by `wb-token calibrate` | `250000000` |
-| `personal.token_guard.window_hours` | `5` | Recent hours whose usage is added up | `5` |
+| `personal.token_guard.budget` | `0` | Fallback budget (weighted tokens) used when there is no official usage. At 0 the 100% derived from the account's calibration is used; without one the guard is silent. Written by `wb-token calibrate <n>` | `250000000` |
+| `personal.token_guard.window_hours` | `5` | Recent hours whose usage is added up for the fallback budget | `5` |
+| `personal.token_guard.fresh_min` | `10` | Minutes the official usage is used as it is. Older than that, an estimate of the local use since then is added | `5` |
+| `personal.token_guard.source` | `"auto"` | Usage source. `auto`: official value plus estimate, `official`: official value only, `local`: fallback budget only | `"official"` |
 | `personal.terse` | `false` | Terse mode in every repository without its own switch | `true` |
 | `personal.design_plugin` | `""` | Name of a separate plugin to point to for large design requests | `"my-design-plugin"` |
 

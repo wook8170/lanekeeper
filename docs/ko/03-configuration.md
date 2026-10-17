@@ -121,8 +121,10 @@ wb-config validate
 | `personal.paths.scratch_root` | `"~/.wb-scratch/{project}"` | 커밋하지 않는 스크래치 폴더. `{project}` 는 저장소 폴더 이름 | `"~/scratch/{project}"` |
 | `personal.token_guard.enabled` | `true` | 토큰 가드 | `false` |
 | `personal.token_guard.stages` | `[90,95,99]` | 단계별 비율(%) | `[85,95,99]` |
-| `personal.token_guard.budget` | `0` | 예산(가중 토큰). 0 이면 가드가 동작하지 않는다. `wb-token calibrate` 가 쓴다 | `250000000` |
-| `personal.token_guard.window_hours` | `5` | 사용량을 합치는 최근 시간 | `5` |
+| `personal.token_guard.budget` | `0` | 공식 사용량이 없을 때 쓰는 대체 예산(가중 토큰). 0 이면 계정의 보정 계수에서 100% 를 환산하고, 그것도 없으면 가드가 동작하지 않는다. `wb-token calibrate <n>` 이 쓴다 | `250000000` |
+| `personal.token_guard.window_hours` | `5` | 대체 예산으로 판정할 때 사용량을 합치는 최근 시간 | `5` |
+| `personal.token_guard.fresh_min` | `10` | 공식 사용량을 그대로 쓰는 시간(분). 이보다 오래되면 그 뒤 로컬 사용 추정을 더한다 | `5` |
+| `personal.token_guard.source` | `"auto"` | 사용량 출처. `auto` 는 공식 값과 추정, `official` 은 공식 값만, `local` 은 대체 예산 방식만 쓴다 | `"official"` |
 | `personal.terse` | `false` | 스위치가 없는 모든 저장소에서 간결 모드 | `true` |
 | `personal.design_plugin` | `""` | 큰 설계 요청에 안내할 별도 플러그인 이름 | `"my-design-plugin"` |
 

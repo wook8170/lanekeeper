@@ -885,8 +885,8 @@
         "en": "Act at each usage stage"
       },
       "rule": {
-        "ko": "토큰 사용량이 90%, 95%, 99% 에 이르면 단계별 지침을 따른다. 90% 에서는 작업 단위를 줄인다. 95% 에서는 웨이브마다 인계 기록을 쓴다. 99% 에서는 마지막 인계 기록을 쓴 뒤 기다린다.",
-        "en": "When token use reaches 90%, 95% and 99%, follow the stage instructions. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait."
+        "ko": "사용량이 90%, 95%, 99% 에 이르면 단계별 지침을 따른다. 사용량은 공식 5시간·7일 사용량(조회 이후 분은 로컬 추정을 더한 값) 중 높은 쪽이다. 90% 에서는 작업 단위를 줄인다. 95% 에서는 웨이브마다 인계 기록을 쓴다. 99% 에서는 마지막 인계 기록을 쓴 뒤 기다린다.",
+        "en": "When usage reaches 90%, 95% and 99%, follow the stage instructions. Usage is the higher of the official five-hour and seven-day figures, with an estimate of the local use since they were fetched. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait."
       },
       "why": {
         "ko": "한도에 걸려 갑자기 멈추면 기록하지 않은 작업이 사라진다.",

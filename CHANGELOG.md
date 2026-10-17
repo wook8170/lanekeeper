@@ -5,11 +5,19 @@
 ## [Unreleased]
 
 ### Changed
+- 토큰 가드가 Claude Code 의 공식 사용량을 1순위로 쓴다. `~/.claude.json` 의 `cachedUsageUtilization`(5시간·7일 비율, 리셋 시각, 계정)과 계정 ID 만 읽는다. 조회한 지 `fresh_min` 분이 지나면 그 뒤 로컬 가중 토큰을 계정별 보정 계수로 환산해 더하고, 리셋 시각이 지나면 리셋 이후 사용분만 센다. 판정은 5시간·7일 중 높은 쪽. 5시간 창은 리셋 5시간 전에 시작하는 고정 구간으로 계산한다
+- 보정 계수는 자동으로 잡는다. 공식 값이 바뀔 때마다 `${CLAUDE_PLUGIN_DATA}/token-guard/official-history.jsonl` 에 기록하고, 같은 창 안 두 기록의 비율 증가 ÷ 그 사이 로컬 사용량(없으면 창 시작부터의 비율)을 `calib-<계정>.json` 에 둔다. 사용 한도 거절 기록은 100% 점으로 쓴다. 계정을 바꾸면 이전 계정의 공식 값과 보정은 쓰지 않는다
+- `personal.token_guard.budget` 은 공식 값이 없을 때의 대체 예산으로 바뀌었다. 0 이면 계정 보정 계수에서 100% 를 환산하고, 그것도 없으면 침묵한다
+- 토큰 가드 안내 문구가 비율의 출처(공식·추정·대체 예산)를 밝힌다
+- `wb-token status` 가 공식 값(조회 시각·최신 여부·계정 끝 8자리·리셋 시각), 지금 추정과 증가분, 보정 계수의 근거를 보여 준다
 - 시험 결과 엑셀의 시트 이름·머리글·요약 문구·원장 대조 종류가 `personal.language`(ko/en)를 따른다. 문구는 `locales/{ko,en}.json` 의 `xlsx.*` 키에서 읽고, 한국어 결과는 이전과 같다(기록해 둔 통합 엑셀과 대조하는 시험 `tests/py/golden_ko.json`). 영어 설정에서는 영어 시트 이름(`Summary`·`Unit`·…)과 머리글이 나온다
 - 엑셀 도구(Python·openpyxl)가 없어 엑셀을 만들지 못해도 게이트와 모든 단계가 통과하면 게이트 통과 표식을 남긴다는 동작을 시험(`tests/manual-findings.test.mjs`)으로 고정하고, 건너뛴다는 안내 메시지·설명서에 명시
 - 설명서 문제 해결에 「시간대를 지정하는 설정 키는 없고 시스템 시간대를 쓴다」를 명시
 
 ### Added
+- `wb-token calibrate --five <n> [--seven <n>] [--at HH:MM]`: 앱의 `/usage` 에서 본 값을 보정점으로 넣는다. `wb-token calibrate --check`: 같은 창 안 보정점 쌍별 비율 목록(가중식 점검용)
+- 개인 설정 키 `token_guard.fresh_min`(기본 10), `token_guard.source`(`auto`|`official`|`local`, 기본 `auto`)
+- 시험 `tests/l3-token-official.test.mjs`: 공식 캐시 읽기, 신선도, 창 시작 비율·두 점 차이 보정, 리셋 경과, 계정 전환, 대체 예산·환산, 출처 설정, 한도 도달 점, 훅·명령 출력
 - `wb-test-report gate-pass`: `project.gate.command` 를 실행하고, 통과하면 게이트 통과 표식을 남긴다
 - 게이트 통과 표식 기록: `wb-test-report run`(일부 단계만 고르지 않은 실행)과 `gate-pass` 가 커밋하지 않은 변경 없이 통과하면 `<git 공용 폴더>/wb/<git.gate_stamp>.json` 에 커밋 HEAD·시각·명령을 남긴다. 표식이 다른 커밋의 것이면 차단 메시지가 표식의 커밋과 다시 돌릴 명령을 알려 준다
 - 결과 파일만 바뀐 커밋 인정: 표식·실행 커밋 뒤에 결과 폴더(`paths.test_results`) 안의 파일만 바뀐 커밋은 보호 브랜치 반영 판정과 `wb-check test-results`(새 항목 `head_results_only`)에서 같은 커밋으로 본다

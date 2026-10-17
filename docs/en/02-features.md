@@ -295,18 +295,24 @@ To turn off automatic queueing set `project.codegraph.auto_index` to `false`; to
 
 | Feature | What it does | Managed with |
 |---|---|---|
-| Token guard | Turns the local token use of the last 5 hours into a share of the budget. At 90% it asks for smaller units of work, at 95% for a handoff after every wave, at 99% for a last handoff, a notification and a wait | `wb-token`, `/wb:token-guard` |
+| Token guard | Reads the official five-hour and seven-day usage that Claude Code keeps, and estimates the use since then from local tokens. When the higher of the two reaches 90% it asks for smaller units of work, at 95% for a handoff after every wave, at 99% for a last handoff, a notification and a wait | `wb-token`, `/wb:token-guard` |
 | Automatic resume | When a usage limit ends a turn, the same session is resumed headless two minutes after the reset time. Scheduling uses launchd on macOS, a systemd user timer on Linux, and a background waiter elsewhere | `wb-retry`, `/wb:auto-retry` |
 | Terse mode | In a repository where it is on, rules that cut output and tool calls are added at session start | `wb-terse`, `/wb:terse` |
 | Checkpoint | At a limit, a subagent stop or a conversation compaction, changes to tracked files on a lane branch are committed as `wip(wb)`. Secret file patterns and untracked files are not committed | `personal.checkpoint.enabled` |
 
-The token guard budget defaults to 0 (not calibrated), and then the guard stays silent. Run `wb-token calibrate` when the app shows that the limit is reached; the usage at that moment becomes the budget. Only Claude Code use on this machine is counted, and the share is an estimate.
+The token guard first uses the official usage Claude Code stores in `~/.claude.json` (five-hour and seven-day percentages, reset times, account). Only the usage entry and the account ID are read from that file. The official value changes only when Claude Code fetches it, so once it is older than `personal.token_guard.fresh_min` (default 10 minutes) the local token use since then is converted with a calibration ratio and added. The five-hour window starts five hours before its reset time; after the reset only the use since the reset counts. The higher of the five-hour and seven-day figures decides the stage.
+
+The ratio is calibrated automatically for each account. Every new official value is recorded, and the rise in percentage between two records of the same window is divided by the local use between them. With a single record, the local use since the window started is used. Values seen in the app's `/usage` can be added with `wb-token calibrate --five <five-hour %> --seven <seven-day %> [--at HH:MM]`. A usage-limit rejection in the conversation logs counts as a 100% point. After an account switch, the official value and calibration of the previous account are not used.
+
+Without an official value the guard works as before: the local use of the last `window_hours` hours as a share of the budget (`personal.token_guard.budget`), or, with budget 0, of the 100% derived from the account's calibration. With neither, the guard stays silent. Local use covers only Claude Code on this machine.
 
 ```
 wb-token status
 Token guard: on
-Last 5 hours (local transcripts, this machine only): output …, input …, cache read …, cache write … (… replies). Weighted total … (= input + 1.25 cache write + 0.1 cache read + 5 output).
-Budget not set (personal.token_guard.budget = 0): the guard is silent. …
+Official (10-17 22:35, 153 min ago, older than 10 min, account …27441107): five-hour 11% (resets 10-18 02:59), seven-day 54% (resets 10-24 06:59).
+Estimate now: five-hour 56.7% (official 11% at 10-17 22:35 + 45.7% local), seven-day 68.6% (official 54% at 10-17 22:35 + 14.6% local) → 68% (official usage plus an estimate of local use since it was read), stage -.
+Calibration five-hour: 1% ≈ 4,375,643 weighted tokens (since the window started, 10-17 21:59 → 10-17 22:35).
+Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window started, approximate, 10-17 06:59 → 10-17 22:35).
 ```
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `wb-retry mode bypassPermissions --i-understand`.
@@ -502,9 +508,9 @@ Waiting resumes: 0
 
 ### /wb:token-guard
 
-- When: checking how much quota is left; turning the token guard on or off or calibrating its budget.
-- How: runs `wb-token status`, `wb-token on|off` or `wb-token calibrate [<weighted tokens>]`. Calibrating without a number makes the current usage the budget, so run it when the app shows that the limit is reached. The exact usage is shown by `/usage`.
-- Example: `/wb:token-guard calibrate`
+- When: checking how much quota is left; turning the token guard on or off; calibrating it with the usage seen in the app.
+- How: `wb-token status` shows the official value (fetch time, whether it is fresh, last 8 characters of the account, reset times), the current estimate with what was added, and where the calibration ratio comes from. Calibration is automatic by default. To add the app's `/usage` values by hand, run `wb-token calibrate --five <n> --seven <n> [--at HH:MM]`; `wb-token calibrate --check` compares the collected points. `wb-token calibrate [<weighted tokens>]` sets the fallback budget used when there is no official value. `wb-token on|off` switches the guard.
+- Example: `/wb:token-guard calibrate --five 60 --seven 67`
 
 ### /wb:terse
 

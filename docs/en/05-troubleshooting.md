@@ -120,6 +120,9 @@ A commit after the run changed files outside the results folder. When only resul
 **There is no `progress.md` and the handoff hook says nothing.**
 The handoff hooks work only in a repository that has `progress.md`. Create it once yourself.
 
+**The token guard percentage differs from `/usage` in the app.**
+Check the fetch time of the official value in `wb-token status`. If it is old, the use since then is an estimate from local tokens and can differ from the app by a few points. Adding the app's values with `wb-token calibrate --five <n> --seven <n>` aligns it from that moment. A line saying the official cache belongs to another account means Claude Code has not fetched the usage again since the account switch; opening `/usage` once at the prompt stores a new value.
+
 **An automatically resumed session stops halfway.**
 In the default permission mode (`default`), tools that need approval are refused in an unattended run. Open the session with the `claude --resume <id>` line from `wb-retry status` and continue.
 

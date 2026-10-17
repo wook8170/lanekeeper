@@ -66,7 +66,7 @@ wb 의 안전 훅은 에이전트가 실수로 위험한 명령을 실행하는 
 
 | 기능 | 읽는 것 | 남기는 것 |
 |---|---|---|
-| 토큰 가드 | `~/.claude/projects` 아래에서 최근 구간에 바뀐 대화 기록의 토큰 사용량 필드. 훅은 예산(`token_guard.budget`)을 정하기 전에는 읽지 않는다. 사람이 `wb-token status`·`wb-token calibrate` 를 실행하면 예산과 관계없이 사용량을 보여 주려고 읽는다 | `${CLAUDE_PLUGIN_DATA}/token-guard/` 에 합계 수치 |
+| 토큰 가드 | `~/.claude.json` 의 공식 사용량 항목(`cachedUsageUtilization`)과 계정 ID(`oauthAccount.accountUuid`). 다른 항목과 인증 정보는 읽지 않는다. `~/.claude/projects` 아래에서 최근 구간에 바뀐 대화 기록의 토큰 사용량 필드와 사용 한도 거절 기록. 훅은 공식 사용량도 예산(`token_guard.budget`)도 없으면 대화 기록을 읽지 않는다. 사람이 `wb-token status`·`wb-token calibrate` 를 실행하면 예산과 관계없이 사용량을 보여 주려고 읽는다 | `${CLAUDE_PLUGIN_DATA}/token-guard/` 에 합계 수치, 공식·수동 사용량 기록(`official-history.jsonl`: 시각·계정 ID·비율·리셋 시각), 계정별 보정 계수(`calib-<계정>.json`) |
 | 자동 재개 | 현재 세션 기록의 끝부분(한도 문구·모델 이름) | `${CLAUDE_PLUGIN_DATA}` 에 예약 상태, 재개한 세션의 출력 로그(본인만 읽기 권한) |
 | 레인 원장 | 서브에이전트 기록의 모델 이름과 토큰 사용량 | `<git 공용 폴더>/wb/` 에 레인별 횟수·모델·토큰·지시서 해시 |
 | 보고 확인 | 현재 세션 기록의 도구 호출 이름 | 세션별 차단 표시 한 줄 |

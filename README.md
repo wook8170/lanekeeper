@@ -137,13 +137,13 @@ wb-route check review --model sonnet            모델 선택 판정(차단이�
 |---|---|---|---|
 | 핸드오프 | `progress.md` 는 지금 유효한 상태만 담는다(기본 300줄 이하). 새 세션과 `/clear` 때 파일 전체와 아카이브 검색 방법을 넣는다. 마지막 갱신 뒤에 커밋이나 파일 변경이 있으면 턴 종료를 한 번 막고, 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 에 덧붙이고 `progress.md` 를 통째로 다시 쓰라고 요구한다. 같은 세션은 20분 동안 다시 막지 않는다. 기준 줄 수를 넘으면 세션 시작·종료·재개 보고에서 알리고, 누적형 파일은 `wb-waves handoff migrate` 로 옮기게 안내한다 | `personal.handoff.{enabled, file, throttle_min, max_lines, archive_dir}` | `wb-waves handoff` |
 | 자동 재개 | 사용량 한도로 턴이 끝나면 리셋 시각 2분 뒤에 같은 세션을 헤드리스로 재개한다. 예약은 macOS 는 launchd, Linux 는 systemd 사용자 타이머, 그 밖에는 백그라운드 대기 프로세스로 한다. 한도에 걸린 모델은 `limits.json` 에 기록한다 | `personal.auto_retry.{enabled, permission_mode, bypass_ack}`, `routing.limits_state` | `wb-retry`, `/wb:auto-retry` |
-| 토큰 가드 | 최근 구간(기본 5시간)의 로컬 토큰 사용량을 예산에 대한 비율로 환산하고, 단계가 오를 때만 지침을 넣는다. 90%는 작업 단위 축소, 95%는 웨이브마다 핸드오프, 99%는 마지막 핸드오프와 알림 후 대기다 | `personal.token_guard.{enabled, stages, budget, window_hours}` | `wb-token`, `/wb:token-guard` |
+| 토큰 가드 | Claude Code 가 남기는 공식 5시간·7일 사용량에 그 뒤 로컬 사용 추정을 더해 판정하고, 단계가 오를 때만 지침을 넣는다. 90%는 작업 단위 축소, 95%는 웨이브마다 핸드오프, 99%는 마지막 핸드오프와 알림 후 대기다 | `personal.token_guard.{enabled, stages, budget, window_hours, fresh_min, source}` | `wb-token`, `/wb:token-guard` |
 | 간결 모드 | 켠 저장소에서 세션 시작 때 출력·도구 호출을 줄이는 규칙을 넣는다 | `personal.terse`, 저장소 스위치 | `wb-terse`, `/wb:terse` |
 | 체크포인트 | 한도, 서브에이전트 종료, 컨텍스트 압축 시점에 레인 브랜치에서 추적 중인 파일의 변경만 `wip(wb)` 커밋으로 남긴다. 추적 안 된 새 파일과 비밀 파일 패턴(`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`)은 커밋하지 않고 `.git/wb/checkpoint.json` 과 알림으로 알린다. 프로젝트 훅(pre-commit)이 실패하면 체크포인트를 건너뛰고 사유를 기록한다. 보호 브랜치와 레인이 아닌 브랜치는 건드리지 않고 push 하지 않는다 | `personal.checkpoint.enabled` | |
 
 자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로, 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `wb-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜지고, 확인 기록(`bypass_ack`)이 없으면 `default` 로 재개한다.
 
-토큰 가드의 예산은 기본이 0(미보정)이며 이 상태에서는 동작하지 않는다. 앱에서 한도에 도달했을 때 `wb-token calibrate` 를 실행하면 그 시점의 사용량이 예산으로 기록된다. 집계 대상은 이 기기의 Claude Code 사용뿐이고 비율은 추정치다.
+토큰 가드는 `~/.claude.json` 에 저장된 공식 사용량을 먼저 쓰고, 조회한 지 10분이 지나면 그 뒤의 로컬 사용량을 계정별 보정 계수로 환산해 더한다. 보정은 자동이며, 앱에서 본 값은 `wb-token calibrate --five <n> --seven <n>` 으로 넣을 수 있다. 공식 값이 없으면 예산(`personal.token_guard.budget`, 기본 0) 방식으로 동작하고, 예산도 보정도 없으면 동작하지 않는다.
 
 ## 실행 슬롯·포트·레인 워크트리
 
@@ -373,7 +373,7 @@ wb-index metrics [--days N] # codegraph 응답 분류 집계
 - 안전 훅은 명령 문자열을 판정한다. 스크립트 파일 안의 명령, 다른 언어(python·node)로 실행하는 git·kill 호출, Bash 로 설정 파일을 고치는 경우는 판정 범위 밖이다.
 - 오너 허가 파일은 같은 머신의 다른 프로세스가 직접 쓰는 경우까지 막지는 못한다. 실수를 줄이기 위한 장치다.
 - 셸로 실행하는 명령은 사용자나 프로젝트 설정이 적은 것뿐이다(`wb-slot` 으로 감싼 명령, `review.guards`, `worktree.setup`, 게이트 단계). 다른 사람의 저장소를 열 때는 `.wb/` 의 설정 명령을 먼저 확인한다.
-- 토큰 가드는 예산을 정한 뒤에만 `~/.claude/projects` 의 대화 기록에서 토큰 사용량 필드를 읽는다. 대화 본문은 저장하지 않는다.
+- 토큰 가드는 `~/.claude.json` 에서 공식 사용량 항목(`cachedUsageUtilization`)과 계정 ID 만 읽고, `~/.claude/projects` 의 대화 기록에서 토큰 사용량 필드와 사용 한도 거절 기록을 읽는다. 공식 사용량도 예산도 없으면 훅은 대화 기록을 읽지 않는다. 대화 본문과 인증 정보는 읽거나 저장하지 않는다.
 
 ## 개발
 

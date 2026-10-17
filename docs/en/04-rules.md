@@ -280,7 +280,7 @@ Lets work continue after a session ends or a usage limit stops it.
 
 ### 26. Act at each usage stage (`token-stages`)
 
-- Rule: When token use reaches 90%, 95% and 99%, follow the stage instructions. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait.
+- Rule: When usage reaches 90%, 95% and 99%, follow the stage instructions. Usage is the higher of the official five-hour and seven-day figures, with an estimate of the local use since they were fetched. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait.
 - Why: Stopping suddenly at the limit loses work that was not recorded.
 - If blocked: When the notice appears, finish the current step and update `progress.md`. Change the thresholds with `/wb:token-guard`.
 - Related settings: `personal.token_guard`
