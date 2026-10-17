@@ -14,7 +14,15 @@
 - 엑셀 도구(Python·openpyxl)가 없어 엑셀을 만들지 못해도 게이트와 모든 단계가 통과하면 게이트 통과 표식을 남긴다는 동작을 시험(`tests/manual-findings.test.mjs`)으로 고정하고, 건너뛴다는 안내 메시지·설명서에 명시
 - 설명서 문제 해결에 「시간대를 지정하는 설정 키는 없고 시스템 시간대를 쓴다」를 명시
 
+### Fixed
+- 깨끗한 Linux 컨테이너(`node:22-bookworm`, 사용자 설정 없음)에서 `npm test` 5건이 실패하던 문제: `lsof` 가 없으면 레인 워크트리 삭제 전 프로세스 확인(`wb-worktree remove`)·고아 프로세스 탐지·포트 임대·보호 포트 종료 판정이 조용히 비었다. `lib/procs.mjs` 를 추가해 `lsof` 가 없으면 `/proc` 에서 작업 폴더와 듣는 포트를 읽는다. 시험은 git 작성자 정보가 없는 환경(체크포인트 커밋)과 `sqlite3` 가 있는 환경(색인 복사 대체 경로)에서도 같은 결과가 나오게 고쳤다
+- `wb-test-report run` 이 `.wb/verify.config.json` 의 `gate.script` 이름을 `package.json` 에서 찾지 못하면 스택 트레이스로 죽던 문제: 고치는 방법(스크립트 추가·`gate.script` 변경·`gate.steps`)을 알리고 종료 코드 1 로 멈춘다(ko/en)
+- 커밋이 하나도 없는 저장소에서 `wb-worktree create` 가 `git rev-parse --verify HEAD^{commit}` 오류를 그대로 보이던 문제: 「첫 커밋을 만든 뒤 다시 실행」 안내(`wt.no_commit`)
+- openpyxl 설치 안내가 Debian 12 이상·Ubuntu 24.04·Homebrew Python 에서 `externally-managed-environment` 로 실패하던 문제: `apt install python3-openpyxl` 과 가상환경(`~/.wb/venv`) + `WB_PYTHON` 방법을 안내 문구·설명서 01·05(ko/en)·README 에 반영
+- 설명서 01 장: 초기화 출력 예시에 `.git/info/exclude` 추가 줄 3개 반영, 저장소에 커밋이 하나 이상 있어야 한다는 전제, `gate.script` 의미 설명
+
 ### Added
+- 시험 `tests/l15-procs.test.mjs`(`/proc` 대체 조회, 설치 안내와 설명서 일치), `tests/l9-testresults.test.mjs`·`tests/worktree.test.mjs` 에 위 결함의 회귀 시험
 - 부하 단계(`machine.load.tiers`): 1분 부하가 `hold_new_lanes` 이상이면 디스패치 가드가 새 레인을 막고(`dispatch.load_hold`, lanes.json 에 이미 있는 레인으로 보내는 디스패치는 통과), `stop_heavy` 이상이면 슬롯 가드와 `wb-slot` 이 검수 레인의 무거운 실행을 바로 거부한다(`safety.slot.load_stop_heavy`, `wb-slot` 은 종료 코드 75). 실행 레인과 메인 세션은 기존처럼 `machine.load.max` 대기. 이미 잡힌 슬롯은 건드리지 않는다. 기본값 `auto` = 논리 코어 수 × 2 / × 2.8(반올림), 숫자 지정 가능
 - 레인 종류: lanes.json 의 `role`(`executor`|`verifier`, `wb-worktree create <id> --role verifier`), 없으면 레인 지시서 표지의 `role=` 이나 `역할:` 줄, 둘 다 없으면 실행 레인. 검수 지시서 템플릿 표지에 `role=verifier`
 - `wb-slot check`: 부하·단계·문턱·레인 수와 종류·슬롯 점유·고아 프로세스 후보를 한 화면에(`--json`)

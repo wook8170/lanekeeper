@@ -210,7 +210,7 @@ Number series (`numbers` in `.wb/config.json`: `dir`, `pattern`, `width`, `start
 
 ## Test result workbook
 
-The result of an integration or final verification is saved as an Excel workbook (xlsx) plus a summary json. The generator needs Python 3.8+ and openpyxl (`python3 -m pip install openpyxl`). Without them `wb-test-report` prints the install commands and skips only the workbook (exit 0, or 3 with `--require`). Check with `wb-test-report env`.
+The result of an integration or final verification is saved as an Excel workbook (xlsx) plus a summary json. The generator needs Python 3.8+ and openpyxl (`python3 -m pip install openpyxl`; where pip is blocked, use the virtual environment steps in `docs/en/01-getting-started.md`). Without them `wb-test-report` prints the install commands and skips only the workbook (exit 0, or 3 with `--require`). Check with `wb-test-report env`.
 
 | Where | What |
 |---|---|

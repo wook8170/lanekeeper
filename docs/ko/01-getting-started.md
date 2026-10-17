@@ -119,6 +119,9 @@ wb-config init --kind web-ui --lang ko --gate "npm test" --worktree-hook no
 ```
 작성: ~/work/list-app/.wb/config.json
 작성: ~/.wb/personal.json
+추가: ~/work/list-app/.git/info/exclude 에 `.wb/briefs/`
+추가: ~/work/list-app/.git/info/exclude 에 `.codegraph/`
+추가: ~/work/list-app/.git/info/exclude 에 `.wb/metrics/`
 초기화를 마쳤습니다. `/wb:doctor` 로 결과를 확인하세요.
 ```
 

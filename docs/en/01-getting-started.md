@@ -119,6 +119,9 @@ wb-config init --kind web-ui --lang en --gate "npm test" --worktree-hook no
 ```
 Wrote: ~/work/list-app/.wb/config.json
 Wrote: ~/.wb/personal.json
+Added `.wb/briefs/` to ~/work/list-app/.git/info/exclude
+Added `.codegraph/` to ~/work/list-app/.git/info/exclude
+Added `.wb/metrics/` to ~/work/list-app/.git/info/exclude
 Initialization finished. Run `/wb:doctor` to review the result.
 ```
 

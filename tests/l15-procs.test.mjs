@@ -56,3 +56,21 @@ test('no /proc: empty answers, no throw', () => {
   assert.equal(isMissingBinary({ code: 'ENOENT' }), true)
   assert.equal(isMissingBinary({ status: 1 }), false)
 })
+
+// ── install guidance: message, docs and troubleshooting name the same ways ─────────
+import { fileURLToPath } from 'node:url'
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8')
+
+test('openpyxl install guidance: apt package, venv + WB_PYTHON where pip is blocked, in message and both doc languages', () => {
+  for (const lang of ['ko', 'en']) {
+    const msg = JSON.parse(read(`locales/${lang}.json`))['tr.env.install']
+    for (const f of [`docs/${lang}/01-getting-started.md`, `docs/${lang}/05-troubleshooting.md`]) {
+      const doc = read(f)
+      for (const needle of ['python3-openpyxl', 'python3 -m venv ~/.wb/venv', 'WB_PYTHON=$HOME/.wb/venv/bin/python3']) assert.ok(doc.includes(needle), `${f}: ${needle}`)
+    }
+    for (const needle of ['python3-openpyxl', 'python3 -m venv ~/.wb/venv', 'WB_PYTHON=$HOME/.wb/venv/bin/python3']) assert.ok(msg.includes(needle), `${lang} message: ${needle}`)
+  }
+  const verify = read('templates/test-results/project/verify-all.mjs')
+  assert.ok(verify.includes('python3-openpyxl') && verify.includes('WB_PYTHON=$HOME/.wb/venv/bin/python3'))
+})

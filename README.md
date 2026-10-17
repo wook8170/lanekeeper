@@ -235,7 +235,7 @@ wb-waves handoff migrate [--force]          기준을 넘은 progress.md 를 아
 
 ## 시험 결과 엑셀
 
-통합·최종 검증의 결과를 엑셀(xlsx)과 요약 json 으로 남긴다. 생성기는 Python 3.8 이상과 openpyxl 이 필요하다(`python3 -m pip install openpyxl`). 없으면 `wb-test-report` 가 설치 명령을 안내하고 엑셀 생성만 건너뛴다(종료 코드 0, `--require` 를 주면 3). 확인은 `wb-test-report env` 로 한다.
+통합·최종 검증의 결과를 엑셀(xlsx)과 요약 json 으로 남긴다. 생성기는 Python 3.8 이상과 openpyxl 이 필요하다(`python3 -m pip install openpyxl`. pip 설치가 막힌 환경은 `docs/ko/01-getting-started.md` 의 가상환경 방법을 쓴다). 없으면 `wb-test-report` 가 설치 명령을 안내하고 엑셀 생성만 건너뛴다(종료 코드 0, `--require` 를 주면 3). 확인은 `wb-test-report env` 로 한다.
 
 | 위치 | 내용 |
 |---|---|
