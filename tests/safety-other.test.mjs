@@ -26,9 +26,9 @@ const expect = (r, decision, code) => {
   assert.equal(r.decision, decision, JSON.stringify(r.codes))
   if (code) assert.ok(r.codes.includes(code), `expected ${code}, got ${JSON.stringify(r.codes)}`)
 }
-const PROTECTED = { ports: { protected: [{ name: 'owner-api', port: 5180 }] } }
-// fake lsof: pid 111 listens on 5180, pid 222 on 6100, pid 333 nothing
-const lsof = { listenPorts: (pid) => ({ 111: [5180], 222: [6100], 333: [] })[pid] ?? [] }
+const PROTECTED = { ports: { protected: [{ name: 'owner-api', port: 8080 }] } }
+// fake lsof: pid 111 listens on 8080, pid 222 on 3000, pid 333 nothing
+const lsof = { listenPorts: (pid) => ({ 111: [8080], 222: [3000], 333: [] })[pid] ?? [] }
 
 // ── kill ─────────────────────────────────────────────────────────────
 test('kill: pattern kills are always blocked', () => {
@@ -46,11 +46,11 @@ test('kill: a PID listening on a protected port is blocked, others pass', () => 
 })
 test('kill: port-addressed kills are checked against the protected list', () => {
   f.machine(PROTECTED)
-  expect(d('lsof -ti :5180 | xargs kill -9'), 'deny', 'kill.protected_port')
-  expect(d('lsof -ti tcp:5180 | xargs kill'), 'deny', 'kill.protected_port')
-  expect(d('kill $(lsof -ti :5180)'), 'deny', 'kill.protected_port')
-  expect(d('fuser -k 5180/tcp'), 'deny', 'kill.protected_port')
-  expect(d('npx kill-port 5180'), 'deny', 'kill.protected_port')
+  expect(d('lsof -ti :8080 | xargs kill -9'), 'deny', 'kill.protected_port')
+  expect(d('lsof -ti tcp:8080 | xargs kill'), 'deny', 'kill.protected_port')
+  expect(d('kill $(lsof -ti :8080)'), 'deny', 'kill.protected_port')
+  expect(d('fuser -k 8080/tcp'), 'deny', 'kill.protected_port')
+  expect(d('npx kill-port 8080'), 'deny', 'kill.protected_port')
   expect(d('lsof -ti :7010 | xargs kill'), 'allow')
   expect(d('fuser -k 7010/tcp'), 'allow')
 })
@@ -61,7 +61,7 @@ test('kill: unknown targets ask when protected ports exist, pass when none are s
   expect(d('kill 111', { overrides: { listenPorts: () => null } }), 'ask', 'kill.unresolved')
 })
 test('kill: protected ports set in a lower layer cannot be removed by a higher one', () => {
-  f.projectConfig({ machine: { ports: { protected: [{ name: 'owner-web', port: 6100 }] } } })
+  f.projectConfig({ machine: { ports: { protected: [{ name: 'owner-web', port: 3000 }] } } })
   f.machine({ ports: { protected: [] } })
   expect(d('kill 222', { overrides: lsof }), 'deny', 'kill.protected_port')
 })
@@ -163,13 +163,13 @@ test('fail-closed: an internal error blocks the call', () => {
 
 // ── union of safety keys ─────────────────────────────────────────────
 test('union: no layer can drop protected branches, paths, ports or denied models set by another', () => {
-  f.projectConfig({ git: { protected_branches: [] }, protected_paths: [], machine: { ports: { protected: [{ name: 'p', port: 6100 }] } }, routing: { denied: [] } })
+  f.projectConfig({ git: { protected_branches: [] }, protected_paths: [], machine: { ports: { protected: [{ name: 'p', port: 3000 }] } }, routing: { denied: [] } })
   f.machine({ ports: { protected: [] } })
   fs.writeFileSync(path.join(f.wbHome, 'routing.json'), JSON.stringify({ denied: ['fable'] }))
   const r = resolveConfig({ projectDir: f.repo, env: f.env })
   assert.deepEqual(r.errors, [])
   assert.ok(r.config.project.git.protected_branches.includes('main'))
-  assert.deepEqual(r.config.machine.ports.protected.map((p) => p.port), [6100])
+  assert.deepEqual(r.config.machine.ports.protected.map((p) => p.port), [3000])
   assert.deepEqual(r.config.routing.denied, ['fable'])
   // and the guard uses the merged list
   expect(d('git commit -m x'), 'deny', 'grant.missing')

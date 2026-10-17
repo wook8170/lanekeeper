@@ -20,6 +20,7 @@ import { pathToFileURL } from 'node:url'
 const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
 const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
 const { load, parseOptions } = await imp('cli.mjs')
+const { stateDir } = await imp('config.mjs')
 const { translator } = await imp('i18n.mjs')
 const R = await imp('testresults.mjs')
 
@@ -49,6 +50,27 @@ function ready() {
 
 const finish = (code, needed) => process.exit(needed && args.require ? 3 : code)
 
+// Hold <git common dir>/wb/gate.lock while the gate or verify run is in progress, so
+// merges wait for it. A second run while one is alive stops with exit 3.
+function withGateLock(command, fn) {
+  const lock = R.acquireGateLock(stateDir(root), { command })
+  if (!lock.ok) {
+    warn(t('tr.gate_locked', { pid: lock.pid }))
+    process.exit(3)
+  }
+  const stop = (sig) => {
+    lock.release()
+    process.exit(sig === 'SIGINT' ? 130 : 143)
+  }
+  process.on('SIGINT', stop)
+  process.on('SIGTERM', stop)
+  try {
+    return fn()
+  } finally {
+    lock.release()
+  }
+}
+
 const COMMANDS = {
   env() {
     const py = R.pythonStatus()
@@ -73,7 +95,7 @@ const COMMANDS = {
       `--cases-dir=${paths.ledgerDir}`, `--out-template=${paths.resultsTemplate}`]
     for (const k of ['name', 'skip', 'only', 'ledger-priority']) if (typeof args[k] === 'string') a.push(`--${k}=${args[k]}`)
     if (args['no-slot']) a.push('--no-slot')
-    const r = spawnSync(process.execPath, a, { stdio: 'inherit', env: { ...process.env, WB_SLOT_BIN: path.join(libDir, '..', 'bin', 'wb-slot') } })
+    const r = withGateLock('wb-test-report run', () => spawnSync(process.execPath, a, { stdio: 'inherit', env: { ...process.env, WB_SLOT_BIN: path.join(libDir, '..', 'bin', 'wb-slot') } }))
     finish(r.status ?? 1, false)
   },
   gate() {
@@ -86,7 +108,7 @@ const COMMANDS = {
     if (args['no-bail']) a.push('--no-bail')
     if (typeof args.skip === 'string') a.push(`--skip=${args.skip}`)
     if (typeof args['results-dir'] === 'string') a.push(`--results-dir=${args['results-dir']}`)
-    process.exit(spawnSync(process.execPath, a, { stdio: 'inherit' }).status ?? 1)
+    process.exit(withGateLock('wb-test-report gate', () => spawnSync(process.execPath, a, { stdio: 'inherit' })).status ?? 1)
   },
   build() {
     if (!ready()) return finish(0, true)

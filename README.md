@@ -37,7 +37,7 @@ claude plugin install wb@wb-plugin
 | 기본값 | 플러그인 `defaults/*.json` | 플러그인 저장소 | 모든 키의 기본값 |
 | 프로젝트 | `<저장소>/.wb/config.json` | 커밋 | 프로젝트 종류, 브랜치 규칙, 저장 위치, 검증 명령, 문체 지도 |
 | 머신 | `~/.wb/machine.json` | 안 함 | 레인 수, 실행 슬롯, 부하 문턱, 보호 포트, 레인 포트 대역 |
-| 개인 | `~/.wb/routing.json`, `~/.wb/personal.json` | 안 함 | 모델 라우팅과 금지 모델, 언어, 보고 분량, 무인 재개 |
+| 개인 | `~/.wb/routing.json`, `~/.wb/personal.json` | 안 함 | 모델 라우팅과 금지 모델, 언어, 보고 분량, 무인 재개, 큰 설계에 쓸 별도 플러그인 이름(`design_plugin`) |
 
 플러그인 설정 화면(`/config`)에서 고른 언어와 보고 분량은 머신 층과 개인 파일 사이에 들어간다. 이 값은 훅 실행 환경에서만 읽힌다.
 
@@ -248,6 +248,8 @@ wb-test-report latest | summary [--json]
 wb-check test-results [--json] [--require-pass]
 ```
 
+`wb-test-report run`·`gate` 는 실행하는 동안 `<git 공용 폴더>/wb/gate.lock` 을 잡아 둔다. 그동안 병합은 기다리고, 다른 게이트 실행은 종료 코드 3 으로 멈춘다. 실행이 끝나면 잠금을 지운다.
+
 단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `wb-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
 
 시트는 요약 · 단위 · 통합 DB · e2e · e2e 상세 · UI 안정성 · gate 단계 · 실패 목록 · 간헐 실패 · 원장 대조 · 커버리지 · 변이이고, 결과가 없는 시트는 만들지 않는다(요약·실패 목록·간헐 실패는 항상). 같은 실행 안의 재시도에서 통과하거나 별도 재실행(`--rerun`)에서 통과한 시험은 간헐로 센다. 원장 대조는 `paths.e2e_ledger` 의 `*.cases.json` 과 시험 제목의 케이스 ID(`PAY-001`, 이어 쓴 `PAY-002 · 003` 포함)를 맞춰, 활성 케이스의 실패·간헐·건너뜀·미실행(`--ledger-priority`), 보류(`fixme`) 케이스의 통과, 원장에 없거나 폐기된 ID 를 불일치로 적는다. 원장이 있으면 불일치 0 이 출하 조건이다.
@@ -322,7 +324,7 @@ PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 �
 
 **진행 표시.** `wb-work progress` 는 레인 원장에서 일곱 단계(요청 확인, 지시서 준비, 구현, 검수, 취합, 보고, 기록) 중 현재 위치를 한 줄로 보여 준다. 예: `[■■■□□□□] 3/7 구현 중 · 진행 2 · 검수 대기 1`.
 
-**규칙 카탈로그.** `rules/catalog.json` 이 정본이고, 규칙마다 내용, 이유, 지키는 위치(훅·도구·지시서 틀·설정), 막혔을 때 복구 방법을 한국어·영어로 적는다. `rules/catalog.ko.md`·`catalog.en.md` 는 `wb-rules render --write` 로 만든다. 차단 메시지의 코드는 `wb-explain code <코드>` 로 해당 규칙과 연결된다. 아직 없는 훅에 걸린 규칙은 「추가 예정」으로 표시한다. `wb-rules list|show|code|render|check`.
+**규칙 카탈로그.** `rules/catalog.json` 이 정본이고, 규칙마다 짧은 이름, 내용, 이유, 지키는 위치(훅·도구·지시서 틀·설정), 막혔을 때 복구 방법을 한국어·영어로 적는다. `rules/catalog.ko.md`·`catalog.en.md` 는 `wb-rules render --write` 로 만든다. 차단 메시지의 코드는 `wb-explain code <코드>` 로 해당 규칙과 연결된다. 아직 없는 훅에 걸린 규칙은 「추가 예정」으로 표시한다. `wb-rules list|show|code|render|check`.
 
 **문체 규칙.** `rules/writing-style.ko.md`·`.en.md` 에 문체별 규칙을 둔다. 기본 매핑은 `docs/**/*.md` → 보고서체이며, 화면 문구 경로는 프로젝트가 `style.map` 에 추가한다.
 
@@ -361,10 +363,14 @@ wb-index metrics [--days N] # codegraph 응답 분류 집계
 
 ## 보안과 한계
 
-- 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.
-- 오너 허가 파일은 같은 머신의 다른 프로세스가 직접 쓰는 경우까지 막지는 못한다. 실수를 줄이기 위한 장치다.
+자세한 내용은 [SECURITY.md](SECURITY.md) 에 있다. 요점은 다음과 같다.
+
+- 훅과 명령은 외부로 데이터를 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 대상 브랜치를 알기 위해 `gh pr view` 를 실행하고, 확인하지 못하면 병합을 막는다. 검수의 화면 확인은 이 머신의 주소(`localhost`·`127.0.0.0/8`·`[::1]`)만 읽는다.
+- 안전 훅은 판정하지 못하면 막고, 나머지 훅은 오류가 나도 작업을 막지 않는다. 훅마다의 동작은 SECURITY.md 의 표에 있다.
 - 안전 훅은 명령 문자열을 판정한다. 스크립트 파일 안의 명령, 다른 언어(python·node)로 실행하는 git·kill 호출, Bash 로 설정 파일을 고치는 경우는 판정 범위 밖이다.
-- `gh pr view` 로 대상 브랜치를 확인하지 못하면 `gh pr merge` 는 차단한다.
+- 오너 허가 파일은 같은 머신의 다른 프로세스가 직접 쓰는 경우까지 막지는 못한다. 실수를 줄이기 위한 장치다.
+- 셸로 실행하는 명령은 사용자나 프로젝트 설정이 적은 것뿐이다(`wb-slot` 으로 감싼 명령, `review.guards`, `worktree.setup`, 게이트 단계). 다른 사람의 저장소를 열 때는 `.wb/` 의 설정 명령을 먼저 확인한다.
+- 토큰 가드는 예산을 정한 뒤에만 `~/.claude/projects` 의 대화 기록에서 토큰 사용량 필드를 읽는다. 대화 본문은 저장하지 않는다.
 
 ## 개발
 
@@ -375,4 +381,4 @@ npm run validate  # claude plugin validate --strict
 
 ## 라이선스
 
-MIT
+MIT. [LICENSE](LICENSE) 를 참고한다. wb 가 포함하지 않고 설치만 안내하는 도구의 라이선스는 [SECURITY.md](SECURITY.md) 에 있다.

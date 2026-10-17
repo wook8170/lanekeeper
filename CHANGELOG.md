@@ -4,13 +4,12 @@
 
 ## [Unreleased]
 
-### Changed
-- 핸드오프 파일 방식 변경: `progress.md` 는 지금 유효한 상태만 담고(기본 300줄 이하) 매 웨이브 통째로 다시 쓴다. 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 끝에 `## <YYYY-MM-DD HH:MM> — <요지>` 절로 덧붙인다. 「최신 절을 맨 위에 추가하고 이전 절 유지」 안내를 없앴다
-- 세션 시작 훅·`wb-waves resume`·`/wb:pickup`·`/wb:resume` 은 `progress.md` 전체를 보여 주고 아카이브 검색 방법(`grep -n '<키워드>' docs/progress-archive/*.md`)을 안내한다. 기준 줄 수를 넘은 누적형 파일만 최신 절을 보여 준다
-- 종료 가드 문구가 아카이브 덧붙임 → 통째로 다시 쓰기 → 두 파일 함께 커밋 순서를 요구하고, 파일이 기준을 넘으면 옮기는 방법을 덧붙인다
-- 규칙 카탈로그 `progress-handoff` 의 규칙·이유·복구 문구와 지키는 위치(`bin/wb-waves`, `personal.handoff`)를 갱신
-
 ### Added
+- `SECURITY.md`·`SECURITY.en.md`: 신고 방법, 보호 범위와 한계, 훅별 실패 시 동작, 외부 명령·셸 실행 지점, 입력 검사, 네트워크, 읽고 남기는 파일, 함께 쓰는 도구의 라이선스
+- 게이트 잠금: `wb-test-report run`·`gate` 가 실행하는 동안 `<git 공용 폴더>/wb/gate.lock` 을 잡고 끝나면 지운다. 다른 실행이 잡고 있으면 종료 코드 3. 규칙 `gate-lock` 의 지키는 위치에 추가
+- 규칙 카탈로그 `report-artifact`(보고 단계 아티팩트·결과 엑셀 확인 훅 연결, 규칙 39개)
+- 저장소 검사에 일반 패턴(사설 IP·메일 주소·홈 폴더)과 금지 문자열 추가
+- 보안 시험 `tests/l14-security.test.mjs`(입력 검사, 게이트 잠금, 모든 훅의 깨진 입력·깨진 설정 동작, 셸 실행 지점 허용 목록, 네트워크 사용 위치, 환경 변수 출력 금지)
 - `wb-waves handoff check | archive "<요지>" [--from 파일] | migrate [--force]`: 줄 수 점검, 이번 달 아카이브에 날짜 절 덧붙이기(제목 단계를 한 단계 내림), 누적형 파일을 `docs/progress-archive/progress-until-<YYYY-MM-DD>.md` 로 통째로 옮기고(추적 중이면 `git mv`) 현재 상태 양식으로 새로 만들기
 - 개인 설정 키 `handoff.max_lines`(기본 300) · `handoff.archive_dir`(기본 `docs/progress-archive`)
 - 재개 보고 오래된 항목 `progress_oversize`, `/wb:explain` 항목 `progress_oversize`
@@ -43,3 +42,21 @@
 - 코드 색인 후속(L12b): 설정 키 `project.codegraph.index_on_worktree` → `auto_index`(기본 true, 옛 이름은 한 판 동안 별칭·새 이름 우선, doctor 가 안내). `/wb:init` 이 `.wb/briefs/` 와 함께 `.codegraph/` · `.wb/metrics/` 도 `info/exclude` 에 미리 넣고, init 을 거치지 않아 훅·작업 프로세스가 대신 추가했으면 doctor 가 한 줄로 알림
 - 코드 색인(L12): 색인 대기열 `wb-index`(add · run · status · drop · orphans · metrics, 한 번에 하나·`nice`·무거운 실행 슬롯 안), 같은 저장소의 다른 워크트리 색인을 복사한 뒤 바뀐 파일만 sync, 실패 시 init. `wb-worktree create`·WorktreeCreate 훅이 새 워크트리를 대기열에 넣고, 제거 때 색인 삭제. 색인 폴더는 `info/exclude` 에 추가
 - codegraph 훅: grep 안내(식별자 하나·색인 있는 체크아웃·세션 1회, 차단 없음), 색인 없는 경로 두 번째 호출 차단, 응답 분류 기록(`.wb/metrics/codegraph.jsonl`), 세션 시작 지침 `rules/codegraph.{ko,en}.md`. `/wb:doctor` 에 색인·대기열·남은 색인 점검. 규칙 카탈로그 `codegraph-first` 를 실제 훅으로 연결하고 `codegraph-index-first` 추가(38개)
+
+### Changed
+- 규칙 카탈로그 문구를 처음 쓰는 관리자가 읽기 쉬운 업무 문체로 다시 썼다(규칙·이유·복구, ko/en). 규칙마다 짧은 이름(`title`)을 더했고, 생성 문서의 제목은 `### <이름> (\`<id>\`)` 형식이다. 머리말에 레인·웨이브·취합 담당·소유자·게이트의 뜻을 적었다. `wb-rules list` 는 이름을 보여 준다
+- 큰 설계 트랙 플러그인 이름을 코드에서 빼고 개인 설정 `design_plugin`(기본 빈 값)으로 옮겼다. 비어 있으면 `wb-work plan` 이 설정 방법을 안내한다
+- 쓰이지 않던 기본 설정 `paths.progress`(실제 경로는 `personal.handoff.file`)와 `paths.waves`(원장은 `<git 공용 폴더>/wb/`)를 지웠다
+- codegraph 설치 안내 예시를 npm 패키지 명령(`npm install -g @colbymchenry/codegraph`)으로 바꿨다
+- 시험과 주석의 포트 예시를 일반 값(8080·3000)으로 바꿨다
+- 핸드오프 파일 방식 변경: `progress.md` 는 지금 유효한 상태만 담고(기본 300줄 이하) 매 웨이브 통째로 다시 쓴다. 끝난 내용은 `docs/progress-archive/progress-<YYYY-MM>.md` 끝에 `## <YYYY-MM-DD HH:MM> — <요지>` 절로 덧붙인다. 「최신 절을 맨 위에 추가하고 이전 절 유지」 안내를 없앴다
+- 세션 시작 훅·`wb-waves resume`·`/wb:pickup`·`/wb:resume` 은 `progress.md` 전체를 보여 주고 아카이브 검색 방법(`grep -n '<키워드>' docs/progress-archive/*.md`)을 안내한다. 기준 줄 수를 넘은 누적형 파일만 최신 절을 보여 준다
+- 종료 가드 문구가 아카이브 덧붙임 → 통째로 다시 쓰기 → 두 파일 함께 커밋 순서를 요구하고, 파일이 기준을 넘으면 옮기는 방법을 덧붙인다
+- 규칙 카탈로그 `progress-handoff` 의 규칙·이유·복구 문구와 지키는 위치(`bin/wb-waves`, `personal.handoff`)를 갱신
+
+### Security
+- 검수 9항목의 화면 확인(`--serve-url`)이 이 머신 주소(`localhost`·`127.0.0.0/8`·`[::1]`)만 읽는다. 다른 주소는 `serving.not_local` 로 실패한다
+- `wb-art --slug` 가 경로 구분자와 `..` 을 거부한다(아티팩트 폴더 밖 쓰기 방지)
+- 되돌림 지시서와 `wb-check lane` 이 레인 이름을 검사한다(경로 순회 방지)
+- 색인 복사에서 따옴표·제어 문자가 든 경로는 `sqlite3 .backup` 대신 파일 복사를 쓴다
+- 자동 재개 로그(재개한 세션의 출력)를 본인만 읽을 수 있게 만든다(폴더 0700, 파일 0600)

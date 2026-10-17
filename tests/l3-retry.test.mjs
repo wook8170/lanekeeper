@@ -276,6 +276,7 @@ test('runRetry resumes with the default permission mode, updates the session id 
     const done = JSON.parse(fs.readFileSync(path.join(retryDirs(f.env).done, 'r1.json'), 'utf8'))
     assert.deepEqual([done.session_id, done.attempts], ['r1-new', 1])
     assert.ok(calls.some((c) => c[0] === 'notify'))
+    if (process.platform !== 'win32') assert.equal(fs.statSync(path.join(retryDirs(f.env).logs, 'r1.log')).mode & 0o777, 0o600, 'resume log is private')
   } finally {
     f.cleanup()
   }

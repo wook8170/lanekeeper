@@ -30,7 +30,7 @@ const [cmd, arg] = args._
 if (cmd === 'list') {
   const list = args.group ? rules.filter((r) => r.group === args.group) : rules
   if (args.json) print(JSON.stringify(list, null, 2))
-  else for (const r of list) print(`${r.id.padEnd(30)} ${r.rule[lang]}`)
+  else for (const r of list) print(`${r.id.padEnd(30)} ${r.title[lang]}`)
 } else if (cmd === 'show' || cmd === 'code') {
   if (!arg) (print(`usage: wb-rules ${cmd} <${cmd === 'show' ? 'id' : 'message-code'}>`), process.exit(2))
   const rule = cmd === 'show' ? R.findRule(rules, arg) : R.ruleForCode(rules, arg)

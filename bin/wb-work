@@ -13,7 +13,7 @@ const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', '
 const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
 const { load, parseOptions } = await imp('cli.mjs')
 const { translator } = await imp('i18n.mjs')
-const { stateDir } = await imp('config.mjs')
+const { stateDir, getPath } = await imp('config.mjs')
 const { limitsFile } = await imp('runtime.mjs')
 const { limitsMap, routingOf } = await imp('route.mjs')
 const W = await imp('work.mjs')
@@ -29,7 +29,7 @@ const [cmd, ...rest] = args._
 if (cmd === 'plan') {
   const request = rest.join(' ').trim()
   if (!request) (print('usage: wb-work plan "<request>"'), process.exit(2))
-  const plan = W.buildPlan({ request, routing: routingOf(resolved), limits: limitsMap(limitsFile(resolved)) })
+  const plan = W.buildPlan({ request, routing: routingOf(resolved), limits: limitsMap(limitsFile(resolved)), designPlugin: getPath(resolved.config, 'personal.design_plugin') })
   if (args.json) print(JSON.stringify(plan, null, 2))
   else {
     print(t('work.kind', { kind: t(`work.kind.${plan.kind}`) }))
@@ -37,7 +37,7 @@ if (cmd === 'plan') {
       const who = s.model ? t('work.model', { model: s.model }) : s.wait ? t('work.wait', { until: s.wait }) : ''
       print(`  ${s.n}. ${t(`work.step.${s.id}`)}${who ? ` (${who})` : ''}`)
     }
-    if (plan.harness) print(`\n${t(`work.harness.${plan.harness}`)}`)
+    if (plan.harness) print(`\n${t(`work.harness.${plan.harness}`, { name: plan.design_plugin || '' })}`)
   }
 } else if (cmd === 'progress') {
   const sd = stateDir(root)

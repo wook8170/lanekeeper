@@ -12,7 +12,7 @@ export function protectedPorts(config) {
   return out
 }
 
-// ports named in an lsof/fuser/kill-port style text: ":5180", "tcp:5180", "5180/tcp"
+// ports named in an lsof/fuser/kill-port style text: ":8080", "tcp:8080", "8080/tcp"
 export function portsIn(text) {
   const out = new Set()
   for (const m of text.matchAll(/(?:^|[\s:=])(?:tcp|udp)?:(\d{2,5})\b/gi)) out.add(Number(m[1]))

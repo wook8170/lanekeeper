@@ -35,5 +35,6 @@
   },
   "checkpoint": {
     "enabled": true
-  }
+  },
+  "design_plugin": ""
 }

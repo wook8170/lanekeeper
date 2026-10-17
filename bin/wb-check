@@ -82,7 +82,12 @@ async function lane() {
   const { resolveConfig, projectRoot, getPath } = await imp('config.mjs')
   const { translator } = await imp('i18n.mjs')
   const R = await imp('review.mjs')
+  const W = await imp('waves.mjs')
   const root = projectRoot(process.cwd(), process.env)
+  if (!W.ID_RE.test(String(laneId))) {
+    process.stderr.write(`[wb] ${translator(resolveConfig({ projectDir: root, env: process.env }).effective.language)('ledger.err.waves.bad_id', { kind: 'lane', id: laneId })}\n`)
+    process.exit(2)
+  }
   const resolved = resolveConfig({ projectDir: root, env: process.env })
   const lang = resolved.effective.language
   const t = translator(lang)

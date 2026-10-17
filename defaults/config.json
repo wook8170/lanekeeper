@@ -12,7 +12,6 @@
     "owner_grant_ttl_min": 15
   },
   "paths": {
-    "progress": "progress.md",
     "briefs": ".wb/briefs/{lane}.md",
     "lane_reports": "{scratch_root}/reports/{lane}.md",
     "reports_final": "docs/reports/{date}/{slug}.md",
@@ -22,7 +21,6 @@
     "decisions": "docs/decisions/{date}-{slug}.md",
     "test_results": "docs/test-results/{date}/{name}-{HHMM}.xlsx",
     "test_runs_raw": "test-results/runs/{name}-{stamp}/",
-    "waves": ".wb/waves/",
     "metrics": ".wb/metrics/",
     "e2e_ledger": "docs/e2e/"
   },

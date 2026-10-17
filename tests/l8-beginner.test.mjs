@@ -132,7 +132,8 @@ test('catalog: validates (text in both languages, enforcement paths exist, messa
 test('catalog: every rule has why, where and recovery in ko and en', () => {
   for (const r of rules) {
     for (const l of ['ko', 'en']) {
-      assert.ok(r.rule[l] && r.why[l] && r.recover[l], `${r.id} ${l}`)
+      assert.ok(r.title[l] && r.rule[l] && r.why[l] && r.recover[l], `${r.id} ${l}`)
+      assert.ok(r.title[l].length <= 50, `${r.id} title ${l} is short`)
       assert.ok(r.why[l].length > 15, `${r.id} why ${l}`)
     }
     assert.ok(r.enforced.length >= 1, r.id)
@@ -173,7 +174,7 @@ test('catalog: ruleForCode prefers exact codes and understands wildcards', () =>
 })
 
 test('catalog: validateCatalog reports empty text, missing paths and unknown codes', () => {
-  const broken = [{ id: 'x', group: 'git', rule: { ko: 'a', en: '' }, why: { ko: 'a', en: 'a' }, recover: { ko: 'a', en: 'a' }, enforced: [{ kind: 'hook', path: 'nope/file.mjs', codes: ['zzz.*'] }] }]
+  const broken = [{ id: 'x', group: 'git', title: { ko: 'a', en: 'a' }, rule: { ko: 'a', en: '' }, why: { ko: 'a', en: 'a' }, recover: { ko: 'a', en: 'a' }, enforced: [{ kind: 'hook', path: 'nope/file.mjs', codes: ['zzz.*'] }] }]
   const p = R.validateCatalog(broken, { messages: messages('ko') }).join('\n')
   assert.match(p, /rule\.en empty/)
   assert.match(p, /missing path nope\/file\.mjs/)
@@ -182,7 +183,7 @@ test('catalog: validateCatalog reports empty text, missing paths and unknown cod
 
 test('catalog: rules/catalog.<lang>.md is up to date with catalog.json', () => {
   for (const lang of ['ko', 'en']) assert.equal(read(`rules/catalog.${lang}.md`), R.renderMarkdown(rules, lang, translator(lang)), `run: wb-rules render --write (${lang})`)
-  assert.match(read('rules/catalog.ko.md'), /### lane-own-branch/)
+  assert.match(read('rules/catalog.ko.md'), /### 레인은 자기 브랜치에만 커밋 \(`lane-own-branch`\)/)
 })
 
 test('wb-rules and wb-explain code: show the rule, why, place and recovery', () => {
@@ -360,16 +361,20 @@ test('work: a full usage limit shows a wait time instead of a lower model', () =
   fx.cleanup()
 })
 
-test('work: big design reports whether the design plugin is installed', () => {
+test('work: big design reports whether the configured design plugin is installed', () => {
   const fx = makeEnv()
   const resolved = resolveConfig({ projectDir: fx.repo, env: fx.env })
   const routing = routingOf(resolved)
-  assert.equal(K.buildPlan({ request: '새 제품 처음부터 설계', routing, env: fx.env }).harness, 'missing')
+  assert.equal(K.buildPlan({ request: '새 제품 처음부터 설계', routing, env: fx.env }).harness, 'unset')
+  const designPlugin = 'design-track'
+  assert.equal(K.buildPlan({ request: '새 제품 처음부터 설계', routing, env: fx.env, designPlugin }).harness, 'missing')
   const dir = path.join(fx.env.CLAUDE_CONFIG_DIR, 'plugins')
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'king-wjang-harness@market': [{}] } }))
-  assert.equal(K.buildPlan({ request: '새 제품 처음부터 설계', routing, env: fx.env }).harness, 'installed')
-  assert.equal(K.buildPlan({ request: '버튼 고쳐', routing, env: fx.env }).harness, undefined)
+  fs.writeFileSync(path.join(dir, 'installed_plugins.json'), JSON.stringify({ version: 2, plugins: { 'design-track@market': [{}] } }))
+  const plan = K.buildPlan({ request: '새 제품 처음부터 설계', routing, env: fx.env, designPlugin })
+  assert.equal(plan.harness, 'installed')
+  assert.equal(plan.design_plugin, 'design-track')
+  assert.equal(K.buildPlan({ request: '버튼 고쳐', routing, env: fx.env, designPlugin }).harness, undefined)
   fx.cleanup()
 })
 

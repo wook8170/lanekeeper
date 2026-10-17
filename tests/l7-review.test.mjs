@@ -166,6 +166,7 @@ test('7 serving: skip without UI change; fail unknown, stale, unreachable; pass 
     srv.close()
   }
   assert.equal(item(await ui.run({ serveUrl: 'http://127.0.0.1:9/x', marker: 'm' }), 'serving').code, 'serving.unreachable')
+  assert.equal(item(await ui.run({ serveUrl: 'http://example.com/x', marker: 'm' }), 'serving').code, 'serving.not_local')
 })
 
 test('8 tests (lane): pass with a passed count; fail when missing or failing', async () => {

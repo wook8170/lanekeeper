@@ -37,7 +37,7 @@ Settings come in four layers.
 | default | plugin `defaults/*.json` | plugin repository | default for every key |
 | project | `<repo>/.wb/config.json` | committed | project kind, branch rules, output locations, verification command, writing-style map |
 | machine | `~/.wb/machine.json` | no | lane count, run slots, load threshold, protected ports, lane port range |
-| personal | `~/.wb/routing.json`, `~/.wb/personal.json` | no | model routing and denied models, language, report detail, unattended resume |
+| personal | `~/.wb/routing.json`, `~/.wb/personal.json` | no | model routing and denied models, language, report detail, unattended resume, the separate plugin used for large designs (`design_plugin`) |
 
 The language and report detail chosen in the plugin settings screen (`/config`) sit between the machine layer and the personal files. Hook processes are the only place these values are visible.
 
@@ -223,6 +223,8 @@ wb-test-report latest | summary [--json]
 wb-check test-results [--json] [--require-pass]
 ```
 
+`wb-test-report run` and `gate` hold `<git common dir>/wb/gate.lock` while they run. Merges wait meanwhile, and a second gate run stops with exit code 3. The lock is removed when the run ends.
+
 Each stage names an `adapter` (vitest, jest, playwright, pytest), a `kind` (unit, integration, e2e, uistab), a `cmd` (`{file}` is where the structured output goes) and a `slot` (`heavy`, `heavy,browser`, `none`). Heavy stages run inside `wb-slot`. A run that only left logs is read with `build --input adapter:kind:name=log=<log>`.
 
 Sheets: summary, unit, integration DB, e2e, e2e detail, UI stability, gate steps, failures, flaky, ledger comparison, coverage, mutation. Sheet names are Korean and fixed. A sheet without data is not created (summary, failures and flaky always exist). A test that passes on a retry inside the run, or in a separate rerun (`--rerun`), counts as flaky. The ledger comparison matches `*.cases.json` in `paths.e2e_ledger` with the case ids in test titles (`PAY-001`, and the short form `PAY-002 · 003`). Mismatches are: an active case that failed, was flaky, was skipped or did not run (`--ledger-priority`), a `fixme` case that passes, and ids that are unknown or retired. With a ledger, 0 mismatches is a ship condition.
@@ -297,7 +299,7 @@ For users who do not know the lane workflow: start from one sentence, and read t
 
 **Progress line.** `wb-work progress` shows the current one of seven stages (understand, brief, build, review, integrate, report, record) from the lane ledger, for example `[■■■□□□□] 3/7 Building · 2 running · 1 in review`.
 
-**Rule catalog.** `rules/catalog.json` is the source. Each rule has its text, why it exists, where it is enforced (hook, tool, brief template, setting) and how to recover, in Korean and English. `rules/catalog.ko.md` and `catalog.en.md` are generated with `wb-rules render --write`. A block message code maps to its rule with `wb-explain code <code>`. Rules waiting for a hook that is not built yet are marked "planned". `wb-rules list|show|code|render|check`.
+**Rule catalog.** `rules/catalog.json` is the source. Each rule has a short title, its text, why it exists, where it is enforced (hook, tool, brief template, setting) and how to recover, in Korean and English. `rules/catalog.ko.md` and `catalog.en.md` are generated with `wb-rules render --write`. A block message code maps to its rule with `wb-explain code <code>`. Rules waiting for a hook that is not built yet are marked "planned". `wb-rules list|show|code|render|check`.
 
 **Writing rules.** `rules/writing-style.ko.md` and `.en.md` hold the rules per voice. The default map is `docs/**/*.md` → report; the project adds screen-text paths to `style.map`.
 
@@ -336,10 +338,14 @@ The guidance is "codegraph for flow, callers and change impact; grep for exact l
 
 ## Security and limits
 
-- Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.
-- The owner grant file cannot stop another process on the same machine from writing it directly. It is a guard against mistakes.
+See [SECURITY.en.md](SECURITY.en.md) for the details. In short:
+
+- Hooks and commands send no data off the machine. The exceptions: before `gh pr merge` the safety hook runs `gh pr view` to learn the base branch and blocks the merge if it cannot; the serving check of the review reads only addresses on this machine (`localhost`, `127.0.0.0/8`, `[::1]`).
+- Safety hooks block when they cannot decide; every other hook lets work continue on an error. SECURITY.en.md lists the behaviour of each hook.
 - The safety hook judges the command text. Commands inside script files, git or kill calls made from another language (python, node), and settings edited through Bash are outside its reach.
-- If `gh pr view` cannot tell the base branch, `gh pr merge` is blocked.
+- The owner grant file cannot stop another process on the same machine from writing it directly. It is a guard against mistakes.
+- Only commands written by the user or the project settings run through a shell (commands wrapped in `wb-slot`, `review.guards`, `worktree.setup`, gate steps). When you open someone else's repository, read the commands in `.wb/` first.
+- The token guard reads the token usage fields of conversation logs in `~/.claude/projects` only after a budget is set. Conversation text is not stored.
 
 ## Development
 
@@ -350,4 +356,4 @@ npm run validate  # claude plugin validate --strict
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE). Licenses of companion tools wb does not bundle are listed in [SECURITY.en.md](SECURITY.en.md).
