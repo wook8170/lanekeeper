@@ -1,15 +1,18 @@
-<!-- wb-decision v1 kind=mockup scope={{scope}} -->
-# {{title}} — 시안 결정
+<!-- wb-decision v1 status=pending{{attrs}} -->
+# {{title}}
 
-- 결정일: {{date}}
-- 결정자: {{owner}}
-- 대상 경로: {{scope}}
+- 작성일: {{date}}
+
+## 질문
+{{question}}
 
 ## 선택지
 {{options}}
 
-## 선택
-{{choice}}
+## 추천
+{{recommend}}
 
-## 근거
-{{reason}}
+## 결정
+<!-- wb:decision -->
+결정 대기
+<!-- /wb:decision -->

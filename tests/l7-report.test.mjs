@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process'
 import { makeEnv, git, bin, runScript, ROOT } from './l3-fixture.mjs'
 import * as A from '../lib/art.mjs'
 import * as C from '../lib/cases.mjs'
+import * as D from '../lib/decide.mjs'
 import { translator } from '../lib/i18n.mjs'
 import { handle as mockup, isStructural, tags } from '../hooks/scripts/mockup/mockup-first.mjs'
 import { handle as artifactCheck, scan } from '../hooks/scripts/report/artifact-check.mjs'
@@ -201,13 +202,32 @@ test('mockup-first: a recorded decision whose scope covers the file unlocks it',
   assert.equal(m.call('Write', 'src/other/X.tsx', { content: '<i />' }), null, 'no scope covers every UI file')
 })
 
+test('mockup-first with /wb:decide: a pending record does not unlock, the answered one does', () => {
+  const m = mockupRepo(UI)
+  const write = () => m.call('Write', 'src/list/Search.tsx', { content: '<input />' })
+  const r = bin('wb-decide', ['new', 'list-search', '--title', 'List search', '--question', 'Where does the search box go?', '--option', 'A=top bar', '--option', 'B=filter panel', '--kind', 'mockup', '--scope', 'src/list/**'], m.env, m.repo)
+  assert.equal(r.status, 0, r.stderr)
+  const dir = path.join(m.repo, 'docs', 'decisions')
+  const [file] = fs.readdirSync(dir)
+  const text = fs.readFileSync(path.join(dir, file), 'utf8')
+  assert.match(text, /^<!-- wb-decision v1 status=pending kind=mockup scope=src\/list\/\*\* -->/)
+  assert.deepEqual({ ...D.parse(text) }, { status: 'pending', title: 'List search', body: 'Pending', kind: 'mockup', scope: ['src/list/**'] })
+  assert.ok(denied(write()), 'pending')
+  assert.equal(bin('wb-decide', ['answer', 'list-search', '--choice', 'A. top bar'], m.env, m.repo).status, 0)
+  assert.match(fs.readFileSync(path.join(dir, file), 'utf8'), /^<!-- wb-decision v1 status=decided kind=mockup scope=src\/list\/\*\* -->/)
+  assert.equal(write(), null, 'decided')
+  assert.ok(denied(m.call('Write', 'src/other/X.tsx', { content: '<i />' })), 'outside the scope')
+  // an ordinary decision (no kind) never unlocks UI writes
+  assert.equal(D.render({ lang: 'en', title: 'T', question: 'Q', options: [{ key: 'A', text: 'a' }], date: 'd' }).split('\n')[0], '<!-- wb-decision v1 status=pending -->')
+})
+
 test('mockup-first hook process: three-part Korean message, registered in hooks.json', () => {
   const m = mockupRepo(UI)
   const r = runScript('hooks/scripts/mockup/mockup-first.mjs', { tool_name: 'Write', cwd: m.repo, tool_input: { file_path: path.join(m.repo, 'src/list/New.tsx'), content: '<p/>' } }, { ...m.env, LANG: 'ko_KR.UTF-8' })
   assert.equal(r.status, 0)
   const reason = r.out.hookSpecificOutput.permissionDecisionReason
   assert.match(reason, /막았습니다: src\/list\/New\.tsx/)
-  assert.match(reason, /이렇게 고치세요: .*wb-decision v1 kind=mockup scope=src\/list\/New\.tsx/)
+  assert.match(reason, /이렇게 고치세요: .*wb-decide new .*wb-decision v1 status=decided kind=mockup scope=src\/list\/New\.tsx/)
   assert.match(reason, /물어볼 곳: /)
   const h = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8'))
   assert.ok(h.hooks.PreToolUse.some((e) => e.matcher === 'Write|Edit|MultiEdit' && e.hooks.some((x) => x.command.endsWith('mockup/mockup-first.mjs'))))

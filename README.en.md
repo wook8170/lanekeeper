@@ -278,9 +278,26 @@ The Stop hook `artifact-check` blocks once when a session that ran `/wb:report` 
 The PreToolUse hook `mockup-first` blocks writes that change the screen structure before a decision is recorded. It does nothing while `mockup.ui_globs` is empty (the default).
 
 - Structure change: a new screen file, an edit that changes the set of markup elements, or a style sheet edit that adds or removes selectors. Edits of text, attributes or CSS property values pass.
-- Decision: a document in the `paths.decisions` folder with the marker `<!-- wb-decision v1 kind=mockup scope=src/list/** -->` whose `scope` covers the file. Without `scope` it covers every screen file. Skeletons are in `templates/decision/`.
+- Decision: create the question with `wb-decide new <name> --kind mockup --scope "src/list/**" …` and record the owner's choice with `wb-decide answer`. A record whose marker `<!-- wb-decision v1 status=decided kind=mockup scope=src/list/** -->` has a `scope` covering the file unlocks it; a pending record (`status=pending`) does not. Without `scope` it covers every screen file. A hand-written marker without `status` counts as decided. The skeleton is the single `templates/decision/`.
 - Order: build the current screen and the options with the project tokens (`mockup.tokens_css`), show them as an artifact, get a choice, commit the decision. Lane worktrees are then made from the integration HEAD after that commit.
 - Off: `mockup.decision_required: false`.
+
+## Beginner layer
+
+For users who do not know the lane workflow: start from one sentence, and read the reason and the fix when something blocks.
+
+| Command | Purpose |
+|---|---|
+| `/wb:work` | Sorts a one-line request (bug, feature, screen, documents, research, large design), shows the steps and the model of each, then guides from brief to report. `wb-work plan "<request>"`, `wb-work progress` |
+| `/wb:explain` | Explains in plain words what is blocked or waiting: settings errors, usage limits, a running gate, stopped lanes, the lane cap, full run slots, a stale handoff file, leftover worktrees, the protected branch. `wb-explain`, `wb-explain code <message code>`, `wb-explain links` |
+| `/wb:writing-style` | Sets the voice per file (haeyo, report, plain) from `project.style.map` and prints the rules. `wb-style brief <type> --owned <files,…>` fills `{{style}}` in a brief template; mixed voices give one line per group of files |
+| `/wb:decide` | Turns an owner choice into a fixed-option question and records the answer under `paths.decisions` (default `docs/decisions/<date>-<slug>.md`). `wb-decide new, list, answer`. It suggests a commit and never makes one |
+
+**Progress line.** `wb-work progress` shows the current one of seven stages (understand, brief, build, review, integrate, report, record) from the lane ledger, for example `[■■■□□□□] 3/7 Building · 2 running · 1 in review`.
+
+**Rule catalog.** `rules/catalog.json` is the source. Each rule has its text, why it exists, where it is enforced (hook, tool, brief template, setting) and how to recover, in Korean and English. `rules/catalog.ko.md` and `catalog.en.md` are generated with `wb-rules render --write`. A block message code maps to its rule with `wb-explain code <code>`. Rules waiting for a hook that is not built yet are marked "planned". `wb-rules list|show|code|render|check`.
+
+**Writing rules.** `rules/writing-style.ko.md` and `.en.md` hold the rules per voice. The default map is `docs/**/*.md` → report; the project adds screen-text paths to `style.map`.
 
 ## Security and limits
 

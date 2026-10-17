@@ -300,9 +300,26 @@ Stop 훅 `artifact-check` 는 `/wb:report` 를 실행한 세션이 아티팩트(
 PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 기록 전에 막는다. `mockup.ui_globs` 가 비어 있으면(기본) 동작하지 않는다.
 
 - 구조 변경: 새 화면 파일 생성, 마크업 요소 구성이 바뀌는 수정, 스타일 시트의 선택자 추가·삭제. 문구·속성·CSS 속성 값만 바꾸는 수정은 통과한다.
-- 결정 기록: `paths.decisions` 폴더의 문서에 `<!-- wb-decision v1 kind=mockup scope=src/list/** -->` 표지가 있고 `scope` 가 그 파일을 덮으면 통과한다. `scope` 를 생략하면 모든 화면 파일을 덮는다. 문서 골격은 `templates/decision/` 에 있다.
+- 결정 기록: `wb-decide new <이름> --kind mockup --scope "src/list/**" …` 로 질문 문서를 만들고, 오너의 선택을 `wb-decide answer` 로 기록한다. 문서 표지 `<!-- wb-decision v1 status=decided kind=mockup scope=src/list/** -->` 의 `scope` 가 그 파일을 덮으면 통과한다. 대기 중(`status=pending`)인 결정은 풀지 않는다. `scope` 를 생략하면 모든 화면 파일을 덮는다. 손으로 쓴 표지에 `status` 가 없으면 결정된 것으로 본다. 문서 골격은 `templates/decision/` 하나다.
 - 순서: 현재 화면과 대안 시안을 프로젝트 토큰으로 만들어 아티팩트로 보여 주고(`mockup.tokens_css`), 선택을 받은 뒤 결정 문서를 커밋한다. 레인 워크트리는 이 커밋 뒤의 통합 HEAD 에서 만든다.
 - 끄기: `mockup.decision_required: false`.
+
+## 초보자 계층
+
+레인 흐름을 모르는 사용자가 한 줄 요청만으로 작업을 시작하고, 막혔을 때 이유와 해결 방법을 바로 읽을 수 있게 하는 부분이다.
+
+| 명령 | 역할 |
+|---|---|
+| `/wb:work` | 한 줄 요청을 종류(고장·기능·화면·문서·조사·큰 설계)로 나누고, 단계와 각 단계의 모델을 보여 준 뒤 지시서 작성부터 보고까지 안내한다. `wb-work plan "<요청>"`, `wb-work progress` |
+| `/wb:explain` | 지금 막힌 것과 기다리는 것을 쉬운 말로 설명한다. 설정 오류, 사용 한도, 게이트 실행 중, 멈춘 레인, 레인 상한, 가득 찬 실행 자리, 낡은 인계 파일, 남은 워크트리, 보호 브랜치를 확인한다. `wb-explain`, `wb-explain code <메시지 코드>`, `wb-explain links` |
+| `/wb:writing-style` | `project.style.map` 으로 파일별 문체(해요체·보고서체·기본)를 정하고 규칙을 보여 준다. 지시서 템플릿의 `{{style}}` 은 `wb-style brief <종류> --owned <파일,…>` 이 채운다. 소유 파일의 문체가 섞이면 파일 묶음마다 한 줄씩 적는다 |
+| `/wb:decide` | 소유자가 정할 사항을 고정 선택지 질문으로 만들고 답을 `paths.decisions`(기본 `docs/decisions/<날짜>-<이름>.md`)에 기록한다. `wb-decide new·list·answer`. 커밋은 제안만 하고 직접 하지 않는다 |
+
+**진행 표시.** `wb-work progress` 는 레인 원장에서 일곱 단계(요청 확인, 지시서 준비, 구현, 검수, 취합, 보고, 기록) 중 현재 위치를 한 줄로 보여 준다. 예: `[■■■□□□□] 3/7 구현 중 · 진행 2 · 검수 대기 1`.
+
+**규칙 카탈로그.** `rules/catalog.json` 이 정본이고, 규칙마다 내용, 이유, 지키는 위치(훅·도구·지시서 틀·설정), 막혔을 때 복구 방법을 한국어·영어로 적는다. `rules/catalog.ko.md`·`catalog.en.md` 는 `wb-rules render --write` 로 만든다. 차단 메시지의 코드는 `wb-explain code <코드>` 로 해당 규칙과 연결된다. 아직 없는 훅에 걸린 규칙은 「추가 예정」으로 표시한다. `wb-rules list|show|code|render|check`.
+
+**문체 규칙.** `rules/writing-style.ko.md`·`.en.md` 에 문체별 규칙을 둔다. 기본 매핑은 `docs/**/*.md` → 보고서체이며, 화면 문구 경로는 프로젝트가 `style.map` 에 추가한다.
 
 ## 보안과 한계
 

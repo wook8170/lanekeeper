@@ -1,15 +1,18 @@
-<!-- wb-decision v1 kind=mockup scope={{scope}} -->
-# {{title}} — mockup decision
+<!-- wb-decision v1 status=pending{{attrs}} -->
+# {{title}}
 
-- Date: {{date}}
-- Decided by: {{owner}}
-- Paths: {{scope}}
+- Written: {{date}}
+
+## Question
+{{question}}
 
 ## Options
 {{options}}
 
-## Choice
-{{choice}}
+## Recommendation
+{{recommend}}
 
-## Reason
-{{reason}}
+## Decision
+<!-- wb:decision -->
+Pending
+<!-- /wb:decision -->

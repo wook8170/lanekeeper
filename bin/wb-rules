@@ -1,0 +1,58 @@
+#!/usr/bin/env node
+// wb-rules — rule catalog: what each rule says, why, where it is enforced, how to recover.
+//
+//   wb-rules list [--group g] [--json]       all rules, one line each
+//   wb-rules show <id> [--json]              one rule in full
+//   wb-rules code <message-code> [--json]    the rule behind a block message (e.g. safety.git.lane_commit)
+//   wb-rules render [--lang ko|en] [--write] markdown catalog (--write updates rules/catalog.<lang>.md)
+//   wb-rules check                           catalog problems (exit 1 = any)
+//
+// Common options: --project <dir>, --lang ko|en
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { translator, messages } = await imp('i18n.mjs')
+const { PLUGIN_ROOT } = await imp('config.mjs')
+const R = await imp('rules.mjs')
+
+const args = parseOptions(process.argv.slice(2), ['json', 'write'])
+const { resolved } = load(args)
+const lang = args.lang === 'ko' || args.lang === 'en' ? args.lang : resolved.effective.language
+const t = translator(lang)
+const rules = R.loadCatalog()
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const [cmd, arg] = args._
+
+if (cmd === 'list') {
+  const list = args.group ? rules.filter((r) => r.group === args.group) : rules
+  if (args.json) print(JSON.stringify(list, null, 2))
+  else for (const r of list) print(`${r.id.padEnd(30)} ${r.rule[lang]}`)
+} else if (cmd === 'show' || cmd === 'code') {
+  if (!arg) (print(`usage: wb-rules ${cmd} <${cmd === 'show' ? 'id' : 'message-code'}>`), process.exit(2))
+  const rule = cmd === 'show' ? R.findRule(rules, arg) : R.ruleForCode(rules, arg)
+  if (!rule) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
+  if (args.json) print(JSON.stringify(rule, null, 2))
+  else for (const l of R.describeRule(rule, lang, t)) print(l)
+} else if (cmd === 'render') {
+  const langs = args.write ? ['ko', 'en'] : [lang]
+  for (const l of langs) {
+    const md = R.renderMarkdown(rules, l, translator(l))
+    if (args.write) fs.writeFileSync(path.join(PLUGIN_ROOT, 'rules', `catalog.${l}.md`), md)
+    else process.stdout.write(md)
+  }
+} else if (cmd === 'check') {
+  const problems = R.validateCatalog(rules, { messages: messages('ko') })
+  if (!problems.length) print(t('rules.check.ok', { count: rules.length }))
+  else {
+    print(t('rules.check.fail', { count: problems.length }))
+    for (const p of problems) print(`  ✗ ${p}`)
+  }
+  process.exit(problems.length ? 1 : 0)
+} else {
+  print('usage: wb-rules list|show|code|render|check')
+  process.exit(2)
+}

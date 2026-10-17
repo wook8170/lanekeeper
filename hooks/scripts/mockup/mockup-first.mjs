@@ -7,8 +7,10 @@
 // markup tags (or CSS selectors, for style sheets) differs between the old and new text.
 // Text, attribute and property edits pass.
 // A decision is a file in the decisions folder (paths.decisions) with the marker
-//   <!-- wb-decision v1 kind=mockup scope=src/list/**,src/shared/Table.tsx -->
-// whose scope covers the file (no scope = every UI file). Not a safety hook: fail-open.
+//   <!-- wb-decision v1 status=decided kind=mockup scope=src/list/**,src/shared/Table.tsx -->
+// whose scope covers the file (no scope = every UI file). `wb-decide new --kind mockup
+// --scope …` writes it as status=pending, which does not unlock; `wb-decide answer` turns it
+// to decided. A hand-written marker without status counts as decided. Not a safety hook: fail-open.
 import fs from 'node:fs'
 import path from 'node:path'
 import { resolveConfig, projectRoot, getPath } from '../../../lib/config.mjs'
@@ -60,7 +62,7 @@ export function mockupDecisions(dir) {
     const text = fs.readFileSync(path.join(dir, n), 'utf8')
     for (const m of text.matchAll(DECISION_RE)) {
       const attrs = Object.fromEntries(m[1].trim().split(/\s+/).filter((x) => x.includes('=')).map((kv) => [kv.slice(0, kv.indexOf('=')), kv.slice(kv.indexOf('=') + 1)]))
-      if (attrs.kind !== 'mockup') continue
+      if (attrs.kind !== 'mockup' || attrs.status === 'pending') continue
       out.push({ file: n, scope: attrs.scope ? attrs.scope.split(',').filter(Boolean) : [] })
     }
   }

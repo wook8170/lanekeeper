@@ -1,0 +1,67 @@
+#!/usr/bin/env node
+// wb-explain — what is blocked or waiting right now, why, and what to do. Read only.
+//
+//   wb-explain [--json]                 current blockers, waits and notes
+//   wb-explain code <message-code>      the rule behind a block message, with its recovery
+//   wb-explain rule <id>                one catalog rule (same as `wb-rules show`)
+//   wb-explain links                    project documents linked under explain.links
+//
+// Common options: --project <dir>, --lang ko|en
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { translator, messages } = await imp('i18n.mjs')
+const { getPath, stateDir } = await imp('config.mjs')
+const R = await imp('rules.mjs')
+const X = await imp('explain.mjs')
+
+const args = parseOptions(process.argv.slice(2), ['json'])
+const { root, resolved } = load(args)
+const lang = args.lang === 'ko' || args.lang === 'en' ? args.lang : resolved.effective.language
+const t = translator(lang)
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const rules = R.loadCatalog()
+const [cmd, arg] = args._
+
+if (cmd === 'code') {
+  if (!arg) (print('usage: wb-explain code <message-code>'), process.exit(2))
+  const rule = R.ruleForCode(rules, arg)
+  const msgs = messages(lang)
+  const base = arg.replace(/\.(why|fix|ask)$/, '')
+  const why = msgs[`${base}.why`]
+  if (!rule && !why) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
+  if (args.json) print(JSON.stringify({ code: base, why: why ? t(`${base}.why`) : null, fix: msgs[`${base}.fix`] ? t(`${base}.fix`) : null, rule }, null, 2))
+  else {
+    if (why) print(t(`${base}.why`))
+    if (msgs[`${base}.fix`]) print(`  ${t('xp.fix')}: ${t(`${base}.fix`)}`)
+    if (rule) {
+      print('')
+      for (const l of R.describeRule(rule, lang, t)) print(l)
+    }
+  }
+} else if (cmd === 'rule') {
+  const rule = R.findRule(rules, arg)
+  if (!rule) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
+  for (const l of R.describeRule(rule, lang, t)) print(l)
+} else if (cmd === 'links') {
+  const links = getPath(resolved.config, 'project.explain.links') || []
+  if (!links.length) print(t('xp.links.none'))
+  else for (const l of links) print(`${l.title}\t${l.href}`)
+} else if (cmd === undefined) {
+  const r = X.collect({ cwd: root, root, resolved, state: stateDir(root), env: process.env })
+  if (args.json) print(JSON.stringify(r, null, 2))
+  else {
+    print(X.summary(r.items, t))
+    for (const it of r.items) {
+      print('')
+      for (const l of X.itemLines(it, t)) print(l)
+    }
+  }
+} else {
+  print('usage: wb-explain [code <code>|rule <id>|links]')
+  process.exit(2)
+}
