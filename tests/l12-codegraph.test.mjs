@@ -36,7 +36,7 @@ if (cmd === 'init') {
   fs.writeFileSync(path.join(dir, '.codegraph', '.gitignore'), '*.db\\n'); process.exit(0)
 }
 if (cmd === 'sync') process.exit(fs.existsSync(db) ? 0 : 1)
-if (cmd === 'status') { console.log(JSON.stringify({ initialized: fs.existsSync(db) })); process.exit(0) }
+if (cmd === 'status') { console.log(JSON.stringify({ initialized: fs.existsSync(db) && fs.statSync(db).isFile() && fs.statSync(db).size > 0 })); process.exit(0) }
 process.exit(2)
 `
 

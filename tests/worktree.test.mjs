@@ -79,6 +79,15 @@ test('create: --agent-id is stored, explicit branch and base are honoured, ports
   f.cleanup()
 })
 
+test('create: a repository without any commit stops with a first-commit hint, not a raw git error', async () => {
+  const f = fixture()
+  const empty = path.join(f.base, 'empty')
+  fs.mkdirSync(empty)
+  git(empty, 'init', '-q', '-b', 'main')
+  await assert.rejects(wt.createWorktree({ ...f.ctx(), cwd: empty }, { id: 'l1' }), (e) => e.code === 'wt.no_commit')
+  f.cleanup()
+})
+
 test('create: refuses past machine.lanes.max and leaves nothing behind', async () => {
   const f = fixture({ machine: { load: { max: 100000 }, lanes: { max: 1 } } })
   await wt.createWorktree(f.ctx(), { id: 'l1' })

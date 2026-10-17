@@ -156,6 +156,27 @@ test('verify-all: without python the workbook is skipped with an install hint an
   fs.rmSync(tmp, { recursive: true })
 })
 
+test('verify-all: a gate.script missing from package.json stops with a fix hint, no stack trace, no results folder', async () => {
+  const { tmp } = project()
+  fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({ name: 'x', scripts: { test: 'node -e 0' } }))
+  const config = { version: 1, gate: { script: 'gate' }, stages: [] }
+  const errs = []
+  const orig = console.error
+  console.error = (...a) => errs.push(a.join(' '))
+  try {
+    for (const lang of ['en', 'ko']) {
+      const r = await runVerify({ root: tmp, configObject: config, name: 'nogate', skip: [], only: [], slot: false, echo: false, lang })
+      assert.equal(r.exit, 1)
+    }
+  } finally {
+    console.error = orig
+  }
+  assert.match(errs[0], /package\.json has no script "gate".*gate\.steps/)
+  assert.match(errs[1], /package\.json 에 "gate" 스크립트가 없습니다.*gate\.steps/)
+  assert.ok(!fs.existsSync(path.join(tmp, 'test-results', 'runs')), 'nothing written before the config is usable')
+  fs.rmSync(tmp, { recursive: true })
+})
+
 // ── wb-test-report ──────────────────────────────────────────────────────
 test('wb-test-report: env guide, skip on missing python (exit 0), --require exit 3, init once', () => {
   const m = makeEnv({ WB_PYTHON: '/nonexistent/python3' })

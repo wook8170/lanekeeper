@@ -27,6 +27,16 @@ This page covers installation, project setup, and a first 30 minutes in which on
 | codegraph | Optional | Code index. Without it the related hooks do nothing |
 | cwebp or Python Pillow | Optional | Shrinks large report PNGs to WebP |
 
+Installing openpyxl depends on the system. On Debian/Ubuntu use `sudo apt install python3-openpyxl`. Where pip into the system Python is blocked (Homebrew Python, Debian 12 and later, Ubuntu 24.04) create a virtual environment.
+
+```
+python3 -m venv ~/.wb/venv
+~/.wb/venv/bin/pip install openpyxl
+export WB_PYTHON=$HOME/.wb/venv/bin/python3
+```
+
+Check the result with `wb-test-report env`. On Linux without `lsof`, wb reads `/proc` instead, so nothing extra is needed.
+
 ## 2. Installation
 
 ### 2.1 Install from the marketplace
@@ -91,7 +101,7 @@ export PATH="$HOME/src/wb-plugin/bin:$PATH"
 
 ## 3. Project setup
 
-Open Claude Code in the project folder and type `/wb:init`. Claude asks four questions in one message.
+The project folder must be a git repository with at least one commit. Lane worktrees are made from a commit, so without one `wb-worktree create` stops and asks for a first commit. Open Claude Code in this folder and type `/wb:init`. Claude asks four questions in one message.
 
 | Question | Choices | Stored in |
 |---|---|---|
@@ -426,6 +436,8 @@ When every lane of the wave is merged, run the full verification once and keep t
   ]
 }
 ```
+
+`gate.script` is the name of a script in the project's `package.json` `scripts`. The commands that script chains with `&&` run one step at a time. If no script has that name, `wb-test-report run` prints a hint and stops. Instead of a script you can list the commands directly, for example `"gate": { "steps": [{ "name": "test", "cmd": "npm test" }] }`. Steps named in `skip_in_verify` are left out of the gate and run by `stages` instead.
 
 ```
 wb-test-report run --name integration

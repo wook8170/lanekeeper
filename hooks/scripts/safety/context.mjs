@@ -1,6 +1,8 @@
 // Real-world lookups for the guards (git, lsof, gh). Tests replace these.
 import path from 'node:path'
+import fs from 'node:fs'
 import { execFileSync } from 'node:child_process'
+import { procListeners } from '../../../lib/procs.mjs'
 
 function run(bin, args, { cwd, env, timeout = 4000 } = {}) {
   try {
@@ -49,11 +51,14 @@ export const realGit = {
   },
 }
 
-// Ports a PID listens on; null when lsof is unavailable.
+// Ports a PID listens on; without lsof they come from /proc (Linux); null when neither is available.
 export function realListenPorts(pid) {
   const out = run('lsof', ['-nP', '-a', '-p', String(pid), '-iTCP', '-sTCP:LISTEN', '-Fn'])
   // lsof exits 1 when the process has no matching socket
-  if (out === null) return hasLsof() ? [] : null
+  if (out === null) {
+    if (hasLsof()) return []
+    return fs.existsSync('/proc/net/tcp') ? procListeners().get(Number(pid)) || [] : null
+  }
   const ports = []
   for (const line of out.split('\n')) {
     const m = /^n.*:(\d+)$/.exec(line)

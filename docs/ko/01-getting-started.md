@@ -27,6 +27,16 @@ wb 는 Claude Code 에서 여러 서브에이전트에게 일을 나눠 맡길 �
 | codegraph | 선택 | 코드 색인. 없으면 관련 훅이 아무것도 하지 않는다 |
 | cwebp 또는 Python Pillow | 선택 | 보고용 큰 PNG 를 WebP 로 줄임 |
 
+openpyxl 설치는 환경마다 다르다. Debian·Ubuntu 는 `sudo apt install python3-openpyxl` 을 쓴다. Homebrew Python, Debian 12 이상, Ubuntu 24.04 처럼 시스템 Python 에 pip 설치가 막힌 환경에서는 가상환경을 만든다.
+
+```
+python3 -m venv ~/.wb/venv
+~/.wb/venv/bin/pip install openpyxl
+export WB_PYTHON=$HOME/.wb/venv/bin/python3
+```
+
+`wb-test-report env` 로 준비 여부를 확인한다. Linux 에 `lsof` 가 없어도 `/proc` 로 대신 확인하므로 따로 설치하지 않아도 된다.
+
 ## 2. 설치
 
 ### 2.1 마켓플레이스에서 설치
@@ -91,7 +101,7 @@ export PATH="$HOME/src/wb-plugin/bin:$PATH"
 
 ## 3. 프로젝트 초기화
 
-프로젝트 폴더에서 Claude Code 를 열고 `/wb:init` 을 입력한다. Claude 가 네 가지를 한 번에 묻는다.
+프로젝트 폴더는 git 저장소이고 커밋이 하나 이상 있어야 한다. 레인 워크트리는 커밋에서 만들어지므로 커밋이 없으면 `wb-worktree create` 가 첫 커밋을 만들라고 안내하며 멈춘다. 이 폴더에서 Claude Code 를 열고 `/wb:init` 을 입력한다. Claude 가 네 가지를 한 번에 묻는다.
 
 | 질문 | 선택지 | 쓰는 곳 |
 |---|---|---|
@@ -426,6 +436,8 @@ wb/search/l1 를 병합했습니다. 새 HEAD b572a921d734
   ]
 }
 ```
+
+`gate.script` 는 프로젝트 `package.json` 의 `scripts` 에 있는 이름이다. 그 스크립트가 `&&` 로 이은 명령을 한 단계씩 실행한다. 이 이름의 스크립트가 없으면 `wb-test-report run` 이 안내 메시지를 내고 멈춘다. 스크립트 대신 `"gate": { "steps": [{ "name": "test", "cmd": "npm test" }] }` 처럼 명령을 직접 적어도 된다. `skip_in_verify` 에 적은 단계는 게이트에서 빼고 `stages` 가 따로 실행한다.
 
 ```
 wb-test-report run --name integration

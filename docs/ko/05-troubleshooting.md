@@ -88,7 +88,9 @@ Claude Code 안에서는 `/wb:explain` 과 `/wb:doctor` 가 같은 일을 한다
 | `wb-slot` 이 `부하가 높아 기다립니다` 를 반복 | 1분 부하가 `machine.load.max` 이상이다 | 다른 무거운 실행이 끝나기를 기다린다. `--timeout <초>` 를 주면 그 시간 뒤 종료 코드 75 로 끝난다 |
 | 디스패치가 `새 레인 보류 문턱 … 이상입니다` 로 막힘 | 1분 부하가 `machine.load.tiers.hold_new_lanes` 이상이다 | `wb-slot check` 로 부하와 고아 프로세스를 본다. 돌고 있는 레인이 끝나 부하가 내려간 뒤 다시 디스패치한다 |
 | 검수 레인의 무거운 실행이 `무거운 실행 중지 문턱 … 이상입니다` 로 막힘 | 1분 부하가 `machine.load.tiers.stop_heavy` 이상이고 레인 종류가 검수(`verifier`)다 | 부하가 내려간 뒤 다시 실행한다. 고아 프로세스는 `wb-slot reap --orphans` 로 보고 확인한 뒤 `--kill` 로 그 PID 만 종료한다 |
-| `wb-test-report` 가 `openpyxl 모듈이 없습니다` | Python 모듈이 없다 | `python3 -m pip install openpyxl` 을 실행한다. 설치하지 않아도 시험이 통과하면 게이트 통과 표식은 남는다(엑셀만 빠진다) |
+| `wb-test-report` 가 `openpyxl 모듈이 없습니다` | Python 모듈이 없다 | Debian·Ubuntu 는 `sudo apt install python3-openpyxl` 을 실행한다. pip 설치가 막힌 환경(Homebrew·Debian 12 이상·Ubuntu 24.04)은 `python3 -m venv ~/.wb/venv` 후 `~/.wb/venv/bin/pip install openpyxl` 을 실행하고 `WB_PYTHON=$HOME/.wb/venv/bin/python3` 를 지정한다. 그 밖의 환경은 `python3 -m pip install openpyxl` 이면 된다. 설치하지 않아도 시험이 통과하면 게이트 통과 표식은 남는다(엑셀만 빠진다) |
+| `package.json 에 "gate" 스크립트가 없습니다` | `.wb/verify.config.json` 의 `gate.script` 이름이 `package.json` 의 `scripts` 에 없다 | 그 스크립트를 추가하거나 `gate.script` 를 있는 이름으로 바꾼다. 또는 `gate.steps` 에 `[{ "name": "test", "cmd": "npm test" }]` 처럼 명령을 직접 적는다 |
+| `wb-worktree create` 가 `이 저장소에는 커밋이 하나도 없어` 라고 안내 | 커밋이 없는 새 저장소다 | 첫 커밋을 만든 뒤 다시 실행한다 |
 | `wb-number reserve` 가 `번호 계열 … 가 없습니다` | `.wb/config.json` 에 `numbers` 계열이 없다 | [설정](03-configuration.md)의 `project.numbers` 예처럼 계열을 선언한다 |
 | codegraph 호출이 `… 에는 codegraph 색인이 없어요` 로 막힘 | 이 세션에서 색인 없음 응답을 이미 받은 경로다 | 색인이 생길 때까지 grep 과 Read 로 진행한다. 상태는 `wb-index status` 로 본다 |
 | 일반 터미널에서 `wb-config: command not found` | `wb-*` 명령이 `PATH` 에 없다 | Claude Code 세션 안에서 쓰거나, 플러그인 폴더의 `bin` 을 `PATH` 에 넣는다 |

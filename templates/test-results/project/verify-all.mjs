@@ -33,15 +33,17 @@ export function parseArgs(argv) {
 
 const MSG = {
   en: {
-    noPython: '[verify] workbook skipped: python3 was not found. Install Python 3.8+ (macOS: brew install python3; Debian/Ubuntu: sudo apt install python3 python3-pip), then run: python3 -m pip install openpyxl',
-    noOpenpyxl: '[verify] workbook skipped: the openpyxl module is missing. Install it with: python3 -m pip install openpyxl',
+    noPython: '[verify] workbook skipped: python3 was not found. Install Python 3.8+ (macOS: brew install python3; Debian/Ubuntu: sudo apt install python3 python3-openpyxl). Elsewhere: python3 -m pip install openpyxl',
+    noOpenpyxl: '[verify] workbook skipped: the openpyxl module is missing. Install it with: sudo apt install python3-openpyxl (Debian/Ubuntu), or python3 -m pip install openpyxl. Where pip into the system Python is blocked (Homebrew, Debian 12+, Ubuntu 24.04): python3 -m venv ~/.wb/venv && ~/.wb/venv/bin/pip install openpyxl, then export WB_PYTHON=$HOME/.wb/venv/bin/python3',
     rawKept: (dir) => `[verify] raw results are kept in ${dir}; build the workbook later with: wb-test-report build --results-dir ${dir}. The workbook is optional for the gate: when every stage passes, the gate pass stamp is still written.`,
+    noGateScript: (name) => `[verify] package.json has no script "${name}" (gate.script in .wb/verify.config.json). Add that script, point gate.script at an existing one, or list the commands in gate.steps ([{ "name": "test", "cmd": "npm test" }]).`,
     done: (dir, failed) => `[verify] results folder ${dir} · failed stages ${failed.length ? failed.join(', ') : 'none'}`,
   },
   ko: {
-    noPython: '[verify] 엑셀 생성을 건너뜁니다: python3 가 없습니다. Python 3.8 이상을 설치한 뒤(macOS: brew install python3, Debian·Ubuntu: sudo apt install python3 python3-pip) python3 -m pip install openpyxl 을 실행하십시오.',
-    noOpenpyxl: '[verify] 엑셀 생성을 건너뜁니다: openpyxl 모듈이 없습니다. python3 -m pip install openpyxl 로 설치하십시오.',
+    noPython: '[verify] 엑셀 생성을 건너뜁니다: python3 가 없습니다. Python 3.8 이상을 설치하십시오(macOS: brew install python3, Debian·Ubuntu: sudo apt install python3 python3-openpyxl). 그 밖의 환경은 python3 -m pip install openpyxl 을 실행하십시오.',
+    noOpenpyxl: '[verify] 엑셀 생성을 건너뜁니다: openpyxl 모듈이 없습니다. Debian·Ubuntu 는 sudo apt install python3-openpyxl, 그 밖은 python3 -m pip install openpyxl 로 설치하십시오. 시스템 Python 에 pip 설치가 막힌 환경(Homebrew·Debian 12 이상·Ubuntu 24.04)은 python3 -m venv ~/.wb/venv && ~/.wb/venv/bin/pip install openpyxl 을 실행하고 export WB_PYTHON=$HOME/.wb/venv/bin/python3 를 지정하십시오.',
     rawKept: (dir) => `[verify] 원본 결과는 ${dir} 에 남습니다. 나중에 wb-test-report build --results-dir ${dir} 로 엑셀을 만드십시오. 엑셀은 게이트 통과의 조건이 아닙니다. 모든 단계가 통과하면 게이트 통과 표식은 그대로 남깁니다.`,
+    noGateScript: (name) => `[verify] package.json 에 "${name}" 스크립트가 없습니다(.wb/verify.config.json 의 gate.script). 그 스크립트를 추가하거나, gate.script 를 있는 스크립트로 바꾸거나, gate.steps 에 명령을 직접 적으십시오(예: [{ "name": "test", "cmd": "npm test" }]).`,
     done: (dir, failed) => `[verify] 결과 폴더 ${dir} · 실패 단계 ${failed.length ? failed.join(', ') : '없음'}`,
   },
 }
@@ -66,6 +68,14 @@ export async function runVerify(o) {
   const lang = o.lang === 'ko' ? 'ko' : 'en'
   const msg = MSG[lang]
   const config = o.configObject || loadConfig(root, o.config)
+  let gateList
+  try {
+    gateList = gateSteps(config, root)
+  } catch (e) {
+    if (!/has no script/.test(e.message)) throw e
+    console.error(msg.noGateScript(config.gate.script))
+    return { dir: '', failed: ['gate'], manifest: null, report: { status: 0, skipped: true }, exit: 1 }
+  }
   const started = new Date()
   const runsDir = path.resolve(root, o.runsDir || path.join('test-results', 'runs'))
   const dir = path.join(runsDir, `${o.name}-${stamp(started)}`)
@@ -89,7 +99,7 @@ export async function runVerify(o) {
   }
   save()
 
-  if (gateSteps(config, root).length) {
+  if (gateList.length) {
     await stage('gate', async () => {
       const skip = (config.gate && config.gate.skip_in_verify) || []
       const r = await runGate({ root, config, resultsDir: dir, bail: false, skip, wrap: wrapFor((config.gate && config.gate.slot) || 'heavy'), echo: o.echo })
