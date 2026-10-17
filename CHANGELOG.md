@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Added
+- 사용 설명서 `docs/`(한국어 `docs/ko/`, 영어 `docs/en/` 각 5장: 시작하기와 처음 30분, 기능 안내와 스킬 17개, 설정 키 전체 참조, 규칙 안내, 문제 해결)와 목차 `docs/README.md`. 루트 README 에서 연결
+- `wb-rules manual [--lang ko|en] [--write]`: 규칙 카탈로그에서 설명서 규칙 장(`docs/<언어>/04-rules.md`)을 읽는 순서대로 만든다(메시지 코드·관련 설정 포함)
+- 설명서 시험 `tests/docs.test.mjs`: 스킬 이름·`wb-*` 명령과 하위 명령·설정 키와 기본값·규칙 수·규칙 장 재생성·링크·한영 구성을 코드와 대조
 - `SECURITY.md`·`SECURITY.en.md`: 신고 방법, 보호 범위와 한계, 훅별 실패 시 동작, 외부 명령·셸 실행 지점, 입력 검사, 네트워크, 읽고 남기는 파일, 함께 쓰는 도구의 라이선스
 - 게이트 잠금: `wb-test-report run`·`gate` 가 실행하는 동안 `<git 공용 폴더>/wb/gate.lock` 을 잡고 끝나면 지운다. 다른 실행이 잡고 있으면 종료 코드 3. 규칙 `gate-lock` 의 지키는 위치에 추가
 - 규칙 카탈로그 `report-artifact`(보고 단계 아티팩트·결과 엑셀 확인 훅 연결, 규칙 39개)

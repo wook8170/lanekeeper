@@ -5,6 +5,7 @@
 //   wb-rules show <id> [--json]              one rule in full
 //   wb-rules code <message-code> [--json]    the rule behind a block message (e.g. safety.git.lane_commit)
 //   wb-rules render [--lang ko|en] [--write] markdown catalog (--write updates rules/catalog.<lang>.md)
+//   wb-rules manual [--lang ko|en] [--write] user manual chapter (--write updates docs/<lang>/04-rules.md)
 //   wb-rules check                           catalog problems (exit 1 = any)
 //
 // Common options: --project <dir>, --lang ko|en
@@ -44,6 +45,16 @@ if (cmd === 'list') {
     if (args.write) fs.writeFileSync(path.join(PLUGIN_ROOT, 'rules', `catalog.${l}.md`), md)
     else process.stdout.write(md)
   }
+} else if (cmd === 'manual') {
+  const langs = args.write ? ['ko', 'en'] : [lang]
+  for (const l of langs) {
+    const md = R.renderManual(rules, l, translator(l))
+    if (args.write) {
+      const dir = path.join(PLUGIN_ROOT, 'docs', l)
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(path.join(dir, '04-rules.md'), md)
+    } else process.stdout.write(md)
+  }
 } else if (cmd === 'check') {
   const problems = R.validateCatalog(rules, { messages: messages('ko') })
   if (!problems.length) print(t('rules.check.ok', { count: rules.length }))
@@ -53,6 +64,6 @@ if (cmd === 'list') {
   }
   process.exit(problems.length ? 1 : 0)
 } else {
-  print('usage: wb-rules list|show|code|render|check')
+  print('usage: wb-rules list|show|code|render|manual|check')
   process.exit(2)
 }

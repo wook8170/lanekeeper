@@ -2,6 +2,8 @@
 
 [English](README.en.md)
 
+사용 설명서: [docs/README.md](docs/README.md) — 설치와 처음 30분, 기능별 사용법, 설정 키 전체, 규칙 안내, 문제 해결.
+
 > 초안이다. 0.1.0 공개 전까지 내용이 바뀐다.
 
 wb 는 Claude Code 에서 여러 서브에이전트 레인을 함께 돌릴 때 필요한 규칙을 설정 파일과 훅으로 관리하는 플러그인이다. 작업 종류에 맞는 모델을 고르고, 동시에 도는 레인과 무거운 실행의 수를 제한하고, 레인이 보호 브랜치에 커밋하거나 다른 작업의 서버를 종료하지 못하게 막는다. 레인이 끝나면 보고 파일과 검수 항목으로 결과를 확인한다.
@@ -324,7 +326,7 @@ PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 �
 
 **진행 표시.** `wb-work progress` 는 레인 원장에서 일곱 단계(요청 확인, 지시서 준비, 구현, 검수, 취합, 보고, 기록) 중 현재 위치를 한 줄로 보여 준다. 예: `[■■■□□□□] 3/7 구현 중 · 진행 2 · 검수 대기 1`.
 
-**규칙 카탈로그.** `rules/catalog.json` 이 정본이고, 규칙마다 짧은 이름, 내용, 이유, 지키는 위치(훅·도구·지시서 틀·설정), 막혔을 때 복구 방법을 한국어·영어로 적는다. `rules/catalog.ko.md`·`catalog.en.md` 는 `wb-rules render --write` 로 만든다. 차단 메시지의 코드는 `wb-explain code <코드>` 로 해당 규칙과 연결된다. 아직 없는 훅에 걸린 규칙은 「추가 예정」으로 표시한다. `wb-rules list|show|code|render|check`.
+**규칙 카탈로그.** `rules/catalog.json` 이 정본이고, 규칙마다 짧은 이름, 내용, 이유, 지키는 위치(훅·도구·지시서 틀·설정), 막혔을 때 복구 방법을 한국어·영어로 적는다. `rules/catalog.ko.md`·`catalog.en.md` 는 `wb-rules render --write` 로, 사용 설명서의 규칙 장 `docs/ko/04-rules.md`·`docs/en/04-rules.md` 는 `wb-rules manual --write` 로 만든다. 차단 메시지의 코드는 `wb-explain code <코드>` 로 해당 규칙과 연결된다. 아직 없는 훅에 걸린 규칙은 「추가 예정」으로 표시한다. `wb-rules list|show|code|render|manual|check`.
 
 **문체 규칙.** `rules/writing-style.ko.md`·`.en.md` 에 문체별 규칙을 둔다. 기본 매핑은 `docs/**/*.md` → 보고서체이며, 화면 문구 경로는 프로젝트가 `style.map` 에 추가한다.
 

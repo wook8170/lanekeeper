@@ -2,6 +2,8 @@
 
 [한국어](README.md)
 
+User manual: [docs/README.md](docs/README.md) — installation and the first 30 minutes, how to use each feature, every settings key, the rules, and troubleshooting.
+
 > Draft. Contents will change before 0.1.0.
 
 wb is a Claude Code plugin that keeps the rules for running several subagent lanes at once in settings files and enforces them with hooks. It picks a model for each kind of task, limits how many lanes and heavy commands run at the same time, and stops a lane from committing to a protected branch or killing another task's server. When a lane finishes, a report file and a review checklist confirm the result.
@@ -299,7 +301,7 @@ For users who do not know the lane workflow: start from one sentence, and read t
 
 **Progress line.** `wb-work progress` shows the current one of seven stages (understand, brief, build, review, integrate, report, record) from the lane ledger, for example `[■■■□□□□] 3/7 Building · 2 running · 1 in review`.
 
-**Rule catalog.** `rules/catalog.json` is the source. Each rule has a short title, its text, why it exists, where it is enforced (hook, tool, brief template, setting) and how to recover, in Korean and English. `rules/catalog.ko.md` and `catalog.en.md` are generated with `wb-rules render --write`. A block message code maps to its rule with `wb-explain code <code>`. Rules waiting for a hook that is not built yet are marked "planned". `wb-rules list|show|code|render|check`.
+**Rule catalog.** `rules/catalog.json` is the source. Each rule has a short title, its text, why it exists, where it is enforced (hook, tool, brief template, setting) and how to recover, in Korean and English. `rules/catalog.ko.md` and `catalog.en.md` are generated with `wb-rules render --write`, and the rules chapter of the user manual (`docs/ko/04-rules.md`, `docs/en/04-rules.md`) with `wb-rules manual --write`. A block message code maps to its rule with `wb-explain code <code>`. Rules waiting for a hook that is not built yet are marked "planned". `wb-rules list|show|code|render|manual|check`.
 
 **Writing rules.** `rules/writing-style.ko.md` and `.en.md` hold the rules per voice. The default map is `docs/**/*.md` → report; the project adds screen-text paths to `style.map`.
 
