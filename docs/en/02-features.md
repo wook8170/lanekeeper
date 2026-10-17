@@ -183,7 +183,7 @@ In a repository without `progress.md` the handoff hooks do nothing. Create the f
 
 ## 7. Test result workbook and case ledger
 
-Integration and final verification results are kept as an Excel workbook (xlsx) with a summary json. Python 3.8 or later with openpyxl is needed. Without them the install commands are shown and only the workbook is skipped.
+Integration and final verification results are kept as an Excel workbook (xlsx) with a summary json. Python 3.8 or later with openpyxl is needed. Without them the install commands are shown and only the workbook is skipped. The workbook is not a condition of the gate: when the gate and every stage pass, the gate pass stamp is written even if the workbook could not be built, and the missing workbook is only a one-line warning.
 
 ```
 wb-test-report env                          check the environment
@@ -196,7 +196,7 @@ wb-check test-results                       the newest result exists and is comm
 
 Each stage names its result format (`adapter`: vitest · jest · playwright · pytest), kind (`kind`: unit · integration · e2e · uistab), command (`cmd`; the result file goes to `{file}`) and slot (`slot`: heavy · `heavy,browser` · none). Every stage runs even when an earlier one fails. While it runs, the gate lock (`<git common dir>/wb/gate.lock`) makes merges wait.
 
-The sheets are 요약 (summary), 단위 (unit), 통합 DB (integration DB), e2e, e2e 상세 (e2e detail), UI 안정성 (UI stability), gate 단계 (gate steps), 실패 목록 (failures), 간헐 실패 (flaky), 원장 대조 (ledger comparison), 커버리지 (coverage) and 변이 (mutation). A sheet without data is not created. The file goes to `docs/test-results/<date>/<name>-<HHMM>.xlsx` and is committed.
+The sheets are Summary, Unit, Integration DB, e2e, e2e detail, UI stability, Gate steps, Failures, Flaky, Ledger comparison, Coverage and Mutation. A sheet without data is not created. Sheet names, headers and summary text follow the `personal.language` setting; with `ko` the same sheets are named 요약, 단위, 통합 DB, e2e, e2e 상세, UI 안정성, gate 단계, 실패 목록, 간헐 실패, 원장 대조, 커버리지 and 변이. The file goes to `docs/test-results/<date>/<name>-<HHMM>.xlsx` and is committed.
 
 **Case ledger and defect register.** `docs/e2e/<module>.cases.json` and `defect-register.json` are managed with `wb-cases` and `wb-defects`. Case ids are never reused. A defect that cannot be fixed now is registered as a defect and the case is marked `fixme`; the test is not weakened.
 

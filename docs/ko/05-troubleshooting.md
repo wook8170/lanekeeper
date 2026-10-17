@@ -86,7 +86,7 @@ Claude Code 안에서는 `/wb:explain` 과 `/wb:doctor` 가 같은 일을 한다
 | `wb-integrate` 종료 코드 3 | 게이트나 다른 취합이 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다 |
 | `wb-integrate` 종료 코드 2 | 작업 트리가 깨끗하지 않거나 병합 중이거나 브랜치가 없다 | `git status` 로 확인한다 |
 | `wb-slot` 이 `부하가 높아 기다립니다` 를 반복 | 1분 부하가 `machine.load.max` 이상이다 | 다른 무거운 실행이 끝나기를 기다린다. `--timeout <초>` 를 주면 그 시간 뒤 종료 코드 75 로 끝난다 |
-| `wb-test-report` 가 `openpyxl 모듈이 없습니다` | Python 모듈이 없다 | `python3 -m pip install openpyxl` 을 실행한다 |
+| `wb-test-report` 가 `openpyxl 모듈이 없습니다` | Python 모듈이 없다 | `python3 -m pip install openpyxl` 을 실행한다. 설치하지 않아도 시험이 통과하면 게이트 통과 표식은 남는다(엑셀만 빠진다) |
 | `wb-number reserve` 가 `번호 계열 … 가 없습니다` | `.wb/config.json` 에 `numbers` 계열이 없다 | [설정](03-configuration.md)의 `project.numbers` 예처럼 계열을 선언한다 |
 | codegraph 호출이 `… 에는 codegraph 색인이 없어요` 로 막힘 | 이 세션에서 색인 없음 응답을 이미 받은 경로다 | 색인이 생길 때까지 grep 과 Read 로 진행한다. 상태는 `wb-index status` 로 본다 |
 | 일반 터미널에서 `wb-config: command not found` | `wb-*` 명령이 `PATH` 에 없다 | Claude Code 세션 안에서 쓰거나, 플러그인 폴더의 `bin` 을 `PATH` 에 넣는다 |
@@ -112,7 +112,7 @@ Claude Code 안에서는 `/wb:explain` 과 `/wb:doctor` 가 같은 일을 한다
 된다. 관련 훅과 명령은 아무것도 하지 않는다. 설치하면 새 워크트리마다 색인을 대기열로 만든다.
 
 **시험 결과 엑셀 이름의 시각은 어느 시간대인가?**
-실행을 시작한 시각을 이 머신의 시간대(시스템 설정, `TZ` 환경 변수)로 적는다. 원본 로그 폴더 이름도 같은 현지 시각이다.
+실행을 시작한 시각을 이 머신의 시간대(시스템 설정, `TZ` 환경 변수)로 적는다. 시간대를 따로 지정하는 설정 키는 없다. 원본 로그 폴더 이름도 같은 현지 시각이다.
 
 **결과를 커밋했더니 `실행 커밋 … 이 현재 HEAD … 와 다릅니다` 경고가 나온다.**
 실행 뒤에 결과 폴더 밖의 파일이 바뀐 커밋이 있다는 뜻이다. 결과 파일만 커밋했다면 이 경고 대신 `시험 결과 파일만 바뀌었습니다` 로 통과한다. 코드가 바뀌었으므로 다시 돌린다.

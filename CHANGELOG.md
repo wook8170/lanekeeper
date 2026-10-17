@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+- 시험 결과 엑셀의 시트 이름·머리글·요약 문구·원장 대조 종류가 `personal.language`(ko/en)를 따른다. 문구는 `locales/{ko,en}.json` 의 `xlsx.*` 키에서 읽고, 한국어 결과는 이전과 같다(기록해 둔 통합 엑셀과 대조하는 시험 `tests/py/golden_ko.json`). 영어 설정에서는 영어 시트 이름(`Summary`·`Unit`·…)과 머리글이 나온다
+- 엑셀 도구(Python·openpyxl)가 없어 엑셀을 만들지 못해도 게이트와 모든 단계가 통과하면 게이트 통과 표식을 남긴다는 동작을 시험(`tests/manual-findings.test.mjs`)으로 고정하고, 건너뛴다는 안내 메시지·설명서에 명시
+- 설명서 문제 해결에 「시간대를 지정하는 설정 키는 없고 시스템 시간대를 쓴다」를 명시
+
 ### Added
 - `wb-test-report gate-pass`: `project.gate.command` 를 실행하고, 통과하면 게이트 통과 표식을 남긴다
 - 게이트 통과 표식 기록: `wb-test-report run`(일부 단계만 고르지 않은 실행)과 `gate-pass` 가 커밋하지 않은 변경 없이 통과하면 `<git 공용 폴더>/wb/<git.gate_stamp>.json` 에 커밋 HEAD·시각·명령을 남긴다. 표식이 다른 커밋의 것이면 차단 메시지가 표식의 커밋과 다시 돌릴 명령을 알려 준다

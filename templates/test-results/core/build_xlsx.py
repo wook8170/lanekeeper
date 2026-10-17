@@ -37,11 +37,32 @@ import adapters as A  # noqa: E402
 import ledger as L  # noqa: E402
 from adapters import gate as G  # noqa: E402
 from model import KINDS, suite as mk_suite, suites_from_tests  # noqa: E402
+from strings import T, set_lang  # noqa: E402
 
-STATUS_KO = {'passed': '통과', 'failed': '실패', 'skipped': '건너뜀', 'flaky': '간헐', 'notRun': '미실행',
-             'timedOut': '시간 초과', 'interrupted': '중단', '': ''}
-KIND_KO = {'unit': '단위', 'integration': '통합 DB', 'e2e': 'e2e', 'uistab': 'UI 안정성', 'gate': 'gate'}
-SHEET_OF = {'unit': '단위', 'integration': '통합 DB', 'e2e': 'e2e'}
+STATUS_KEYS = ('passed', 'failed', 'skipped', 'flaky', 'notRun', 'timedOut', 'interrupted')
+KIND_KEYS = ('unit', 'integration', 'e2e', 'uistab', 'gate')
+
+
+class _Words:
+    """Status and kind words in the current language (the language is set once per run)."""
+
+    def __init__(self, keys, prefix, empty=False):
+        self.keys, self.prefix, self.empty = keys, prefix, empty
+
+    def get(self, k, default=None):
+        if k in self.keys:
+            return T(self.prefix + k)
+        return '' if (self.empty and k == '') else default
+
+    def __getitem__(self, k):
+        v = self.get(k)
+        if v is None:
+            raise KeyError(k)
+        return v
+
+
+STATUS_KO = _Words(STATUS_KEYS, 'status.', empty=True)
+KIND_KO = _Words(KIND_KEYS, 'kind.')
 
 
 def _openpyxl():
@@ -275,11 +296,12 @@ def secs(ms):
 
 # ── workbook ──────────────────────────────────────────────────────────────
 
-SUITE_COLS = ['구분', '스위트', '총계', '통과', '실패', '건너뜀', '간헐', '재실행 통과', '소요 시간(초)', '통과율(%)', '결과', '입력']
+SUITE_COL_KEYS = ('kind', 'suite', 'total', 'passed', 'failed', 'skipped', 'flaky', 'rerun_passed', 'seconds', 'pass_rate', 'result', 'input')
 SUITE_W = [10, 30, 10, 10, 10, 10, 10, 12, 14, 12, 10, 50]
 
 
 def build_xlsx(model, out):
+    SUITE_COLS = [T('col.' + k) for k in SUITE_COL_KEYS]
     Workbook, FormulaRule, Alignment, Border, Font, PatternFill, Side, col = _openpyxl()
     HEAD = PatternFill('solid', fgColor='D9E2F3')
     TOTAL = PatternFill('solid', fgColor='F2F2F2')
@@ -314,7 +336,7 @@ def build_xlsx(model, out):
         for c in status_cols:
             L_ = col(c)
             first = '%s%d' % (L_, row0 + 1)
-            for word, fill in (('통과', PASS), ('실패', FAIL), ('간헐', WARN)):
+            for word, fill in ((T('status.passed'), PASS), (T('status.failed'), FAIL), (T('status.flaky'), WARN)):
                 ws.conditional_formatting.add('%s%d:%s%d' % (L_, row0 + 1, L_, last),
                                               FormulaRule(formula=['ISNUMBER(SEARCH("%s",%s))' % (word, first)], fill=fill, stopIfTrue=True))
         return last + 2
@@ -334,29 +356,29 @@ def build_xlsx(model, out):
             return
         ws = wb.create_sheet(title)
         rows = [suite_row(s) for s in sorted(suites, key=lambda s: (s['status'] != 'failed', s['name']))]
-        tot = totals(suites, '합계')
-        rows.append(['합계', '%d개' % len(suites)] + suite_row(tot)[2:7] + [sum(r[7] or 0 for r in rows)] + suite_row(tot)[8:11] + [''])
+        tot = totals(suites, T('sum.total'))
+        rows.append([T('sum.total'), T('sum.n_suites', n=len(suites))] + suite_row(tot)[2:7] + [sum(r[7] or 0 for r in rows)] + suite_row(tot)[8:11] + [''])
         last = table(ws, SUITE_COLS, SUITE_W, rows, status_cols=(11,), total_last=True)
         count_fill(ws, 5, 2, last - 2, FAIL)
         count_fill(ws, 7, 2, last - 2, WARN)
 
     wb = Workbook()
     ws = wb.active
-    ws.title = '요약'
+    ws.title = T('sheet.summary')
     m = model['meta']
-    ws['A1'] = '시험 결과 — %s' % m.get('name', '')
+    ws['A1'] = T('sum.title', name=m.get('name', ''))
     ws['A1'].font = Font(bold=True, size=14)
     ws.merge_cells('A1:L1')
     v = verdict(model)
     failed_n = sum(1 for t in model['tests'] if t['status'] == 'failed')
     gate_failed = sum(g['status'] == 'failed' for g in model['gate'])
     meta_rows = [
-        ('종합 판정', STATUS_KO[v] + (' (실패 시험 %d건 · gate 실패 단계 %d건)' % (failed_n, gate_failed) if v == 'failed' else '')),
-        ('실행 시각', m.get('startedAt', '')), ('종료 시각', m.get('finishedAt', '')), ('보고서 생성', m.get('generatedAt', '')),
-        ('커밋', m.get('commit', '')), ('브랜치', m.get('branch', '')), ('호스트', m.get('host', '')),
-        ('부하(1·5·15분 평균)', m.get('load', '')), ('워커 수', m.get('workers', '')),
-        ('원장 기준', m.get('ledgerRef', '작업 트리') if m.get('ledgerCases') is not None else ''), ('비고', m.get('note', '')),
-        ('입력', '\n'.join(dict.fromkeys(m.get('sources', [])))),
+        (T('sum.verdict'), STATUS_KO[v] + (T('sum.verdict_detail', tests=failed_n, gate=gate_failed) if v == 'failed' else '')),
+        (T('sum.started'), m.get('startedAt', '')), (T('sum.finished'), m.get('finishedAt', '')), (T('sum.generated'), m.get('generatedAt', '')),
+        (T('sum.commit'), m.get('commit', '')), (T('sum.branch'), m.get('branch', '')), (T('sum.host'), m.get('host', '')),
+        (T('sum.load'), m.get('load', '')), (T('sum.workers'), m.get('workers', '')),
+        (T('sum.ledger_ref'), m.get('ledgerRef', T('sum.worktree')) if m.get('ledgerCases') is not None else ''), (T('sum.note'), m.get('note', '')),
+        (T('sum.inputs'), '\n'.join(dict.fromkeys(m.get('sources', [])))),
     ]
     for i, (k, val) in enumerate(meta_rows, 3):
         a = ws.cell(row=i, column=1, value=k)
@@ -370,13 +392,13 @@ def build_xlsx(model, out):
     vcell.font = Font(bold=True)
 
     r0 = 3 + len(meta_rows) + 1
-    ws.cell(row=r0, column=1, value='스위트별 결과').font = Font(bold=True, size=12)
+    ws.cell(row=r0, column=1, value=T('sum.by_suite')).font = Font(bold=True, size=12)
     rows = []
     for kind in ('unit', 'integration', 'e2e', 'uistab'):
         ss = [s for s in model['suites'] if s['kind'] == kind]
         if not ss:
             continue
-        t = totals(ss, '%d개 묶음' % len(ss))
+        t = totals(ss, T('sum.groups', n=len(ss)))
         t['kind'] = kind
         row = suite_row(t)
         row[7] = sum(rerun_pass(model, kind, s['name']) for s in ss)
@@ -386,11 +408,11 @@ def build_xlsx(model, out):
         g = model['gate']
         gp, gf = sum(x['status'] == 'passed' for x in g), sum(x['status'] == 'failed' for x in g)
         gn = sum(x['status'] in ('notRun', 'skipped') for x in g)
-        rows.append(['gate', '%d단계' % len(g), len(g), gp, gf, gn, 0, 0, secs(sum(x['durationMs'] or 0 for x in g)),
-                     round(gp / (len(g) - gn) * 100, 2) if len(g) - gn else None, '실패' if gf else '통과', '건너뜀 열 = 미실행 · 건너뛴 단계'])
+        rows.append(['gate', T('sum.steps', n=len(g)), len(g), gp, gf, gn, 0, 0, secs(sum(x['durationMs'] or 0 for x in g)),
+                     round(gp / (len(g) - gn) * 100, 2) if len(g) - gn else None, T('status.failed') if gf else T('status.passed'), T('sum.gate_note')])
     if rows:
-        t = totals(model['suites'], '전체 시험(gate 제외)')
-        trow = ['합계'] + suite_row(t)[1:11] + ['']
+        t = totals(model['suites'], T('sum.total_all'))
+        trow = [T('sum.total')] + suite_row(t)[1:11] + ['']
         trow[7] = sum(r[7] or 0 for r in rows if r[0] != 'gate')
         rows.append(trow)
         last = table(ws, SUITE_COLS, SUITE_W, rows, status_cols=(11,), row0=r0 + 1, freeze=False, total_last=True)
@@ -398,9 +420,9 @@ def build_xlsx(model, out):
     else:
         last = r0 + 2
     notes = [
-        '통과율 = (통과 + 간헐) ÷ (총계 − 건너뜀). 간헐 = 같은 실행 안의 재시도에서 통과한 시험.',
-        '재실행 통과 = 본 실행에서 실패했고 별도 재실행에서 통과한 시험(실패 수에 포함된다). 상세는 「간헐 실패」 시트.',
-        ('e2e 원장 대조 불일치 %d건 — 「원장 대조」 시트.' % len(model['ledger'])) if m.get('ledgerCompared') else '',
+        T('sum.note_rate'),
+        T('sum.note_rerun', sheet=T('sheet.flaky')),
+        T('sum.note_ledger', n=len(model['ledger']), sheet=T('sheet.ledger')) if m.get('ledgerCompared') else '',
     ]
     for i, n in enumerate([n for n in notes if n], last):
         ws.cell(row=i, column=1, value=n)
@@ -408,75 +430,75 @@ def build_xlsx(model, out):
     ws.column_dimensions['A'].width = 18
 
     for kind in ('unit', 'integration', 'e2e'):
-        suite_sheet(wb, SHEET_OF[kind], (kind,))
+        suite_sheet(wb, T('sheet.' + kind), (kind,))
 
     e2e = [t for t in model['tests'] if t['kind'] in ('e2e', 'uistab')]
     if e2e:
-        w = wb.create_sheet('e2e 상세')
+        w = wb.create_sheet(T('sheet.e2e_detail'))
         rows = [[KIND_KO[t['kind']], t['project'], '%s:%s' % (t['file'], t['line']) if t['line'] else t['file'],
                  ' · '.join(t.get('caseIds') or []), t['name'], STATUS_KO.get(t['status'], t['status']),
                  ' → '.join(STATUS_KO.get(a, a) for a in t['attempts']), STATUS_KO.get(t['rerun'], t['rerun']),
                  secs(t['durationMs']), t['error']] for t in e2e]
-        table(w, ['구분', '프로젝트', '파일:줄', '케이스 ID', '시험명', '결과', '시도', '재실행 결과', '소요 시간(초)', '오류 첫 줄'],
+        table(w, [T('col.' + k) for k in ('kind', 'project', 'file_line', 'case_id', 'test_name', 'result', 'attempts', 'rerun_result', 'seconds', 'error')],
               [10, 12, 34, 16, 70, 10, 18, 12, 12, 60], rows, status_cols=(6, 8))
-    suite_sheet(wb, 'UI 안정성', ('uistab',))
+    suite_sheet(wb, T('sheet.uistab'), ('uistab',))
 
     if model['gate']:
-        w = wb.create_sheet('gate 단계')
+        w = wb.create_sheet(T('sheet.gate'))
         rows = [[i, g['step'], g['cmd'], STATUS_KO.get(g['status'], g['status']), g['exit'], secs(g['durationMs']), g['detail'], g['log']]
                 for i, g in enumerate(model['gate'], 1)]
-        table(w, ['순서', '단계', '명령', '결과', '종료 코드', '소요 시간(초)', '실패 상세', '로그 위치'],
+        table(w, [T('col.' + k) for k in ('order', 'step', 'command', 'result', 'exit_code', 'seconds', 'fail_detail', 'log')],
               [6, 22, 34, 10, 10, 12, 70, 50], rows, status_cols=(4,))
 
-    w = wb.create_sheet('실패 목록')
+    w = wb.create_sheet(T('sheet.failures'))
     fails = [t for t in model['tests'] if t['status'] == 'failed']
     rows = [[KIND_KO.get(t['kind'], t['kind']), t['project'] or t['suite'], t['name'],
              '%s:%s' % (t['file'], t['line']) if t['line'] else t['file'], t['error'], t['log'],
-             STATUS_KO.get(t['rerun'], t['rerun']) or '재실행 없음'] for t in fails]
+             STATUS_KO.get(t['rerun'], t['rerun']) or T('fail.no_rerun')] for t in fails]
     rows += [['gate', g['step'], g['cmd'], '', g['detail'], g['log'], ''] for g in model['gate'] if g['status'] == 'failed']
-    rows += [[KIND_KO.get(s['kind'], s['kind']), s['name'], '(스위트 전체 실패 — 시험 목록 없음)', '', '', s.get('source', ''), '']
+    rows += [[KIND_KO.get(s['kind'], s['kind']), s['name'], T('fail.suite_failed'), '', '', s.get('source', ''), '']
              for s in model['suites'] if s['status'] == 'failed' and not any(
                  (t['project'] or t['suite']) == s['name'] and t['kind'] == s['kind'] and t['status'] == 'failed' for t in model['tests'])]
     if rows:
-        table(w, ['구분', '스위트·프로젝트', '시험명', '파일:줄', '오류 첫 줄', '로그 위치', '재실행 결과'],
+        table(w, [T('col.' + k) for k in ('kind', 'suite_project', 'test_name', 'file_line', 'error', 'log', 'rerun_result')],
               [10, 20, 70, 40, 70, 50, 14], rows, status_cols=(7,))
     else:
-        w['A1'] = '실패한 시험이 없다.'
+        w['A1'] = T('fail.none')
 
-    w = wb.create_sheet('간헐 실패')
+    w = wb.create_sheet(T('sheet.flaky'))
     fl = [t for t in model['tests'] if t['status'] == 'flaky' or t.get('flakyByRerun')]
     rows = [[KIND_KO.get(t['kind'], t['kind']), t['project'] or t['suite'], t['name'],
              '%s:%s' % (t['file'], t['line']) if t['line'] else t['file'],
-             '같은 실행 안 재시도' if t['status'] == 'flaky' else '별도 재실행',
+             T('flaky.same_run') if t['status'] == 'flaky' else T('flaky.separate'),
              ' → '.join(STATUS_KO.get(a, a) for a in t['attempts']) if t['status'] == 'flaky'
-             else '본 실행 실패 → 재실행 %s' % STATUS_KO.get(t['rerun'], t['rerun']), t['error']] for t in fl]
+             else T('flaky.rerun_result', result=STATUS_KO.get(t['rerun'], t['rerun'])), t['error']] for t in fl]
     if rows:
-        table(w, ['구분', '스위트·프로젝트', '시험명', '파일:줄', '판정 근거', '시도 결과', '오류 첫 줄'],
+        table(w, [T('col.' + k) for k in ('kind', 'suite_project', 'test_name', 'file_line', 'basis', 'attempt_results', 'error')],
               [10, 18, 70, 40, 18, 30, 60], rows)
     else:
-        w['A1'] = '간헐 실패로 판정된 시험이 없다(%s).' % ('재실행 입력 있음' if m.get('rerunSources') else '재실행 입력 없음')
+        w['A1'] = T('flaky.none', rerun=T('flaky.rerun_given') if m.get('rerunSources') else T('flaky.rerun_absent'))
 
     if m.get('ledgerCompared'):
-        w = wb.create_sheet('원장 대조')
+        w = wb.create_sheet(T('sheet.ledger'))
         if model['ledger']:
             rows = [[r['kind'], r['caseId'], r['priority'], r['module'], r['ledger'], STATUS_KO.get(r['actual'], r['actual']),
                      r['detail'], r['scenario']] for r in model['ledger']]
-            table(w, ['불일치 종류', '케이스 ID', '우선순위', '모듈', '원장 상태', '실제 결과', '프로젝트별 결과', '시나리오'],
+            table(w, [T('col.' + k) for k in ('mismatch', 'case_id', 'priority', 'module', 'ledger_status', 'actual', 'per_project', 'scenario')],
                   [34, 18, 9, 10, 12, 10, 34, 70], rows, status_cols=(6,))
         else:
-            w['A1'] = '원장(케이스 %d건)과 실행 결과가 어긋난 케이스가 없다.' % m.get('ledgerCases', 0)
+            w['A1'] = T('ledger.none', n=m.get('ledgerCases', 0))
 
     if model['coverage']:
-        w = wb.create_sheet('커버리지')
+        w = wb.create_sheet(T('sheet.coverage'))
         pct = lambda x: x.get('pct') if isinstance(x, dict) else None  # noqa: E731
         rows = [[c['area'], pct(c['lines']), pct(c['statements']), pct(c['branches']), pct(c['functions']),
                  (c['lines'] or {}).get('total'), dt.datetime.fromtimestamp(c['mtime']).strftime('%Y-%m-%d %H:%M')] for c in model['coverage']]
-        table(w, ['영역', '줄(%)', '문장(%)', '분기(%)', '함수(%)', '코드 줄 수', '측정 시각'], [30, 10, 10, 10, 10, 12, 18], rows)
+        table(w, [T('col.' + k) for k in ('area', 'lines', 'statements', 'branches', 'functions', 'code_lines', 'measured_at')], [30, 10, 10, 10, 10, 12, 18], rows)
     if model['mutation']:
-        w = wb.create_sheet('변이')
+        w = wb.create_sheet(T('sheet.mutation'))
         rows = [[x['area'], x['score'], x['killed'], x['timeout'], x['survived'], x['noCoverage'],
                  dt.datetime.fromtimestamp(x['mtime']).strftime('%Y-%m-%d %H:%M')] for x in model['mutation']]
-        table(w, ['영역', '변이 점수(%)', '잡힘', '시간 초과', '살아남음', '시험 없음', '측정 시각'], [30, 12, 10, 10, 10, 10, 18], rows)
+        table(w, [T('col.' + k) for k in ('area', 'score', 'killed', 'timeout', 'survived', 'no_coverage', 'measured_at')], [30, 12, 10, 10, 10, 10, 18], rows)
 
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     wb.save(out)
@@ -530,8 +552,9 @@ def parse_args(argv=None):
     ap.add_argument('--commit')
     ap.add_argument('--branch')
     ap.add_argument('--started')
-    ap.add_argument('--lang', choices=('ko', 'en'), default='ko', help='language of the result line printed at the end')
+    ap.add_argument('--lang', choices=('ko', 'en'), default='ko', help='language of the sheet names, headers, notes and the result line printed at the end')
     a = ap.parse_args(argv)
+    set_lang(a.lang)
     a.repo = os.path.abspath(a.repo)
     a.cases_dir = a.cases_dir or os.path.join(a.repo, 'docs', 'e2e')
     a.runs_dir = a.runs_dir or os.path.join(a.repo, 'test-results', 'runs')
@@ -549,10 +572,8 @@ def main(argv=None):
               sum(t['status'] == 'failed' for t in model['tests']),
               sum(1 for t in model['tests'] if t['status'] == 'flaky' or t.get('flakyByRerun')),
               len(model['ledger']), len(model['tests']))
-    if args.lang == 'en':
-        print('%s: verdict %s · suites %d · gate %d steps · failed %d · flaky %d · ledger mismatches %d · test rows %d' % ((out, verdict(model)) + counts))
-    else:
-        print('%s: 판정 %s · 스위트 %d · gate %d단계 · 실패 %d · 간헐 %d · 원장 불일치 %d · 시험 행 %d' % ((out, STATUS_KO[verdict(model)]) + counts))
+    print(T('line', out=out, verdict=T('line.verdict.' + verdict(model)), suites=counts[0], gate=counts[1], failed=counts[2],
+            flaky=counts[3], ledger=counts[4], rows=counts[5]))
     return out
 
 

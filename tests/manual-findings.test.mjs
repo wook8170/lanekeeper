@@ -84,6 +84,32 @@ test('1 wb-test-report run: a full pass writes the stamp, a --only run does not'
   }
 })
 
+test('1 wb-test-report run: without python or openpyxl the passed stages still count — stamp written, workbook only a warning', () => {
+  const m = makeEnv({ WB_PYTHON: 'wb-no-such-python' })
+  try {
+    const stamp = path.join(m.repo, '.git', 'wb', 'wb-gate-pass.json')
+    w(path.join(m.repo, '.gitignore'), '/test-results/\n')
+    w(path.join(m.repo, '.wb', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
+    git(m.repo, 'add', '.')
+    git(m.repo, 'commit', '-q', '-m', 'verify config')
+    const r = bin('wb-test-report', ['run'], m.env, m.repo)
+    assert.equal(r.status, 0, r.stdout + r.stderr)
+    assert.match(r.stderr, /workbook skipped/)
+    assert.match(r.stderr, /pip install openpyxl/)
+    assert.match(r.stderr, /optional for the gate/)
+    assert.ok(fs.existsSync(stamp))
+    // a failed stage still blocks the stamp, with or without the workbook
+    fs.rmSync(stamp)
+    w(path.join(m.repo, '.wb', 'verify.config.json'), { version: 1, stages: [{ name: 'bad', adapter: 'vitest', cmd: 'node -e "process.exit(1)"', slot: 'none' }] })
+    git(m.repo, 'commit', '-qam', 'failing stage')
+    const bad = bin('wb-test-report', ['run'], m.env, m.repo)
+    assert.equal(bad.status, 1, bad.stdout + bad.stderr)
+    assert.ok(!fs.existsSync(stamp))
+  } finally {
+    m.cleanup()
+  }
+})
+
 test('1 end to end: gate-pass on the integration branch lets the granted merge into main through', () => {
   const f = makeFixture()
   try {

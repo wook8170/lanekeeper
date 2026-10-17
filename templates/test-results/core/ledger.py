@@ -9,6 +9,8 @@ import json
 import os
 import re
 
+from strings import T
+
 LEGACY = {'pass': 'active', 'fail': 'fixme', 'notImplemented': 'fixme', 'blocked': 'fixme'}
 
 
@@ -99,21 +101,21 @@ def compare(tests, cases, retired=(), priority=None):
         c = cases.get(cid)
         base = {'caseId': cid, 'actual': actual, 'detail': per}
         if cid in retired:
-            rows.append(dict(base, priority='', module='', ledger='(retired)', kind='폐기된 ID 참조', scenario=ts[0]['name']))
+            rows.append(dict(base, priority='', module='', ledger='(retired)', kind=T('ledger.retired'), scenario=ts[0]['name']))
             continue
         if not c:
-            rows.append(dict(base, priority='', module='', ledger='(not in ledger)', kind='원장 누락', scenario=ts[0]['name']))
+            rows.append(dict(base, priority='', module='', ledger='(not in ledger)', kind=T('ledger.missing'), scenario=ts[0]['name']))
             continue
         led = c['status']
         kind = None
         if led == 'active' and actual == 'failed':
-            kind = '원장 활성 · 실행 실패'
+            kind = T('ledger.active_failed')
         elif led == 'active' and actual == 'flaky':
-            kind = '원장 활성 · 실행 간헐'
+            kind = T('ledger.active_flaky')
         elif led == 'active' and actual == 'skipped':
-            kind = '원장 활성 · 실행 건너뜀'
+            kind = T('ledger.active_skipped')
         elif led == 'fixme' and actual == 'passed':
-            kind = '원장 보류 · 실행 통과(원장 갱신 검토)'
+            kind = T('ledger.fixme_passed')
         if kind:
             rows.append(dict(base, priority=c.get('priority', ''), module=c.get('module', ''), ledger=led, kind=kind,
                              scenario=c.get('scenario', '')))
@@ -121,6 +123,6 @@ def compare(tests, cases, retired=(), priority=None):
         for cid, c in sorted(cases.items()):
             if c.get('priority') == priority and c['status'] == 'active' and cid not in by_case:
                 rows.append({'caseId': cid, 'priority': c.get('priority', ''), 'module': c.get('module', ''), 'ledger': c['status'],
-                             'actual': 'notRun', 'detail': '', 'kind': '%s 원장 케이스 · 이번 실행에 없음' % priority,
+                             'actual': 'notRun', 'detail': '', 'kind': T('ledger.not_in_run', priority=priority),
                              'scenario': c.get('scenario', '')})
     return rows

@@ -86,7 +86,7 @@ Inside Claude Code, `/wb:explain` and `/wb:doctor` do the same. A block message 
 | `wb-integrate` exit code 3 | A gate or another integration holds the lock | Run again when it ends |
 | `wb-integrate` exit code 2 | The tree is not clean, a merge is in progress or the branch does not exist | Check with `git status` |
 | `wb-slot` keeps printing `Waiting: load is high` | The 1-minute load is at or above `machine.load.max` | Wait for other heavy runs to end. With `--timeout <seconds>` it gives up after that time with exit code 75 |
-| `wb-test-report` says `Python is installed but the openpyxl module is missing` | The Python module is missing | Run `python3 -m pip install openpyxl` |
+| `wb-test-report` says `Python is installed but the openpyxl module is missing` | The Python module is missing | Run `python3 -m pip install openpyxl`. Without it the gate pass stamp is still written when the tests pass (only the workbook is missing) |
 | `wb-number reserve` says the number series is not declared | `.wb/config.json` has no `numbers` series | Declare the series as in the `project.numbers` example of [Configuration](03-configuration.md) |
 | A codegraph call is blocked with `… has no codegraph index` | This session already got a "no index" response for that path | Go on with grep and Read until the index exists. Check with `wb-index status` |
 | `wb-config: command not found` in an ordinary terminal | The `wb-*` commands are not on `PATH` | Use them inside a Claude Code session, or put the plugin's `bin` folder on `PATH` |
@@ -112,7 +112,7 @@ No. The skill creates a grant only when a person types it in the prompt. Subagen
 No. Without it the related hooks and commands do nothing. With it, every new worktree gets its index through the queue.
 
 **Which time zone does the time in the result file name use?**
-The start time of the run in this machine's time zone (system setting, `TZ` environment variable). The raw log folder name uses the same local time.
+The start time of the run in this machine's time zone (system setting, `TZ` environment variable). There is no setting key for the time zone. The raw log folder name uses the same local time.
 
 **After committing the results I get `The run commit … differs from the current HEAD …`.**
 A commit after the run changed files outside the results folder. When only result files were committed, the check passes with `Only result files changed` instead of this warning. Code changed, so run again.

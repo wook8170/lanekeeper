@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -7,6 +8,7 @@ import unittest
 
 import fixtures as F
 import build_xlsx as B
+import xlsx_dump as X
 
 try:
     import openpyxl
@@ -129,6 +131,48 @@ class Workbook(unittest.TestCase):
         self.assertNotIn('판정', line)
         _, line = self.run_build('--input', 'vitest:unit:web=' + self.p('v.json'))
         self.assertIn('판정 실패', line)
+
+    def test_korean_workbook_equals_the_recorded_one(self):
+        # sheet names, headers, summary rows and notes: the Korean workbook must not change when the words move to the locale files
+        out, line, tmp = X.build_full()
+        with open(os.path.join(os.path.dirname(__file__), 'golden_ko.json'), encoding='utf-8') as fh:
+            golden = json.load(fh)
+        got = json.loads(json.dumps(X.dump(out, tmp), sort_keys=True, ensure_ascii=False))
+        got['line'] = line.replace(tmp, '<TMP>')
+        self.assertEqual(got['sheets'], golden['sheets'])
+        self.assertEqual(got['line'], golden['line'])
+        self.assertEqual(got['data'], golden['data'])
+        out2, _, _ = X.build_full('ko')
+        self.assertEqual(openpyxl.load_workbook(out2).sheetnames, golden['sheets'])
+
+    def test_english_workbook_has_english_sheets_headers_and_notes(self):
+        out, line, tmp = X.build_full('en')
+        d = X.dump(out, tmp)
+        self.assertEqual(d['sheets'], ['Summary', 'Unit', 'Integration DB', 'e2e', 'e2e detail', 'UI stability', 'Gate steps', 'Failures',
+                                       'Flaky', 'Ledger comparison', 'Coverage', 'Mutation'])
+        self.assertTrue(all(len(n) <= 31 for n in d['sheets']))
+        self.assertIn('verdict failed', line)
+        cells = d['data']['Summary']['cells']
+        self.assertEqual(cells['A3'], 'Overall verdict')
+        self.assertTrue(cells['B3'].startswith('Failed'))
+        self.assertEqual([cells['%s17' % c] for c in 'ABCDEFGHIJKL'][:5], ['Type', 'Suite', 'Total', 'Passed', 'Failed'])
+        self.assertIn('Details are on the "Flaky" sheet.', cells['A26'])
+        self.assertEqual(d['data']['Gate steps']['cells']['D2'], 'Passed')
+        self.assertEqual(d['data']['Gate steps']['cells']['D4'], 'Not run')
+        self.assertIn('Ledger active · run failed', d['data']['Ledger comparison']['cells'].values())
+        self.assertIn('Retry within the same run', d['data']['Flaky']['cells'].values())
+        # no Hangul left anywhere in the English workbook except values taken from the inputs
+        for sheet, body in d['data'].items():
+            for coord, v in body['cells'].items():
+                if isinstance(v, str) and re.search('[가-힣]', v):
+                    self.fail('%s!%s still Korean: %r' % (sheet, coord, v))
+        # the status colour rules follow the status words of the language
+        self.assertTrue(any('SEARCH("Failed"' in c for c in d['data']['Failures']['cf']))
+
+    def test_unknown_lang_value_is_rejected(self):
+        r = subprocess.run([sys.executable, SCRIPT, '--repo', self.dir, '--out', self.p('o.xlsx'), '--lang', 'fr',
+                            '--input', 'vitest:unit:web=' + self.p('v.json')], capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)
 
     def test_coverage_and_mutation_sheets(self):
         F.write(self.p('cov.json'), {'total': {'lines': {'pct': 81.5, 'total': 100}, 'statements': {'pct': 80}, 'branches': {'pct': 70}, 'functions': {'pct': 90}}})

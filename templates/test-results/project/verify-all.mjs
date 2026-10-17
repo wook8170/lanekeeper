@@ -35,13 +35,13 @@ const MSG = {
   en: {
     noPython: '[verify] workbook skipped: python3 was not found. Install Python 3.8+ (macOS: brew install python3; Debian/Ubuntu: sudo apt install python3 python3-pip), then run: python3 -m pip install openpyxl',
     noOpenpyxl: '[verify] workbook skipped: the openpyxl module is missing. Install it with: python3 -m pip install openpyxl',
-    rawKept: (dir) => `[verify] raw results are kept in ${dir}; build the workbook later with: wb-test-report build --results-dir ${dir}`,
+    rawKept: (dir) => `[verify] raw results are kept in ${dir}; build the workbook later with: wb-test-report build --results-dir ${dir}. The workbook is optional for the gate: when every stage passes, the gate pass stamp is still written.`,
     done: (dir, failed) => `[verify] results folder ${dir} · failed stages ${failed.length ? failed.join(', ') : 'none'}`,
   },
   ko: {
     noPython: '[verify] 엑셀 생성을 건너뜁니다: python3 가 없습니다. Python 3.8 이상을 설치한 뒤(macOS: brew install python3, Debian·Ubuntu: sudo apt install python3 python3-pip) python3 -m pip install openpyxl 을 실행하십시오.',
     noOpenpyxl: '[verify] 엑셀 생성을 건너뜁니다: openpyxl 모듈이 없습니다. python3 -m pip install openpyxl 로 설치하십시오.',
-    rawKept: (dir) => `[verify] 원본 결과는 ${dir} 에 남습니다. 나중에 wb-test-report build --results-dir ${dir} 로 엑셀을 만드십시오.`,
+    rawKept: (dir) => `[verify] 원본 결과는 ${dir} 에 남습니다. 나중에 wb-test-report build --results-dir ${dir} 로 엑셀을 만드십시오. 엑셀은 게이트 통과의 조건이 아닙니다. 모든 단계가 통과하면 게이트 통과 표식은 그대로 남깁니다.`,
     done: (dir, failed) => `[verify] 결과 폴더 ${dir} · 실패 단계 ${failed.length ? failed.join(', ') : '없음'}`,
   },
 }

@@ -183,7 +183,7 @@ wb-waves handoff migrate                    기준을 넘은 누적형 파일을
 
 ## 7. 시험 결과 엑셀과 케이스 원장
 
-통합·최종 검증 결과를 엑셀(xlsx)과 요약 json 으로 남긴다. Python 3.8 이상과 openpyxl 이 필요하다. 없으면 설치 명령을 안내하고 엑셀만 건너뛴다.
+통합·최종 검증 결과를 엑셀(xlsx)과 요약 json 으로 남긴다. Python 3.8 이상과 openpyxl 이 필요하다. 없으면 설치 명령을 안내하고 엑셀만 건너뛴다. 엑셀은 게이트 통과의 조건이 아니다. 엑셀을 만들지 못해도 게이트와 모든 단계가 통과하면 게이트 통과 표식을 남기고, 엑셀 경고는 한 줄 안내로만 나온다.
 
 ```
 wb-test-report env                          준비 확인
@@ -196,7 +196,7 @@ wb-check test-results                       최신 결과가 있고 커밋됐는
 
 단계(`stages`)마다 결과 형식(`adapter`: vitest · jest · playwright · pytest), 종류(`kind`: unit · integration · e2e · uistab), 명령(`cmd`, `{file}` 에 결과 파일이 놓인다), 슬롯(`slot`: heavy · `heavy,browser` · none)을 적는다. 앞 단계가 실패해도 모든 단계를 돌린다. 실행 중에는 게이트 잠금(`<git 공용 폴더>/wb/gate.lock`)을 잡아 병합을 기다리게 한다.
 
-엑셀 시트는 요약 · 단위 · 통합 DB · e2e · e2e 상세 · UI 안정성 · gate 단계 · 실패 목록 · 간헐 실패 · 원장 대조 · 커버리지 · 변이다. 결과가 없는 시트는 만들지 않는다. 저장 위치는 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx` 이며 커밋한다.
+엑셀 시트는 요약 · 단위 · 통합 DB · e2e · e2e 상세 · UI 안정성 · gate 단계 · 실패 목록 · 간헐 실패 · 원장 대조 · 커버리지 · 변이다. 결과가 없는 시트는 만들지 않는다. 시트 이름·머리글·요약 문구는 `personal.language` 설정을 따른다(`ko` 는 위 이름, `en` 은 Summary · Unit · Integration DB · e2e · e2e detail · UI stability · Gate steps · Failures · Flaky · Ledger comparison · Coverage · Mutation). 저장 위치는 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx` 이며 커밋한다.
 
 **케이스 원장과 결함 대장.** `docs/e2e/<모듈>.cases.json` 과 `defect-register.json` 을 `wb-cases`, `wb-defects` 로 관리한다. 케이스 ID 는 다시 쓰지 않는다. 고칠 수 없는 결함은 시험을 약하게 바꾸지 않고 결함으로 등록한 뒤 케이스를 보류(`fixme`)로 둔다.
 
