@@ -249,6 +249,23 @@ wb-check test-results [--json] [--require-pass]
 
 저장 위치는 `paths.test_results`(기본 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx`, 같은 이름의 `.json` 이 함께 생긴다)이고 커밋한다. 원본 로그는 `paths.test_runs_raw` 에 두며 커밋하지 않는다. `test-results/` 같은 넓은 `.gitignore` 패턴이 `docs/test-results/` 를 가리면 `/wb:init` 이 예외 줄을 제안하고, `wb-check test-results` 는 커밋되지 않은 파일로 보고한다. `/wb:report` 는 `wb-check test-results --json` 의 `file`·`json` 을 증거로 붙이고 `wb-test-report summary --json` 의 수치를 그대로 인용한다.
 
+## 초보자 계층
+
+레인 흐름을 모르는 사용자가 한 줄 요청만으로 작업을 시작하고, 막혔을 때 이유와 해결 방법을 바로 읽을 수 있게 하는 부분이다.
+
+| 명령 | 역할 |
+|---|---|
+| `/wb:work` | 한 줄 요청을 종류(고장·기능·화면·문서·조사·큰 설계)로 나누고, 단계와 각 단계의 모델을 보여 준 뒤 지시서 작성부터 보고까지 안내한다. `wb-work plan "<요청>"`, `wb-work progress` |
+| `/wb:explain` | 지금 막힌 것과 기다리는 것을 쉬운 말로 설명한다. 설정 오류, 사용 한도, 게이트 실행 중, 멈춘 레인, 레인 상한, 가득 찬 실행 자리, 낡은 인계 파일, 남은 워크트리, 보호 브랜치를 확인한다. `wb-explain`, `wb-explain code <메시지 코드>`, `wb-explain links` |
+| `/wb:writing-style` | `project.style.map` 으로 파일별 문체(해요체·보고서체·기본)를 정하고 규칙을 보여 준다. 지시서 템플릿의 `{{style}}` 은 `wb-style brief <종류> --owned <파일,…>` 이 채운다. 소유 파일의 문체가 섞이면 파일 묶음마다 한 줄씩 적는다 |
+| `/wb:decide` | 소유자가 정할 사항을 고정 선택지 질문으로 만들고 답을 `paths.decisions`(기본 `docs/decisions/<날짜>-<이름>.md`)에 기록한다. `wb-decide new·list·answer`. 커밋은 제안만 하고 직접 하지 않는다 |
+
+**진행 표시.** `wb-work progress` 는 레인 원장에서 일곱 단계(요청 확인, 지시서 준비, 구현, 검수, 취합, 보고, 기록) 중 현재 위치를 한 줄로 보여 준다. 예: `[■■■□□□□] 3/7 구현 중 · 진행 2 · 검수 대기 1`.
+
+**규칙 카탈로그.** `rules/catalog.json` 이 정본이고, 규칙마다 내용, 이유, 지키는 위치(훅·도구·지시서 틀·설정), 막혔을 때 복구 방법을 한국어·영어로 적는다. `rules/catalog.ko.md`·`catalog.en.md` 는 `wb-rules render --write` 로 만든다. 차단 메시지의 코드는 `wb-explain code <코드>` 로 해당 규칙과 연결된다. 아직 없는 훅에 걸린 규칙은 「추가 예정」으로 표시한다. `wb-rules list|show|code|render|check`.
+
+**문체 규칙.** `rules/writing-style.ko.md`·`.en.md` 에 문체별 규칙을 둔다. 기본 매핑은 `docs/**/*.md` → 보고서체이며, 화면 문구 경로는 프로젝트가 `style.map` 에 추가한다.
+
 ## 보안과 한계
 
 - 훅과 도구는 외부로 아무것도 보내지 않는다. 예외로 안전 훅은 `gh pr merge` 앞에서 PR 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다.

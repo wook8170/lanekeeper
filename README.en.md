@@ -227,6 +227,23 @@ Sheets: summary, unit, integration DB, e2e, e2e detail, UI stability, gate steps
 
 The workbook goes to `paths.test_results` (default `docs/test-results/<date>/<name>-<HHMM>.xlsx`, with a `.json` of the same name) and is committed. Raw logs go to `paths.test_runs_raw` and are not committed. A broad `.gitignore` pattern such as `test-results/` also hides `docs/test-results/`; `/wb:init` suggests the exception line and `wb-check test-results` reports the files as not committed. `/wb:report` attaches `file` and `json` from `wb-check test-results --json` and quotes the figures of `wb-test-report summary --json`.
 
+## Beginner layer
+
+For users who do not know the lane workflow: start from one sentence, and read the reason and the fix when something blocks.
+
+| Command | Purpose |
+|---|---|
+| `/wb:work` | Sorts a one-line request (bug, feature, screen, documents, research, large design), shows the steps and the model of each, then guides from brief to report. `wb-work plan "<request>"`, `wb-work progress` |
+| `/wb:explain` | Explains in plain words what is blocked or waiting: settings errors, usage limits, a running gate, stopped lanes, the lane cap, full run slots, a stale handoff file, leftover worktrees, the protected branch. `wb-explain`, `wb-explain code <message code>`, `wb-explain links` |
+| `/wb:writing-style` | Sets the voice per file (haeyo, report, plain) from `project.style.map` and prints the rules. `wb-style brief <type> --owned <files,…>` fills `{{style}}` in a brief template; mixed voices give one line per group of files |
+| `/wb:decide` | Turns an owner choice into a fixed-option question and records the answer under `paths.decisions` (default `docs/decisions/<date>-<slug>.md`). `wb-decide new, list, answer`. It suggests a commit and never makes one |
+
+**Progress line.** `wb-work progress` shows the current one of seven stages (understand, brief, build, review, integrate, report, record) from the lane ledger, for example `[■■■□□□□] 3/7 Building · 2 running · 1 in review`.
+
+**Rule catalog.** `rules/catalog.json` is the source. Each rule has its text, why it exists, where it is enforced (hook, tool, brief template, setting) and how to recover, in Korean and English. `rules/catalog.ko.md` and `catalog.en.md` are generated with `wb-rules render --write`. A block message code maps to its rule with `wb-explain code <code>`. Rules waiting for a hook that is not built yet are marked "planned". `wb-rules list|show|code|render|check`.
+
+**Writing rules.** `rules/writing-style.ko.md` and `.en.md` hold the rules per voice. The default map is `docs/**/*.md` → report; the project adds screen-text paths to `style.map`.
+
 ## Security and limits
 
 - Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.

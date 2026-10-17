@@ -27,3 +27,6 @@
 - 번호 예약 대장 `wb-number`(계열은 `numbers` 설정), 시험 케이스 원장·결함 대장 `wb-cases` · `wb-defects`와 템플릿(`templates/test-cases/`)
 - 스킬 `/wb:lanes` · `/wb:pickup` · `/wb:resume`, 프로젝트 설정 키 `waves.stale_min` · `numbers`
 - 시험 결과 엑셀(L9): `templates/test-results/core/`(결과 모델, 어댑터 vitest·jest·Playwright·pytest, 원장 대조, 시트 구성 — Python 3.8+ · openpyxl), `templates/test-results/project/`(`verify-all.mjs` 단계 실행기 no-bail·슬롯 래퍼, `run-gate.mjs` gate 단계 기록, `verify.config.json`), CLI `wb-test-report`(env · init · run · gate · build · latest · summary), `wb-check test-results`(최신 엑셀 존재·커밋·원장 불일치), 스킬 `/wb:test-report`. Python 또는 openpyxl 이 없으면 설치 명령을 안내하고 엑셀 생성을 건너뜀
+- 초보자 계층(L8): `/wb:work`(요청 분류·단계별 모델·진행 한 줄), `/wb:explain`(막힘 설명·차단 코드 → 규칙 연결), `/wb:writing-style`(`style.map` 문체, 지시서 `{{style}}` 자동 채움), `/wb:decide`(결정 기록 `docs/decisions/`)
+- 규칙 카탈로그 `rules/catalog.json`(규칙 37개: 이유·지키는 위치·복구 방법, ko/en)과 생성 문서 `rules/catalog.{ko,en}.md`, 문체 규칙 `rules/writing-style.{ko,en}.md`
+- CLI `wb-work` · `wb-explain` · `wb-style` · `wb-rules` · `wb-decide`

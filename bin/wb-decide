@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+// wb-decide — owner decisions as files in project.paths.decisions.
+//
+//   wb-decide new <slug> --title T --question Q --option "A=text" [--option "B=text"]... [--recommend A]
+//   wb-decide list [--pending] [--json]
+//   wb-decide answer <slug|file> --choice "<text>" [--note N]
+//
+// `new` and `answer` write a file and print a commit suggestion; they never commit.
+// Common options: --project <dir>, --lang ko|en
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { translator } = await imp('i18n.mjs')
+const { getPath } = await imp('config.mjs')
+const D = await imp('decide.mjs')
+
+const argv = process.argv.slice(2)
+const opts = []
+for (let i = 0; i < argv.length; i++) if (argv[i] === '--option' && argv[i + 1]) opts.push(argv[i + 1])
+const args = parseOptions(argv, ['json', 'pending'])
+const { root, resolved } = load(args)
+const lang = args.lang === 'ko' || args.lang === 'en' ? args.lang : resolved.effective.language
+const t = translator(lang)
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const die = (key, vars, code = 1) => (process.stderr.write(`[wb] ${t(key, vars)}\n`), process.exit(code))
+const pattern = getPath(resolved.config, 'project.paths.decisions') || 'docs/decisions/{date}-{slug}.md'
+const dir = path.dirname(D.decisionPath(root, pattern, { date: 'D', slug: 'S' }))
+const [cmd, arg] = args._
+
+if (cmd === 'new') {
+  if (!arg || !D.slugOk(arg)) die('decide.bad_slug', { slug: arg || '' }, 2)
+  if (!args.title || !args.question || args.title === true || args.question === true) die('decide.need_fields', {}, 2)
+  const options = opts.map((o) => {
+    const i = o.indexOf('=')
+    return i < 1 ? null : { key: o.slice(0, i).trim(), text: o.slice(i + 1).trim() }
+  })
+  if (options.length < 2 || options.some((o) => !o)) die('decide.need_options', {}, 2)
+  if (args.recommend && !options.some((o) => o.key === args.recommend)) die('decide.bad_recommend', { key: args.recommend }, 2)
+  const date = D.today()
+  const file = D.decisionPath(root, pattern, { date, slug: arg })
+  if (fs.existsSync(file)) die('decide.exists', { file: path.relative(root, file) })
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.writeFileSync(file, D.render({ lang, title: String(args.title), question: String(args.question), options, recommend: args.recommend, date }))
+  print(t('decide.created', { file: path.relative(root, file) }))
+  print(t('decide.commit_hint', { file: path.relative(root, file) }))
+} else if (cmd === 'list') {
+  let items = D.list(dir)
+  if (args.pending) items = items.filter((d) => d.status === 'pending')
+  if (args.json) print(JSON.stringify(items, null, 2))
+  else if (!items.length) print(t(args.pending ? 'decide.none_pending' : 'decide.none'))
+  else for (const d of items) print(`${t(`decide.status.${d.status}`)}\t${d.file}\t${d.title}`)
+} else if (cmd === 'answer') {
+  if (!arg) die('decide.usage_answer', {}, 2)
+  if (!args.choice || args.choice === true) die('decide.need_choice', {}, 2)
+  const found = fs.existsSync(arg) ? path.resolve(arg) : fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(`-${arg}.md`) || f === arg).map((f) => path.join(dir, f)) : []
+  const files = Array.isArray(found) ? found : [found]
+  if (files.length !== 1) die(files.length ? 'decide.ambiguous' : 'decide.not_found', { key: arg })
+  const text = fs.readFileSync(files[0], 'utf8')
+  if (D.parse(text)?.status === 'decided') die('decide.already', { file: path.relative(root, files[0]) })
+  const next = D.answer(text, { choice: String(args.choice), note: args.note === true ? '' : args.note, date: D.today(), lang })
+  if (!next) die('decide.not_decision', { file: path.relative(root, files[0]) })
+  fs.writeFileSync(files[0], next)
+  print(t('decide.recorded', { file: path.relative(root, files[0]) }))
+  print(t('decide.commit_hint', { file: path.relative(root, files[0]) }))
+} else {
+  print('usage: wb-decide new|list|answer')
+  process.exit(2)
+}
