@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+// wb-style — writing style per file (project.style.map).
+//
+//   wb-style of <path...> [--json]          style of each path (first matching glob wins)
+//   wb-style rules [haeyo|report|plain]     full rule text for a style (all three when omitted)
+//   wb-style text <path...>                 the one-line text that fills {{style}} in a brief
+//   wb-style brief <type|file> [--owned a,b] [--var k=v]...
+//                                           brief template with {{style}} (and any --var) filled in
+//
+// Common options: --project <dir>, --lang ko|en
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { translator } = await imp('i18n.mjs')
+const { PLUGIN_ROOT, getPath } = await imp('config.mjs')
+const S = await imp('style.mjs')
+
+const argv = process.argv.slice(2)
+const vars = {}
+for (let i = 0; i < argv.length; i++) {
+  if (argv[i] === '--var' && argv[i + 1]) {
+    const [k, ...v] = argv[i + 1].split('=')
+    vars[k] = v.join('=')
+  }
+}
+const args = parseOptions(argv, ['json'])
+const { resolved } = load(args)
+const lang = args.lang === 'ko' || args.lang === 'en' ? args.lang : resolved.effective.language
+const t = translator(lang)
+const map = getPath(resolved.config, 'project.style.map') || []
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const [cmd, ...rest] = args._
+
+if (cmd === 'of') {
+  if (!rest.length) (print('usage: wb-style of <path...>'), process.exit(2))
+  const rows = rest.map((p) => ({ path: p, ...(S.styleFor(map, p) || { style: null, glob: null }) }))
+  if (args.json) print(JSON.stringify(rows, null, 2))
+  else for (const r of rows) print(`${r.path}\t${r.style ? `${t(`style.${r.style}.name`)} (${r.style}, ${r.glob})` : t('style.none')}`)
+} else if (cmd === 'rules') {
+  const which = rest[0] ? [rest[0]] : S.STYLES
+  for (const s of which) {
+    const body = S.styleRules(s, lang)
+    if (!body) (process.stderr.write(`[wb] ${t('style.unknown', { style: s })}\n`), process.exit(2))
+    print(`## ${t(`style.${s}.name`)} (${s})\n${body}\n`)
+  }
+} else if (cmd === 'text') {
+  print(S.renderStyle(map, rest, t))
+} else if (cmd === 'brief') {
+  if (!rest[0]) (print('usage: wb-style brief <type|file> [--owned a,b]'), process.exit(2))
+  const named = path.join(PLUGIN_ROOT, 'templates', 'briefs', lang, `${rest[0]}.md`)
+  const file = fs.existsSync(rest[0]) ? rest[0] : named
+  if (!fs.existsSync(file)) (process.stderr.write(`[wb] ${t('style.no_template', { name: rest[0] })}\n`), process.exit(2))
+  const owned = args.owned ? String(args.owned).split(',').map((s) => s.trim()).filter(Boolean) : []
+  const all = { style: S.renderStyle(map, owned, t), ...vars }
+  if (owned.length && !('owned_files' in all)) all.owned_files = owned.join(', ')
+  process.stdout.write(S.fillTemplate(fs.readFileSync(file, 'utf8'), all))
+} else {
+  print('usage: wb-style of|rules|text|brief …')
+  process.exit(2)
+}
