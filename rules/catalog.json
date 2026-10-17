@@ -1053,7 +1053,7 @@
     },
     {
       "id": "mockup-first",
-      "group": "planned",
+      "group": "quality",
       "rule": {
         "ko": "화면 구조를 바꾸는 작업은 구현 전에 시안을 보이고 결정을 받는다.",
         "en": "A change to screen structure shows a mockup and gets a decision before implementation."
@@ -1064,13 +1064,25 @@
       },
       "enforced": [
         {
-          "kind": "planned",
-          "lane": "L7"
+          "kind": "hook",
+          "path": "hooks/scripts/mockup/mockup-first.mjs",
+          "codes": [
+            "mockup.*"
+          ]
+        },
+        {
+          "kind": "tool",
+          "path": "bin/wb-decide",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "project.mockup"
         }
       ],
       "recover": {
-        "ko": "해당 훅이 들어오기 전에는 지시서에 시안 단계를 직접 넣는다.",
-        "en": "Until the hook ships, put the mockup step into the brief yourself."
+        "ko": "시안을 아티팩트로 보이고 `wb-decide new <이름> --kind mockup --scope <경로>` 로 결정 문서를 만든 뒤 `wb-decide answer` 로 선택을 기록하고 커밋한다. 결정 문서의 scope 가 고치려는 파일을 덮어야 한다.",
+        "en": "Show the mockup as an artifact, create a record with `wb-decide new <name> --kind mockup --scope <paths>`, record the choice with `wb-decide answer` and commit it. The record scope must cover the file you are changing."
       }
     },
     {

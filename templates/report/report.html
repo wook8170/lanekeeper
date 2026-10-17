@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<style>
+:root {
+  --bg: #ffffff; --surface: #f6f7f9; --text: #1b1f24; --muted: #5b6470; --line: #d9dde3; --accent: #2457c5;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #14171b; --surface: #1d2126; --text: #e6e9ed; --muted: #9aa3ad; --line: #2f353c; --accent: #7aa2ff; }
+}
+:root[data-theme="dark"] { --bg: #14171b; --surface: #1d2126; --text: #e6e9ed; --muted: #9aa3ad; --line: #2f353c; --accent: #7aa2ff; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.65 var(--sans); }
+main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+header { border-bottom: 1px solid var(--line); margin-bottom: 24px; padding-bottom: 12px; }
+header h1 { margin: 0 0 4px; font-size: 24px; }
+header p { margin: 0; color: var(--muted); font-size: 13px; }
+h2 { font-size: 19px; margin: 32px 0 8px; }
+h3 { font-size: 16px; margin: 24px 0 8px; }
+a { color: var(--accent); }
+code { font-family: var(--mono); font-size: 13px; background: var(--surface); padding: 1px 4px; border-radius: 4px; }
+pre { background: var(--surface); padding: 12px; border-radius: 6px; overflow-x: auto; }
+pre code { padding: 0; background: none; }
+blockquote { margin: 12px 0; padding: 4px 12px; color: var(--muted); border-left: 2px solid var(--line); }
+.tbl { overflow-x: auto; margin: 12px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+figure { margin: 0; }
+figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; display: block; }
+figcaption { color: var(--muted); font-size: 13px; margin-top: 4px; }
+@media (max-width: 640px) { .figs { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+<header><h1>{{title}}</h1><p>{{date}}</p></header>
+{{body}}
+{{figures}}
+</main>
+</body>
+</html>

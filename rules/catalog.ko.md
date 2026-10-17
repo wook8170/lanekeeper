@@ -286,6 +286,14 @@
 - 어디서 지키나: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`, 설정 `project.style.map`
 - 막혔을 때: `wb-style of <파일>` 로 문체를 확인하고 `wb-style rules <문체>` 의 규칙대로 고친다.
 
+### mockup-first
+
+화면 구조를 바꾸는 작업은 구현 전에 시안을 보이고 결정을 받는다.
+
+- 왜: 구현한 뒤에 구조가 반려되면 작업 전체를 다시 해야 한다.
+- 어디서 지키나: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`, 설정 `project.mockup`
+- 막혔을 때: 시안을 아티팩트로 보이고 `wb-decide new <이름> --kind mockup --scope <경로>` 로 결정 문서를 만든 뒤 `wb-decide answer` 로 선택을 기록하고 커밋한다. 결정 문서의 scope 가 고치려는 파일을 덮어야 한다.
+
 ### codegraph-first
 
 흐름·호출처·변경 영향은 코드 색인(codegraph)으로 보고, 정확한 줄 번호와 문자열은 텍스트 검색으로 확인한다.
@@ -303,14 +311,6 @@
 - 막혔을 때: grep 과 Read 로 진행한다. `wb-index status` 로 색인 진행을 보고, 색인이 생기면 같은 세션에서도 다시 부를 수 있다. 직접 넣으려면 `wb-index add <경로>` 를 쓴다.
 
 ## 추가 예정
-
-### mockup-first
-
-화면 구조를 바꾸는 작업은 구현 전에 시안을 보이고 결정을 받는다.
-
-- 왜: 구현한 뒤에 구조가 반려되면 작업 전체를 다시 해야 한다.
-- 어디서 지키나: 아직 없음(L7 레인에서 추가)
-- 막혔을 때: 해당 훅이 들어오기 전에는 지시서에 시안 단계를 직접 넣는다.
 
 ### glossary-terms
 

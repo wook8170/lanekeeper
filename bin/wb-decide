@@ -2,6 +2,8 @@
 // wb-decide — owner decisions as files in project.paths.decisions.
 //
 //   wb-decide new <slug> --title T --question Q --option "A=text" [--option "B=text"]... [--recommend A]
+//                 [--kind mockup --scope "src/list/**,src/shared/Pager.tsx"]
+//                 a decided mockup record unlocks the mockup-first hook for its scope
 //   wb-decide list [--pending] [--json]
 //   wb-decide answer <slug|file> --choice "<text>" [--note N]
 //
@@ -44,7 +46,7 @@ if (cmd === 'new') {
   const file = D.decisionPath(root, pattern, { date, slug: arg })
   if (fs.existsSync(file)) die('decide.exists', { file: path.relative(root, file) })
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  fs.writeFileSync(file, D.render({ lang, title: String(args.title), question: String(args.question), options, recommend: args.recommend, date }))
+  fs.writeFileSync(file, D.render({ lang, title: String(args.title), question: String(args.question), options, recommend: args.recommend, date, kind: typeof args.kind === 'string' ? args.kind : undefined, scope: typeof args.scope === 'string' ? args.scope : undefined }))
   print(t('decide.created', { file: path.relative(root, file) }))
   print(t('decide.commit_hint', { file: path.relative(root, file) }))
 } else if (cmd === 'list') {

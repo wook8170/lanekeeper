@@ -1,4 +1,4 @@
-<!-- wb-decision v1 status=pending -->
+<!-- wb-decision v1 status=pending{{attrs}} -->
 # {{title}}
 
 - Written: {{date}}

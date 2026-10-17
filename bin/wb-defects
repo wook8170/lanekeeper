@@ -5,10 +5,16 @@
 //   wb-defects resolve <D-id> [--status fixed|wontfix] [--note N]
 //   wb-defects list [--status open|fixed|wontfix] [--json]
 //   wb-defects check                               same checks as `wb-cases check`
+//   wb-defects summary [--json]                    counts by status, open defects by severity
+//   wb-defects export [--out DIR] [--format md,xlsx]
+//                                                  defect-register.md and .xlsx next to the register
+//                                                  (xlsx needs Python 3 + openpyxl; missing = exit 3)
 // Defects are never deleted; a fixed one stays in the register.
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
 const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
@@ -38,6 +44,48 @@ const COMMANDS = {
     if (args.json) return ctx.json(all)
     if (!all.length) return print(t('defects.none'))
     for (const d of all) print(`${d.id}  ${d.severity}  ${d.status}  ${(d.case_ids || []).join(',') || '-'}  ${d.title}`)
+  },
+  summary() {
+    const s = C.defectSummary(dir)
+    if (args.json) return ctx.json(s)
+    print(t('defects.md.summary', { total: s.total, open: s.status.open, fixed: s.status.fixed, wontfix: s.status.wontfix }))
+    if (s.open_ids.length) print(`  ${s.open_ids.join(', ')}`)
+  },
+  export() {
+    const out = args.out ? path.resolve(String(args.out)) : dir
+    const formats = String(args.format || 'md,xlsx').split(',')
+    fs.mkdirSync(out, { recursive: true })
+    const written = []
+    if (formats.includes('md')) {
+      const f = path.join(out, 'defect-register.md')
+      fs.writeFileSync(f, C.defectsMarkdown(dir, t))
+      written.push(f)
+    }
+    if (formats.includes('xlsx')) {
+      const cols = ['id', 'severity', 'status', 'cases', 'found', 'fixed', 'lane', 'title', 'note']
+      const labels = {
+        sheet: t('defects.md.title'),
+        columns: cols.map((c) => t(`defects.col.${c}`)),
+        severity: Object.fromEntries(C.SEVERITIES.map((s) => [s, t(`defects.sev.${s}`)])),
+        status: Object.fromEntries(C.DEFECT_STATUSES.map((s) => [s, t(`defects.st.${s}`)])),
+      }
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-defects-'))
+      const lf = path.join(tmp, 'labels.json')
+      const src = path.join(tmp, 'register.json')
+      fs.writeFileSync(lf, JSON.stringify(labels))
+      fs.writeFileSync(src, JSON.stringify(C.readDefects(dir)))
+      const xf = path.join(out, 'defect-register.xlsx')
+      const py = process.env.WB_PYTHON || 'python3'
+      const r = spawnSync(py, [path.join(libDir, '..', 'templates', 'defects', 'build-defects-xlsx.py'), src, xf, lf], { encoding: 'utf8' })
+      fs.rmSync(tmp, { recursive: true, force: true })
+      if (r.status !== 0) {
+        for (const f of written) print(f)
+        process.stderr.write(`[wb] ${t('defects.xlsx_missing')}\n`)
+        process.exit(3)
+      }
+      written.push(xf)
+    }
+    for (const f of written) print(f)
   },
   check() {
     const problems = C.checkLedger(dir)

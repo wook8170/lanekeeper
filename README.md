@@ -249,6 +249,61 @@ wb-check test-results [--json] [--require-pass]
 
 저장 위치는 `paths.test_results`(기본 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx`, 같은 이름의 `.json` 이 함께 생긴다)이고 커밋한다. 원본 로그는 `paths.test_runs_raw` 에 두며 커밋하지 않는다. `test-results/` 같은 넓은 `.gitignore` 패턴이 `docs/test-results/` 를 가리면 `/wb:init` 이 예외 줄을 제안하고, `wb-check test-results` 는 커밋되지 않은 파일로 보고한다. `/wb:report` 는 `wb-check test-results --json` 의 `file`·`json` 을 증거로 붙이고 `wb-test-report summary --json` 의 수치를 그대로 인용한다.
 
+## 검수·취합·보고
+
+레인이 끝나면 메인 세션은 검수(`/wb:review-lane`) → 취합(`/wb:integrate`) → 보고(`/wb:report`) 순서로 진행한다. 판정은 스크립트가 하고, 사람이 정할 것(되돌림을 보낼지, 병합 준비를 마칠지)만 묻는다.
+
+**검수.** `wb-check lane <레인>` 이 9항목을 판정한다. 레인 보고 파일을 정본으로 읽고 반환 메시지와 대조한다.
+
+| # | 항목 | 실패 조건 |
+|---|---|---|
+| 1 | 보고 HEAD | 없음, 저장소에 없음, 통합 HEAD 를 조상으로 두지 않음 |
+| 2 | 보고 파일 | 없음, 새 HEAD·시험·남은 것 중 빠진 항목, 반환 메시지와 HEAD·통과 수가 다름 |
+| 3 | 프로젝트 가드 | `review.guards` 명령이 실패(설정 없으면 건너뜀) |
+| 4 | 수정 전 실패 기록 | 코드가 바뀌었는데 수정 전 실패 확인이 보고에 없음 |
+| 5 | 지시서 범위 | 지시서의 소유 파일 밖이나 금지 파일을 바꿈(목록이 없으면 건너뜀) |
+| 6 | 캡처 확인 | UI 변경인데 캡처가 없음, 파일이 없음, 메인이 열어 보지 않음 |
+| 7 | 서빙 코드 표식 | 웹 UI 변경인데 서빙 중인 코드에 변경 표식이 없음 |
+| 8 | 시험 결과 | 레인: 보고에 통과 수가 없거나 실패가 있음. 통합·최종: 해당 HEAD 의 결과 엑셀이 커밋되지 않음 |
+| 9 | 용어 | `wb-check terms` 가 기준선보다 늘었거나 새 용어가 `/wb:decide` 대기 목록에 없음(사전·검사가 없으면 건너뜀) |
+
+UI 변경은 `mockup.ui_globs` 에 맞는 파일이 바뀐 경우다. 이 값이 비어 있으면 `web-ui` 프로젝트의 화면 파일(`.tsx` `.vue` `.css` 등)로 판단한다. 실패 항목이 있으면 `.wb/briefs/<레인>-return-<번호>.md` 에 되돌림 지시서를 만든다. 이 지시서는 디스패치 검사를 통과하는 형식이다. `--wave W --record` 를 주면 원장에 검수 결과를 남기고, 통과면 완료, 실패면 되돌림 1회로 기록한다.
+
+**취합.** `wb-integrate <레인 브랜치>` 는 통합 워크트리에서 시험 병합(`--no-commit --no-ff`)을 하고 충돌을 분류한다.
+
+| 분류 | 처리 |
+|---|---|
+| 원장(`*.cases.json`, `defect-register.json`) | `id` 기준 합집합, 같은 id 는 통합 쪽 우선, 폐기한 id 는 되살리지 않음 |
+| 등록 파일(`hooks/hooks.json`) | 객체 병합, 목록 합집합, 값이 다르면 통합 쪽 |
+| 생성물(`*.xlsx`, 잠금 파일) | 통합 쪽을 받은 뒤 `integrate.regenerate` 명령으로 다시 만듦 |
+| 코드(그 밖의 모든 파일) | 병합을 중단하고, 레인에 「통합 최신을 병합해 빨리 감기 가능한 HEAD 를 돌려 달라」는 되돌림 지시서를 만듦 |
+
+분류 규칙은 `integrate.rules`(앞에서부터 처음 맞는 규칙)로 바꾼다. 충돌을 푼 뒤 번호 예약 계열의 중복 번호를 확인하고, `integrate.guards` 를 병합된 작업 트리에서 실행한다. 하나라도 실패하면 커밋하지 않고 병합을 되돌린 뒤 되돌림 지시서를 만든다. 게이트가 실행 중이면(`<git 공용 폴더>/wb/gate.lock`) 시작하지 않는다(종료 코드 3). `--dry-run` 은 모든 단계를 거친 뒤 병합을 되돌린다.
+
+**보고.** `/wb:report` 는 시험 결과 엑셀, 결함 대장, 전후 캡처를 묶어 아티팩트로 게시한다.
+
+```
+wb-art keep <png>... --slug <주제>     다시 볼 캡처를 paths.artifacts_keep 에 둔다(커밋)
+wb-art temp <png>... --slug <주제>     일회성 캡처를 스크래치에 둔다
+wb-art report --title T --md body.md --image "전=a.png" --image "후=b.png" [--keep]
+                                      이미지를 data URI 로 넣은 HTML 한 파일
+wb-art env                            WebP 변환 도구 확인
+wb-defects summary [--json] · export [--format md,xlsx]
+```
+
+`artifacts_keep_webp.over_kb`(기본 300KB)를 넘는 PNG 는 `quality`(기본 80) WebP 로 바뀐다. 변환 도구는 cwebp, 없으면 Python Pillow 다. 둘 다 없으면 PNG 를 그대로 두고 설치 방법을 알린다. 보고 HTML 은 외부 주소를 쓰지 않으므로 원격 기기에서도 이미지가 보인다. 결함 대장 엑셀은 Python 3 와 openpyxl 이 필요하다. 없으면 Markdown 만 만들고 종료 코드 3 을 돌려준다.
+
+Stop 훅 `artifact-check` 는 `/wb:report` 를 실행한 세션이 아티팩트(Artifact 도구, 또는 `artifact_fallback: html-file` 일 때 `wb-art report`) 없이 끝나려 하면 한 번 막는다. 시험 결과 엑셀을 쓰는 프로젝트(`.wb/verify.config.json` 이나 결과 폴더가 있음)는 최신 결과 엑셀도 확인한다. `personal.report.artifact_check: false` 로 끈다.
+
+## 시안 먼저
+
+PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 기록 전에 막는다. `mockup.ui_globs` 가 비어 있으면(기본) 동작하지 않는다.
+
+- 구조 변경: 새 화면 파일 생성, 마크업 요소 구성이 바뀌는 수정, 스타일 시트의 선택자 추가·삭제. 문구·속성·CSS 속성 값만 바꾸는 수정은 통과한다.
+- 결정 기록: `wb-decide new <이름> --kind mockup --scope "src/list/**" …` 로 질문 문서를 만들고, 오너의 선택을 `wb-decide answer` 로 기록한다. 문서 표지 `<!-- wb-decision v1 status=decided kind=mockup scope=src/list/** -->` 의 `scope` 가 그 파일을 덮으면 통과한다. 대기 중(`status=pending`)인 결정은 풀지 않는다. `scope` 를 생략하면 모든 화면 파일을 덮는다. 손으로 쓴 표지에 `status` 가 없으면 결정된 것으로 본다. 문서 골격은 `templates/decision/` 하나다.
+- 순서: 현재 화면과 대안 시안을 프로젝트 토큰으로 만들어 아티팩트로 보여 주고(`mockup.tokens_css`), 선택을 받은 뒤 결정 문서를 커밋한다. 레인 워크트리는 이 커밋 뒤의 통합 HEAD 에서 만든다.
+- 끄기: `mockup.decision_required: false`.
+
 ## 초보자 계층
 
 레인 흐름을 모르는 사용자가 한 줄 요청만으로 작업을 시작하고, 막혔을 때 이유와 해결 방법을 바로 읽을 수 있게 하는 부분이다.

@@ -286,6 +286,14 @@ Documents and screen text use the style set per file kind (`style.map`).
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`, setting `project.style.map`
 - If blocked: Check the style with `wb-style of <file>` and fix the text by the rules from `wb-style rules <style>`.
 
+### mockup-first
+
+A change to screen structure shows a mockup and gets a decision before implementation.
+
+- Why: If the structure is rejected after implementation, the whole job is redone.
+- Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`, setting `project.mockup`
+- If blocked: Show the mockup as an artifact, create a record with `wb-decide new <name> --kind mockup --scope <paths>`, record the choice with `wb-decide answer` and commit it. The record scope must cover the file you are changing.
+
 ### codegraph-first
 
 Use the code index (codegraph) for flow, callers and change impact; use text search for exact line numbers and strings.
@@ -303,14 +311,6 @@ Do not call codegraph again for a path that has no index. Queue every new worktr
 - If blocked: Continue with grep and Read. `wb-index status` shows the queue; once the index exists the call works again in the same session. Queue a path yourself with `wb-index add <path>`.
 
 ## Planned
-
-### mockup-first
-
-A change to screen structure shows a mockup and gets a decision before implementation.
-
-- Why: If the structure is rejected after implementation, the whole job is redone.
-- Enforced in: not built yet (added by lane L7)
-- If blocked: Until the hook ships, put the mockup step into the brief yourself.
 
 ### glossary-terms
 

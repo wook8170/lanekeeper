@@ -45,6 +45,13 @@ export function globToRe(glob, { wide = false } = {}) {
   return new RegExp(`^${re}$`)
 }
 
+// "src/*.{ts,tsx}" -> ["src/*.ts", "src/*.tsx"] (no nesting needed for path globs)
+export function expandBraces(glob) {
+  const m = /\{([^{}]*)\}/.exec(glob)
+  if (!m) return [glob]
+  return m[1].split(',').flatMap((alt) => expandBraces(glob.slice(0, m.index) + alt + glob.slice(m.index + m[0].length)))
+}
+
 export const matchAny = (name, globs, opts) => !!name && (globs || []).some((g) => globToRe(g, opts).test(name))
 
 export function inside(child, parent) {

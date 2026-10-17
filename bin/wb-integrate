@@ -1,0 +1,53 @@
+#!/usr/bin/env node
+// wb-integrate — merge one lane branch into the integration branch checked out here.
+//
+//   wb-integrate <lane-branch> [--lane L] [--wave W] [--dry-run] [--message M] [--trailer T]
+//                [--report FILE] [--lane-dir DIR] [--json]
+//
+// Trial merge → conflict classes (project.integrate.rules) → ledger/registration union,
+// generated files from the integration side → project.integrate.regenerate → reserved
+// number check → project.integrate.guards → commit. A code conflict, a failed guard or a
+// failed regeneration aborts the merge and writes a return brief for the lane.
+// Exit: 0 merged / dry run passed / already merged, 1 aborted, 2 usage or blocked, 3 locked.
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { parseOptions, load } = await imp('cli.mjs')
+const { translator } = await imp('i18n.mjs')
+const { integrate } = await imp('integrate.mjs')
+
+const args = parseOptions(process.argv.slice(2), ['json', 'dry-run'])
+const { root, resolved } = load(args)
+const lang = resolved.effective.language
+const t = translator(lang)
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const branch = args._[0]
+if (!branch) {
+  print('usage: wb-integrate <lane-branch> [--lane L] [--wave W] [--dry-run] [--json]')
+  process.exit(2)
+}
+const r = integrate({
+  root,
+  branch,
+  lane: args.lane ? String(args.lane) : undefined,
+  wave: args.wave ? String(args.wave) : undefined,
+  config: resolved.config,
+  lang,
+  dryRun: !!args['dry-run'],
+  message: args.message ? String(args.message) : undefined,
+  trailer: args.trailer ? String(args.trailer) : undefined,
+  report: args.report ? path.resolve(String(args.report)) : undefined,
+  worktree: args['lane-dir'] ? String(args['lane-dir']) : undefined,
+})
+if (args.json) print(JSON.stringify(r, null, 2))
+else {
+  print(t(`integrate.${r.status}`, { branch, head: (r.head || '').slice(0, 12), reason: r.reason ? t(`integrate.reason.${r.reason}`, r.vars || {}) : '' }))
+  for (const [f, k] of Object.entries(r.conflicts)) print(`  ${t(`integrate.kind.${k}`)}  ${f}`)
+  if (r.regenerated.length) print(`  ${t('integrate.regenerated', { names: r.regenerated.join(', ') })}`)
+  if (r.brief) print(t('review.brief_written', { file: path.relative(process.cwd(), r.brief) }))
+}
+const code = { merged: 0, 'dry-run': 0, 'up-to-date': 0, aborted: 1, blocked: r.reason === 'locked' || r.reason === 'gate_locked' ? 3 : 2 }
+process.exit(code[r.status] ?? 1)
