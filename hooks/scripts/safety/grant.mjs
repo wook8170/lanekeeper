@@ -3,8 +3,8 @@
 // owner-grant.json  { version, action, ref, head, created, expires, used, used_at?, used_by? }
 //   written only by the UserPromptExpansion hook when a person types
 //   /wb:approve <action>; valid for one use, until expires, for exactly `head`.
-// <gate_stamp>.json { head, at, command? }
-//   written by the project gate (L7) after a full pass on `head`.
+// <gate_stamp>.json { head, at, command }
+//   written by `wb-test-report run` / `wb-test-report gate-pass` after a full pass on a clean `head`.
 // gate.lock         present while a gate run is in progress (L7); merges into
 //   non-protected branches wait for it.
 import fs from 'node:fs'
@@ -58,12 +58,14 @@ export function writeGrant(stateDir, { action, ref, head, ttlMin, now, session }
   return g
 }
 
-// -> { ok, why: 'missing'|'head' }
-export function checkStamp(stateDir, name, head) {
+// -> { ok, why: 'missing'|'head', stamp }
+// resultsOnly(stampHead) -> true when every commit after stampHead up to head only adds
+// result files (the workbook of that run); the stamp then still counts.
+export function checkStamp(stateDir, name, head, resultsOnly) {
   const s = stateDir ? readJsonSafe(stampPath(stateDir, name)) : null
   if (!s || typeof s.head !== 'string') return { ok: false, why: 'missing' }
-  if (s.head !== head) return { ok: false, why: 'head' }
-  return { ok: true }
+  if (s.head !== head && !(resultsOnly && resultsOnly(s.head))) return { ok: false, why: 'head', stamp: s }
+  return { ok: true, stamp: s }
 }
 
 export const gateLocked = (stateDir) => !!stateDir && fs.existsSync(path.join(stateDir, GATE_LOCK))

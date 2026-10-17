@@ -31,6 +31,7 @@
 ## Report location
 - Write to {{report_path}} and return the same text as your final answer. Add an interim note after each major item so nothing is lost if the run stops.
 - Include: tests added or changed, results of the two solo runs, defects found and pending marks, ledger updates, new HEAD.
+- Write the test result on one line such as `tests: 12 passed / 0 failed` (review item 8 reads the counts from it). Record the failure before the fix separately, such as `failed before the fix: 1`.
 - Writing style: {{style}}
 
 ## Commit rules

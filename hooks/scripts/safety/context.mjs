@@ -38,6 +38,12 @@ export const realGit = {
     const v = gitIn(t, ['config', '--get', `alias.${name}`])
     return v === null ? undefined : v
   },
+  // changed paths from..to, or null when `from` is not an ancestor of `to`
+  changedSince(t, from, to) {
+    if (gitIn(t, ['merge-base', '--is-ancestor', from, to]) === null) return null
+    const out = gitIn(t, ['diff', '--name-only', from, to])
+    return out === null ? null : out.split('\n').filter(Boolean)
+  },
   isRev(t, name) {
     return !!gitIn(t, ['rev-parse', '-q', '--verify', `${name}^{commit}`]) || !!gitIn(t, ['rev-parse', '-q', '--verify', `refs/remotes/origin/${name}`])
   },

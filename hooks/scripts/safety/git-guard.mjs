@@ -12,6 +12,7 @@ import path from 'node:path'
 import { allow, ask, deny, matchAny, inside, readJsonSafe } from './common.mjs'
 import { checkGrant, checkStamp, gateLocked } from './grant.mjs'
 import { parse, tokenize } from './shell.mjs'
+import { onlyUnder, resultsPrefix } from '../../../lib/testresults.mjs'
 
 const GLOBAL_WITH_ARG = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix', '--config-env'])
 const BUILTIN = new Set([
@@ -412,7 +413,7 @@ function judgePush(args, target, info, f, ctx, vars, cmd) {
         continue
       }
       const sha = ctx.git.revParse(target, d.src || 'HEAD')
-      out.push(withGrant(ctx, info, 'push-main', sha, true, { ...vars, target: d.dst }, cmd))
+      out.push(withGrant(ctx, info, 'push-main', sha, true, { ...vars, branch: d.dst, target: d.dst }, cmd))
     } else out.push(pushFeature(f, vars))
   }
   return out
@@ -433,8 +434,10 @@ function withGrant(ctx, info, action, sha, needStamp, vars, cmd) {
   if (!g.ok) return deny(`grant.${g.why}`, { ...vars, action, head: short, granted: g.grant?.head?.slice(0, 9) || '-' })
   const gateCmd = ctx.config.project?.gate?.command
   if (needStamp && gateCmd) {
-    const s = checkStamp(info.stateDir, ctx.config.project?.git?.gate_stamp, sha)
-    if (!s.ok) return deny(`stamp.${s.why}`, { ...vars, action, head: short })
+    const t = { cwd: info.top, globalOpts: [], env: {} }
+    const resultsOnly = (from) => !!sha && !!ctx.git.changedSince && onlyUnder(resultsPrefix(ctx.config), ctx.git.changedSince(t, from, sha))
+    const s = checkStamp(info.stateDir, ctx.config.project?.git?.gate_stamp, sha, resultsOnly)
+    if (!s.ok) return deny(`stamp.${s.why}`, { ...vars, action, head: short, stamped: s.stamp?.head?.slice(0, 9) || '-' })
   }
   return allow({ consume: { stateDir: info.stateDir, by: shortCmd(cmd) } })
 }

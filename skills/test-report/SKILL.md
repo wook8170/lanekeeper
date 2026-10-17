@@ -12,9 +12,10 @@ Results come from vitest, jest, Playwright and pytest. The workbook has a fixed 
 1. `wb-test-report env`. Without Python 3.8+ and openpyxl it prints the install commands and exits 3. Show them to the user and stop. Do not install anything yourself.
 2. First time in a project: `wb-test-report init` writes `.wb/verify.config.json`. Edit `gate` (a package.json script that chains commands with `&&`, or an explicit `steps` list) and `stages` (one entry per tool: `adapter` vitest|jest|playwright|pytest, `kind` unit|integration|e2e|uistab, `cmd` with `{file}` for the structured output path, `slot` heavy|`heavy,browser`|none). Commit the file.
 3. Run `wb-test-report run --name <name>` (names: `integration`, `final`, a lane id). Every stage runs even when an earlier one fails. Heavy stages run through `wb-slot`. Add `--only a,b` or `--skip a,b` for a partial run, `--ledger-priority P0` to flag active P0 cases missing from the run.
-4. The workbook and its summary json are written to `paths.test_results` (default `docs/test-results/<date>/<name>-<HHMM>.xlsx` and `.json`). Raw logs stay in `paths.test_runs_raw` (not committed). Commit the xlsx and the json.
-5. `wb-check test-results` confirms the newest workbook exists, is committed and, when a case ledger exists, matches the run.
-6. Results from logs only: `wb-test-report build --name <name> --input vitest:unit:app=<json>[,log=<log>] --gate-json <gate.json>` (adapters vitest, jest, playwright, pytest; `--rerun playwright=<json>` marks tests that failed and then passed).
+4. The workbook and its summary json are written to `paths.test_results` (default `docs/test-results/<date>/<name>-<HHMM>.xlsx` and `.json`). Raw logs stay in `paths.test_runs_raw` (not committed). Commit the xlsx and the json. A full run (no `--only`/`--skip`) that passes on a clean tree also writes the gate pass stamp that protected merges need; committing only the result files afterwards keeps it valid.
+5. A project that sets only `project.gate.command` (no `.wb/verify.config.json`): `wb-test-report gate-pass` runs that command and writes the stamp when it passes.
+6. `wb-check test-results` confirms the newest workbook exists, is committed and, when a case ledger exists, matches the run.
+7. Results from logs only: `wb-test-report build --name <name> --input vitest:unit:app=<json>[,log=<log>] --gate-json <gate.json>` (adapters vitest, jest, playwright, pytest; `--rerun playwright=<json>` marks tests that failed and then passed).
 
 ## Reading the workbook
 

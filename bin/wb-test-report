@@ -6,10 +6,14 @@
 //   wb-test-report run [--name N] [--skip a,b] [--only a,b] [--ledger-priority P0] [--no-slot]
 //                                              gate -> every stage -> workbook, no bail
 //   wb-test-report gate [--no-bail] [--skip a]  gate steps one by one into gate.json
+//   wb-test-report gate-pass                   run project.gate.command; on a pass write the gate pass stamp
 //   wb-test-report build [core options]        workbook from results (default: newest folder under test_runs_raw)
 //   wb-test-report latest                      path of the newest workbook
 //   wb-test-report summary [--json]            counts of the newest workbook (for /wb:report)
 //
+// A full pass of `run` (no --skip/--only) or of `gate-pass` on a clean HEAD writes the gate pass stamp
+// <git common dir>/wb/<project.git.gate_stamp>.json { head, at, command }; the safety hook needs it for a
+// protected merge or push when project.gate.command is set.
 // Without Python or openpyxl, run and build print how to install them and skip the workbook (exit 0;
 // --require makes it exit 3). Core and runners: templates/test-results/{core,project}.
 import fs from 'node:fs'
@@ -71,6 +75,20 @@ function withGateLock(command, fn) {
   }
 }
 
+// Before a run: the commit and whether tracked files are unchanged. After a pass: the stamp, when
+// the same commit is still checked out and nothing tracked changed.
+function stampAfter(before, command, code) {
+  if (code !== 0) return
+  const after = R.headState(root)
+  if (!before.head || !before.clean || !after.clean || after.head !== before.head) {
+    warn(t('tr.stamp.not_clean'))
+    return
+  }
+  const file = R.stampFile(stateDir(root), resolved.config)
+  R.writeGateStamp(file, { head: before.head, command })
+  print(t('tr.stamp.written', { head: before.head.slice(0, 9), file }))
+}
+
 const COMMANDS = {
   env() {
     const py = R.pythonStatus()
@@ -95,7 +113,11 @@ const COMMANDS = {
       `--cases-dir=${paths.ledgerDir}`, `--out-template=${paths.resultsTemplate}`]
     for (const k of ['name', 'skip', 'only', 'ledger-priority']) if (typeof args[k] === 'string') a.push(`--${k}=${args[k]}`)
     if (args['no-slot']) a.push('--no-slot')
+    const before = R.headState(root)
     const r = withGateLock('wb-test-report run', () => spawnSync(process.execPath, a, { stdio: 'inherit', env: { ...process.env, WB_SLOT_BIN: path.join(libDir, '..', 'bin', 'wb-slot') } }))
+    const partial = ['skip', 'only'].some((k) => typeof args[k] === 'string' && args[k])
+    if (partial && r.status === 0) warn(t('tr.stamp.partial'))
+    else stampAfter(before, 'wb-test-report run', r.status ?? 1)
     finish(r.status ?? 1, false)
   },
   gate() {
@@ -109,6 +131,21 @@ const COMMANDS = {
     if (typeof args.skip === 'string') a.push(`--skip=${args.skip}`)
     if (typeof args['results-dir'] === 'string') a.push(`--results-dir=${args['results-dir']}`)
     process.exit(withGateLock('wb-test-report gate', () => spawnSync(process.execPath, a, { stdio: 'inherit' })).status ?? 1)
+  },
+  'gate-pass'() {
+    const command = resolved.config.project?.gate?.command
+    if (!command) {
+      warn(t('tr.stamp.no_gate'))
+      process.exit(2)
+    }
+    const before = R.headState(root)
+    print(t('tr.stamp.running', { command }))
+    // project.gate.command is written by the project owner, the same trust as running it by hand
+    const r = withGateLock('wb-test-report gate-pass', () => spawnSync('sh', ['-c', command], { cwd: root, stdio: 'inherit' }))
+    const code = r.status ?? 1
+    if (code !== 0) warn(t('tr.stamp.failed', { code }))
+    stampAfter(before, command, code)
+    process.exit(code)
   },
   build() {
     if (!ready()) return finish(0, true)

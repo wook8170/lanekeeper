@@ -220,6 +220,7 @@ test('commands through a shell only where the user or project supplies the comma
   // trust as running it by hand. Adding a new place needs a security review.
   const allowed = new Map([
     ['bin/wb-slot', 'the command the user wraps'],
+    ['bin/wb-test-report', 'project.gate.command (gate-pass)'],
     ['lib/review.mjs', 'project.review.guards'],
     ['lib/worktree.mjs', 'project.worktree.setup'],
     ['templates/test-results/project/run-gate.mjs', 'gate steps in .wb/verify.config.json'],
