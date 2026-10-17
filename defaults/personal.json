@@ -4,7 +4,8 @@
   "report": {
     "chat_detail": "summary",
     "viewer": "local",
-    "artifact_fallback": "html-file"
+    "artifact_fallback": "html-file",
+    "artifact_check": true
   },
   "auto_retry": {
     "enabled": true,

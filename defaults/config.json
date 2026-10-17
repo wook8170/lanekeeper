@@ -40,5 +40,19 @@
   "dispatch": { "brief": "deny", "exempt_agents": ["fork", "claude-code-guide", "statusline-setup"] },
   "waves": { "stale_min": 20 },
   "numbers": {},
+  "review": { "guards": [], "report_fields": ["head", "tests", "remaining"] },
+  "integrate": {
+    "rules": [
+      { "glob": "**/*.cases.json", "kind": "ledger" },
+      { "glob": "**/defect-register.json", "kind": "ledger" },
+      { "glob": "**/hooks/hooks.json", "kind": "union" },
+      { "glob": "**/*.xlsx", "kind": "generated" },
+      { "glob": "**/package-lock.json", "kind": "generated" },
+      { "glob": "**/pnpm-lock.yaml", "kind": "generated" },
+      { "glob": "**/yarn.lock", "kind": "generated" }
+    ],
+    "regenerate": [],
+    "guards": []
+  },
   "explain": { "links": [] }
 }

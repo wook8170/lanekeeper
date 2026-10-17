@@ -7,6 +7,11 @@
 //   wb-check test-results [--json] [--require-pass]
 //                                     newest test result workbook exists and is committed;
 //                                     the ledger matches the run when a ledger exists (exit 1 = no)
+//   wb-check lane <lane> [--head SHA] [--base REF] [--report FILE] [--return FILE] [--brief FILE]
+//                 [--lane-dir DIR] [--capture FILE]... [--captures-seen] [--serve-url URL --marker TEXT]
+//                 [--stage lane|integration|final] [--scope GLOB,...] [--wave W --record] [--json]
+//                                     the nine review items of /wb:review-lane (exit 1 = a fail;
+//                                     a return brief is written for the lane)
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -60,7 +65,80 @@ async function testResults() {
   process.exit(r.ok ? 0 : 1)
 }
 
-const COMMANDS = { brief, 'test-results': testResults }
+function many(name) {
+  const out = []
+  for (let i = 0; i < argv.length; i++) if (argv[i] === `--${name}` && argv[i + 1]) out.push(argv[i + 1])
+  return out
+}
+
+async function lane() {
+  const { parseOptions } = await imp('cli.mjs')
+  const a = parseOptions(argv.slice(1), ['json', 'captures-seen', 'record'])
+  const laneId = a._[0]
+  if (!laneId) {
+    print('usage: wb-check lane <lane> [--head SHA] [--report FILE] …')
+    process.exit(2)
+  }
+  const { resolveConfig, projectRoot, getPath } = await imp('config.mjs')
+  const { translator } = await imp('i18n.mjs')
+  const R = await imp('review.mjs')
+  const root = projectRoot(process.cwd(), process.env)
+  const resolved = resolveConfig({ projectDir: root, env: process.env })
+  const lang = resolved.effective.language
+  const t = translator(lang)
+  const rel = (p) => (p ? path.resolve(String(p)) : undefined)
+  const reportPath = rel(a.report)
+  const result = await R.reviewLane({
+    root,
+    laneDir: rel(a['lane-dir']),
+    head: a.head ? String(a.head) : undefined,
+    base: a.base ? String(a.base) : undefined,
+    report: reportPath,
+    returnText: a.return ? fs.readFileSync(String(a.return), 'utf8') : undefined,
+    brief: rel(a.brief),
+    scope: a.scope ? String(a.scope).split(',') : [],
+    captures: many('capture'),
+    capturesSeen: !!a['captures-seen'],
+    serveUrl: a['serve-url'] ? String(a['serve-url']) : undefined,
+    marker: a.marker ? String(a.marker) : undefined,
+    stage: a.stage ? String(a.stage) : 'lane',
+    config: resolved.config,
+    env: process.env,
+  })
+  const fails = result.items.filter((i) => i.status === 'fail')
+  let brief = null
+  if (fails.length) {
+    brief = R.writeReturnBrief({
+      root,
+      config: resolved.config,
+      lang,
+      lane: laneId,
+      title: t('review.return_title', { n: fails.length }),
+      findings: fails.map((i) => `${i.n}. ${t(`review.item.${i.id}`)}: ${t(`review.${i.code}`, i.vars)} — ${t(`review.fix.${i.id}`)}`),
+      base: result.base || '-',
+      worktree: a['lane-dir'] ? String(a['lane-dir']) : undefined,
+      report: reportPath,
+      style: (getPath(resolved.config, 'project.style.map') || []).find((m) => m.glob.endsWith('.md'))?.style,
+    })
+  }
+  if (a.record && a.wave) {
+    try {
+      R.recordReview(root, String(a.wave), laneId, result, fails.map((i) => `${i.n}:${i.code}`).join(', ') || 'pass')
+    } catch (e) {
+      process.stderr.write(`[wb] ${e.message}\n`)
+    }
+  }
+  if (a.json) print(JSON.stringify({ ...result, brief }, null, 2))
+  else {
+    const mark = { pass: '✓', fail: '✗', skip: '–' }
+    print(t(result.verdict === 'pass' ? 'review.pass' : 'review.fail', { lane: laneId, n: fails.length }))
+    for (const i of result.items) print(`  ${mark[i.status]} ${i.n}. ${t(`review.item.${i.id}`)} — ${t(`review.${i.code}`, i.vars)}`)
+    if (brief) print(t('review.brief_written', { file: path.relative(process.cwd(), brief) }))
+  }
+  process.exit(result.verdict === 'pass' ? 0 : 1)
+}
+
+const COMMANDS = { brief, 'test-results': testResults, lane }
 if (!COMMANDS[cmd]) {
   print(`usage: wb-check <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)

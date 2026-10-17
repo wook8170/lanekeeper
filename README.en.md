@@ -227,6 +227,61 @@ Sheets: summary, unit, integration DB, e2e, e2e detail, UI stability, gate steps
 
 The workbook goes to `paths.test_results` (default `docs/test-results/<date>/<name>-<HHMM>.xlsx`, with a `.json` of the same name) and is committed. Raw logs go to `paths.test_runs_raw` and are not committed. A broad `.gitignore` pattern such as `test-results/` also hides `docs/test-results/`; `/wb:init` suggests the exception line and `wb-check test-results` reports the files as not committed. `/wb:report` attaches `file` and `json` from `wb-check test-results --json` and quotes the figures of `wb-test-report summary --json`.
 
+## Review, integration and report
+
+When a lane finishes, the main session reviews it (`/wb:review-lane`), integrates it (`/wb:integrate`) and reports (`/wb:report`). Scripts make the calls; the user is asked only what needs a person (send a return brief or not, finish at "ready to merge").
+
+**Review.** `wb-check lane <lane>` judges nine items. The lane report file is the source of truth and is compared with the returned message.
+
+| # | Item | Fails when |
+|---|---|---|
+| 1 | Reported HEAD | missing, not in the repository, or the integration HEAD is not its ancestor |
+| 2 | Report file | missing; new HEAD, tests or remaining items missing; HEAD or pass count differs from the returned message |
+| 3 | Project guards | a `review.guards` command fails (none configured = skip) |
+| 4 | Failure before the fix | code changed and the report does not record the failure before the fix |
+| 5 | Brief scope | a file outside the brief's owned files, or on its forbidden list, changed (no list = skip) |
+| 6 | Captures | UI change without captures, a missing capture file, or captures the main session has not opened |
+| 7 | Served code marker | web UI change and the served code lacks the change's marker |
+| 8 | Test results | lane: no passed count or failures in the report; integration/final: no committed workbook for this HEAD |
+| 9 | Terms | `wb-check terms` grew over its baseline, or a new term is not queued for `/wb:decide` (no glossary or no check = skip) |
+
+A UI change is a changed file matching `mockup.ui_globs`. When that list is empty, screen files (`.tsx`, `.vue`, `.css` and so on) of a `web-ui` project count. A failed item writes a return brief to `.wb/briefs/<lane>-return-<n>.md`, in a form that passes the dispatch check. With `--wave W --record` the review goes into the ledger: a pass marks the lane done, a fail counts one return.
+
+**Integration.** `wb-integrate <lane-branch>` makes a trial merge (`--no-commit --no-ff`) in the integration worktree and classifies the conflicts.
+
+| Class | Handling |
+|---|---|
+| Ledger (`*.cases.json`, `defect-register.json`) | union by `id`, the integration side wins on a shared id, retired ids stay retired |
+| Registration (`hooks/hooks.json`) | objects merged, lists united, the integration side wins on a differing value |
+| Generated (`*.xlsx`, lock files) | integration side taken, then rebuilt with the `integrate.regenerate` commands |
+| Code (every other file) | the merge is aborted and the lane gets a return brief: merge the integration HEAD and hand back a fast-forwardable HEAD |
+
+`integrate.rules` changes the classes (first matching rule wins). After resolution, reserved number series are checked for a number used twice, and `integrate.guards` run on the merged tree. Any failure aborts the merge without a commit and writes a return brief. A running gate (`<git common dir>/wb/gate.lock`) blocks the start (exit 3). `--dry-run` runs every step and then rolls the merge back.
+
+**Report.** `/wb:report` publishes the test result workbook, the defect register and the before and after captures as an artifact.
+
+```
+wb-art keep <png>... --slug <topic>    captures worth seeing again, into paths.artifacts_keep (committed)
+wb-art temp <png>... --slug <topic>    throw-away captures, into the scratch folder
+wb-art report --title T --md body.md --image "Before=a.png" --image "After=b.png" [--keep]
+                                       one HTML file with the images as data URIs
+wb-art env                             which WebP converter is available
+wb-defects summary [--json] · export [--format md,xlsx]
+```
+
+A PNG over `artifacts_keep_webp.over_kb` (default 300KB) becomes WebP at `quality` (default 80). The converter is cwebp, or Python Pillow. Without either the PNG is kept and the install commands are shown. The report HTML uses no external address, so images show on a remote device. The defect workbook needs Python 3 with openpyxl; without it only the Markdown file is written and the exit code is 3.
+
+The Stop hook `artifact-check` blocks once when a session that ran `/wb:report` is about to end without an artifact (the Artifact tool, or `wb-art report` when `artifact_fallback` is `html-file`). In a project that keeps result workbooks (`.wb/verify.config.json` or a results folder exists) it also checks the newest workbook. Turn it off with `personal.report.artifact_check: false`.
+
+## Mockup first
+
+The PreToolUse hook `mockup-first` blocks writes that change the screen structure before a decision is recorded. It does nothing while `mockup.ui_globs` is empty (the default).
+
+- Structure change: a new screen file, an edit that changes the set of markup elements, or a style sheet edit that adds or removes selectors. Edits of text, attributes or CSS property values pass.
+- Decision: a document in the `paths.decisions` folder with the marker `<!-- wb-decision v1 kind=mockup scope=src/list/** -->` whose `scope` covers the file. Without `scope` it covers every screen file. Skeletons are in `templates/decision/`.
+- Order: build the current screen and the options with the project tokens (`mockup.tokens_css`), show them as an artifact, get a choice, commit the decision. Lane worktrees are then made from the integration HEAD after that commit.
+- Off: `mockup.decision_required: false`.
+
 ## Security and limits
 
 - Hooks and tools send nothing over the network, except that the safety hook runs `gh pr view` to find a pull request's base branch before `gh pr merge`.
