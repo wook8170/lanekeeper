@@ -491,22 +491,24 @@ def summary_json(model):
             'failures': keep, 'e2eResults': e2e, 'ledger': model['ledger'], 'coverage': model['coverage'], 'mutation': model['mutation']}
 
 
-def default_out(model, repo):
-    now = dt.datetime.now()
+def started_local(model):
+    """Run start time in the machine's local time zone (TZ). startedAt is ISO 8601, often UTC ('...Z')."""
+    raw = str(model['meta'].get('startedAt') or '')
     try:
-        now = dt.datetime.fromisoformat(str(model['meta'].get('startedAt')))
+        t = dt.datetime.fromisoformat(raw[:-1] + '+00:00' if raw.endswith('Z') else raw)
     except ValueError:
-        pass
+        return dt.datetime.now()
+    return t.astimezone() if t.tzinfo else t
+
+
+def default_out(model, repo):
+    now = started_local(model)
     name = re.sub(r'[^\w.-]+', '-', model['meta'].get('name') or 'run').strip('-')
     return os.path.join(repo, 'docs', 'test-results', now.strftime('%Y-%m-%d'), '%s-%s.xlsx' % (name, now.strftime('%H%M')))
 
 
 def expand_template(tpl, model, repo):
-    now = dt.datetime.now()
-    try:
-        now = dt.datetime.fromisoformat(str(model['meta'].get('startedAt')))
-    except ValueError:
-        pass
+    now = started_local(model)
     name = re.sub(r'[^\w.-]+', '-', model['meta'].get('name') or 'run').strip('-')
     vars_ = {'date': now.strftime('%Y-%m-%d'), 'HHMM': now.strftime('%H%M'), 'name': name, 'stamp': now.strftime('%Y%m%d-%H%M')}
     return os.path.join(repo, re.sub(r'\{(\w+)\}', lambda m: vars_.get(m.group(1), m.group(0)), tpl))
@@ -528,6 +530,7 @@ def parse_args(argv=None):
     ap.add_argument('--commit')
     ap.add_argument('--branch')
     ap.add_argument('--started')
+    ap.add_argument('--lang', choices=('ko', 'en'), default='ko', help='language of the result line printed at the end')
     a = ap.parse_args(argv)
     a.repo = os.path.abspath(a.repo)
     a.cases_dir = a.cases_dir or os.path.join(a.repo, 'docs', 'e2e')
@@ -542,11 +545,14 @@ def main(argv=None):
     build_xlsx(model, out)
     with open(out.rsplit('.', 1)[0] + '.json', 'w', encoding='utf-8') as f:
         json.dump(summary_json(model), f, ensure_ascii=False, indent=1, default=str)
-    print('%s: 판정 %s · 스위트 %d · gate %d단계 · 실패 %d · 간헐 %d · 원장 불일치 %d · 시험 행 %d' % (
-        out, STATUS_KO[verdict(model)], len(model['suites']), len(model['gate']),
-        sum(t['status'] == 'failed' for t in model['tests']),
-        sum(1 for t in model['tests'] if t['status'] == 'flaky' or t.get('flakyByRerun')),
-        len(model['ledger']), len(model['tests'])))
+    counts = (len(model['suites']), len(model['gate']),
+              sum(t['status'] == 'failed' for t in model['tests']),
+              sum(1 for t in model['tests'] if t['status'] == 'flaky' or t.get('flakyByRerun')),
+              len(model['ledger']), len(model['tests']))
+    if args.lang == 'en':
+        print('%s: verdict %s · suites %d · gate %d steps · failed %d · flaky %d · ledger mismatches %d · test rows %d' % ((out, verdict(model)) + counts))
+    else:
+        print('%s: 판정 %s · 스위트 %d · gate %d단계 · 실패 %d · 간헐 %d · 원장 불일치 %d · 시험 행 %d' % ((out, STATUS_KO[verdict(model)]) + counts))
     return out
 
 

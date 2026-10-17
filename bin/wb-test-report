@@ -110,7 +110,7 @@ const COMMANDS = {
       process.exit(2)
     }
     const a = [path.join(R.PROJECT_DIR, 'verify-all.mjs'), `--root=${root}`, `--config=${config}`, `--runs-dir=${paths.runsDir}`,
-      `--cases-dir=${paths.ledgerDir}`, `--out-template=${paths.resultsTemplate}`]
+      `--cases-dir=${paths.ledgerDir}`, `--out-template=${paths.resultsTemplate}`, `--lang=${resolved.effective.language === 'ko' ? 'ko' : 'en'}`]
     for (const k of ['name', 'skip', 'only', 'ledger-priority']) if (typeof args[k] === 'string') a.push(`--${k}=${args[k]}`)
     if (args['no-slot']) a.push('--no-slot')
     const before = R.headState(root)
@@ -150,7 +150,7 @@ const COMMANDS = {
   build() {
     if (!ready()) return finish(0, true)
     const rawArgs = argv.slice(argv.indexOf('build') + 1).filter((x) => x !== '--require')
-    const base = ['--repo', root, '--cases-dir', paths.ledgerDir, '--runs-dir', paths.runsDir]
+    const base = ['--repo', root, '--cases-dir', paths.ledgerDir, '--runs-dir', paths.runsDir, '--lang', resolved.effective.language === 'ko' ? 'ko' : 'en']
     if (!rawArgs.some((x) => x === '--out' || x.startsWith('--out='))) base.push('--out-template', paths.resultsTemplate)
     const r = spawnSync(R.pythonStatus().cmd, [path.join(R.CORE_DIR, 'build_xlsx.py'), ...base, ...rawArgs], { stdio: 'inherit', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
     process.exit(r.status ?? 1)

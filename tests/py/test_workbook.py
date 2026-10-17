@@ -108,6 +108,28 @@ class Workbook(unittest.TestCase):
         self.assertTrue(os.path.isfile(self.p('docs/test-results/2026-03-04/My-Run-0506.xlsx')))
         self.assertTrue(os.path.isfile(self.p('docs/test-results/2026-03-04/My-Run-0506.json')))
 
+    def test_utc_start_names_the_file_in_local_time(self):
+        # verify-all writes startedAt in UTC ('...Z'); the file name uses the local time zone (TZ)
+        env = dict(os.environ, TZ='Asia/Seoul')
+        r = subprocess.run([sys.executable, SCRIPT, '--repo', self.dir, '--name', 'integration', '--started', '2026-10-17T13:38:00.000Z',
+                            '--out-template', 'docs/test-results/{date}/{name}-{HHMM}.xlsx', '--input', 'vitest:unit:web=' + self.p('v.json')],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(os.path.isfile(self.p('docs/test-results/2026-10-17/integration-2238.xlsx')), os.listdir(self.dir))
+        env['TZ'] = 'UTC'
+        r = subprocess.run([sys.executable, SCRIPT, '--repo', self.dir, '--name', 'late', '--started', '2026-10-17T15:30:00Z',
+                            '--out-template', 'docs/test-results/{date}/{name}-{HHMM}.xlsx', '--input', 'vitest:unit:web=' + self.p('v.json')],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(os.path.isfile(self.p('docs/test-results/2026-10-17/late-1530.xlsx')))
+
+    def test_result_line_follows_lang(self):
+        _, line = self.run_build('--input', 'vitest:unit:web=' + self.p('v.json'), '--lang', 'en')
+        self.assertIn('verdict failed', line)
+        self.assertNotIn('판정', line)
+        _, line = self.run_build('--input', 'vitest:unit:web=' + self.p('v.json'))
+        self.assertIn('판정 실패', line)
+
     def test_coverage_and_mutation_sheets(self):
         F.write(self.p('cov.json'), {'total': {'lines': {'pct': 81.5, 'total': 100}, 'statements': {'pct': 80}, 'branches': {'pct': 70}, 'functions': {'pct': 90}}})
         F.write(self.p('mut.json'), {'files': {'a.js': {'mutants': [{'status': 'Killed'}, {'status': 'Survived'}, {'status': 'Timeout'}]}}})

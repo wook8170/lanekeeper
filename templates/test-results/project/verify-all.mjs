@@ -5,6 +5,7 @@
 //
 //   node verify-all.mjs [--root <dir>] [--config <file>] [--name <name>] [--skip=gate,<stage>,…]
 //        [--only=<stage>,…] [--runs-dir <dir>] [--out <xlsx> | --out-template <tpl>] [--cases-dir <dir>] [--ledger-priority P0] [--no-slot]
+//        [--lang=ko|en]   language of the [verify] lines and the workbook result line (default en)
 //
 // Heavy stages (every stage unless "slot": "none") run inside `wb-slot --kind <slot> --`, so only a few
 // heavy commands run at a time on the machine. --no-slot runs them directly.
@@ -19,15 +20,30 @@ import { gateSteps, loadConfig, runGate, runLogged, stamp } from './run-gate.mjs
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
 export function parseArgs(argv) {
-  const o = { root: process.cwd(), config: '', name: 'verify', skip: [], only: [], runsDir: '', out: '', outTemplate: '', casesDir: '', ledgerPriority: '', slot: true, core: '' }
+  const o = { root: process.cwd(), config: '', name: 'verify', skip: [], only: [], runsDir: '', out: '', outTemplate: '', casesDir: '', ledgerPriority: '', slot: true, core: '', lang: 'en' }
   for (const a of argv) {
     if (a === '--no-slot') { o.slot = false; continue }
-    const m = /^--(root|config|name|skip|only|runs-dir|out-template|out|cases-dir|ledger-priority|core)=(.*)$/.exec(a)
+    const m = /^--(root|config|name|skip|only|runs-dir|out-template|out|cases-dir|ledger-priority|core|lang)=(.*)$/.exec(a)
     if (!m) continue
     const k = m[1].replace(/-(\w)/g, (_, c) => c.toUpperCase())
     o[k] = k === 'skip' || k === 'only' ? m[2].split(',').filter(Boolean) : m[2]
   }
   return o
+}
+
+const MSG = {
+  en: {
+    noPython: '[verify] workbook skipped: python3 was not found. Install Python 3.8+ (macOS: brew install python3; Debian/Ubuntu: sudo apt install python3 python3-pip), then run: python3 -m pip install openpyxl',
+    noOpenpyxl: '[verify] workbook skipped: the openpyxl module is missing. Install it with: python3 -m pip install openpyxl',
+    rawKept: (dir) => `[verify] raw results are kept in ${dir}; build the workbook later with: wb-test-report build --results-dir ${dir}`,
+    done: (dir, failed) => `[verify] results folder ${dir} · failed stages ${failed.length ? failed.join(', ') : 'none'}`,
+  },
+  ko: {
+    noPython: '[verify] 엑셀 생성을 건너뜁니다: python3 가 없습니다. Python 3.8 이상을 설치한 뒤(macOS: brew install python3, Debian·Ubuntu: sudo apt install python3 python3-pip) python3 -m pip install openpyxl 을 실행하십시오.',
+    noOpenpyxl: '[verify] 엑셀 생성을 건너뜁니다: openpyxl 모듈이 없습니다. python3 -m pip install openpyxl 로 설치하십시오.',
+    rawKept: (dir) => `[verify] 원본 결과는 ${dir} 에 남습니다. 나중에 wb-test-report build --results-dir ${dir} 로 엑셀을 만드십시오.`,
+    done: (dir, failed) => `[verify] 결과 폴더 ${dir} · 실패 단계 ${failed.length ? failed.join(', ') : '없음'}`,
+  },
 }
 
 export const safeName = (n) => n.replace(/[^\w.-]+/g, '__')
@@ -47,6 +63,8 @@ export function slotWrap(cmd, kind, { slotBin, enabled }) {
 
 export async function runVerify(o) {
   const root = path.resolve(o.root)
+  const lang = o.lang === 'ko' ? 'ko' : 'en'
+  const msg = MSG[lang]
   const config = o.configObject || loadConfig(root, o.config)
   const started = new Date()
   const runsDir = path.resolve(root, o.runsDir || path.join('test-results', 'runs'))
@@ -104,13 +122,11 @@ export async function runVerify(o) {
   const py = pythonReady()
   if (!py.ok) {
     report = { status: 0, skipped: true, python: py.python }
-    console.error(py.python === 'missing'
-      ? '[verify] workbook skipped: python3 was not found. Install Python 3.8+ (macOS: brew install python3; Debian/Ubuntu: sudo apt install python3 python3-pip), then run: python3 -m pip install openpyxl'
-      : '[verify] workbook skipped: the openpyxl module is missing. Install it with: python3 -m pip install openpyxl')
-    console.error(`[verify] raw results are kept in ${dir}; build the workbook later with: wb-test-report build --results-dir ${dir}`)
+    console.error(py.python === 'missing' ? msg.noPython : msg.noOpenpyxl)
+    console.error(msg.rawKept(dir))
   } else {
     const core = o.core || path.join(HERE, '..', 'core', 'build_xlsx.py')
-    const args = [core, '--results-dir', dir, '--name', o.name, '--repo', root, '--runs-dir', runsDir]
+    const args = [core, '--results-dir', dir, '--name', o.name, '--repo', root, '--runs-dir', runsDir, '--lang', lang]
     if (o.casesDir) args.push('--cases-dir', path.resolve(root, o.casesDir))
     if (o.ledgerPriority) args.push('--ledger-priority', o.ledgerPriority)
     if (o.out) args.push('--out', path.resolve(root, o.out))
@@ -118,7 +134,7 @@ export async function runVerify(o) {
     const r = spawnSync(process.env.WB_PYTHON || 'python3', args, { cwd: root, stdio: o.echo === false ? 'pipe' : 'inherit', encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
     report = { status: r.status ?? 1, skipped: false, stdout: r.stdout }
   }
-  if (o.echo !== false) console.log(`\n[verify] results folder ${dir} · failed stages ${failed.length ? failed.join(', ') : 'none'}`)
+  if (o.echo !== false) console.log(`\n${msg.done(dir, failed)}`)
   return { dir, failed, manifest, report, exit: failed.length || report.status ? 1 : 0 }
 }
 
