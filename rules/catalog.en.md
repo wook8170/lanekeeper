@@ -325,5 +325,5 @@ codegraph is not called again for a path that has no index. Every new worktree i
 Words in screen text follow the project glossary.
 
 - Why: Calling one thing by different names on different screens confuses users.
-- Enforced in: not built yet (added by lane L10)
+- Enforced in: not built yet (planned for a later release)
 - If blocked: Until the glossary check is added, follow the haeyo rules in `style.map` and the words already used on screen.

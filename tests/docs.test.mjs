@@ -23,7 +23,7 @@ const commands = () => fs.readdirSync(path.join(ROOT, 'bin')).filter((f) => f.st
 
 // Skills that messages mention but this release does not ship. Each entry must
 // still be mentioned by a locale message; remove it when the skill lands.
-const ABSENT_SKILLS = { 'ui-check': 'init.uiHint' }
+const ABSENT_SKILLS = {}
 
 // wb-* words that are names, not commands.
 const NOT_COMMANDS = new Set(['wb-plugin', 'wb-brief', 'wb-decision', 'wb-gate-pass', 'wb-scratch'])

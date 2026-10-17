@@ -33,7 +33,13 @@ async function brief() {
   const { checkBrief, collectBrief } = await imp('brief.mjs')
   const root = projectRoot(process.cwd(), process.env)
   const t = translator(resolveConfig({ projectDir: root, env: process.env }).effective.language)
-  const raw = target === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(target, 'utf8')
+  let raw
+  try {
+    raw = target === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(target, 'utf8')
+  } catch (e) {
+    process.stderr.write(`[wb] ${t(e.code === 'ENOENT' ? 'brief.not_found' : 'brief.unreadable', { file: target, error: e.code || e.message })}\n`)
+    process.exit(2)
+  }
   const base = target === '-' ? process.cwd() : path.dirname(path.resolve(target))
   const b = collectBrief(raw, { cwd: base, projectRoot: root })
   const r = checkBrief(b.text)
@@ -113,6 +119,14 @@ async function lane() {
   const fails = result.items.filter((i) => i.status === 'fail')
   let brief = null
   if (fails.length) {
+    // the lane's real branch and worktree: the --lane-dir checkout, else the lanes.json record
+    const { stateDir } = await imp('config.mjs')
+    const { readLanes } = await imp('ledger.mjs')
+    const sd = stateDir(root)
+    const rec = sd ? readLanes(sd).lanes.find((l) => l.id === laneId) : null
+    const laneDir = a['lane-dir'] ? String(a['lane-dir']) : rec?.worktree
+    const head = laneDir && fs.existsSync(laneDir) ? R.gitx(laneDir, ['symbolic-ref', '-q', '--short', 'HEAD']) : null
+    const branch = (head?.status === 0 && head.out) || rec?.branch
     brief = R.writeReturnBrief({
       root,
       config: resolved.config,
@@ -121,7 +135,8 @@ async function lane() {
       title: t('review.return_title', { n: fails.length }),
       findings: fails.map((i) => `${i.n}. ${t(`review.item.${i.id}`)}: ${t(`review.${i.code}`, i.vars)} — ${t(`review.fix.${i.id}`)}`),
       base: result.base || '-',
-      worktree: a['lane-dir'] ? String(a['lane-dir']) : undefined,
+      worktree: laneDir,
+      branch,
       report: reportPath,
       style: (getPath(resolved.config, 'project.style.map') || []).find((m) => m.glob.endsWith('.md'))?.style,
     })

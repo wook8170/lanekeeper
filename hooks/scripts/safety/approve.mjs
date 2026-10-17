@@ -21,6 +21,16 @@ import { translator } from '../../../lib/i18n.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
 import { ACTIONS, grantPath, writeGrant } from './grant.mjs'
 
+// Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
+export function localTime(iso) {
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return String(iso)
+  const p2 = (n) => String(n).padStart(2, '0')
+  const off = -d.getTimezoneOffset()
+  const zone = `UTC${off >= 0 ? '+' : '-'}${p2(Math.floor(Math.abs(off) / 60))}:${p2(Math.abs(off) % 60)}`
+  return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())} (${zone})`
+}
+
 function git(args, cwd) {
   try {
     return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
@@ -68,7 +78,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
     const g = readJsonSafe(file)
     if (!g) return context(t('approve.none'))
     const state = g.used ? t('approve.state.used') : now >= Date.parse(g.expires) ? t('approve.state.expired') : t('approve.state.active')
-    return context(t('approve.status', { action: g.action, ref: g.ref, head: String(g.head).slice(0, 9), expires: g.expires, state }))
+    return context(t('approve.status', { action: g.action, ref: g.ref, head: String(g.head).slice(0, 9), expires: localTime(g.expires), state }))
   }
   if (action === 'revoke') {
     fs.rmSync(file, { force: true })
@@ -85,7 +95,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   const g = writeGrant(sd, { action, ref: useRef, head, ttlMin: ttl, now, session: input.session_id })
   const gateCmd = resolved.config.project?.gate?.command
   const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'wb-gate-pass'}.json`) }) : ''
-  return context(t('approve.granted', { action, ref: useRef, head: head.slice(0, 9), ttl, expires: g.expires }) + (stampNote ? ` ${stampNote}` : ''))
+  return context(t('approve.granted', { action, ref: useRef, head: head.slice(0, 9), ttl, expires: localTime(g.expires) }) + (stampNote ? ` ${stampNote}` : ''))
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) {

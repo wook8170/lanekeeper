@@ -30,7 +30,7 @@ test('init: three answers create project and personal settings in an empty sampl
   const exclude = fs.readFileSync(path.join(repo, '.git', 'info', 'exclude'), 'utf8')
   assert.ok(exclude.split('\n').includes('.wb/briefs/'))
   assert.ok(fs.statSync(path.join(repo, '.git', 'wb')).isDirectory())
-  assert.deepEqual(actions.map((a) => a.type), ['wrote', 'wrote', 'exclude', 'exclude', 'exclude', 'uiHint'])
+  assert.deepEqual(actions.map((a) => a.type), ['wrote', 'wrote', 'exclude', 'exclude', 'exclude'])
 })
 
 test('init: second run keeps existing files and does not duplicate the exclude line', () => {

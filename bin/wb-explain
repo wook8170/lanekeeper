@@ -34,10 +34,12 @@ if (cmd === 'code') {
   const base = arg.replace(/\.(why|fix|ask)$/, '')
   const why = msgs[`${base}.why`]
   if (!rule && !why) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
-  if (args.json) print(JSON.stringify({ code: base, why: why ? t(`${base}.why`) : null, fix: msgs[`${base}.fix`] ? t(`${base}.fix`) : null, rule }, null, 2))
+  // no real call here, so a value slot such as {cmd} is shown as <cmd>
+  const generic = (k) => t(k).replace(/\{(\w+)\}/g, '<$1>')
+  if (args.json) print(JSON.stringify({ code: base, why: why ? generic(`${base}.why`) : null, fix: msgs[`${base}.fix`] ? generic(`${base}.fix`) : null, rule }, null, 2))
   else {
-    if (why) print(t(`${base}.why`))
-    if (msgs[`${base}.fix`]) print(`  ${t('xp.fix')}: ${t(`${base}.fix`)}`)
+    if (why) print(generic(`${base}.why`))
+    if (msgs[`${base}.fix`]) print(`  ${t('xp.fix')}: ${generic(`${base}.fix`)}`)
     if (rule) {
       print('')
       for (const l of R.describeRule(rule, lang, t)) print(l)

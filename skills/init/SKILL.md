@@ -21,11 +21,10 @@ Set up wb for the project in the current working directory.
    ```
    Leave out `--gate` when the answer is empty.
 4. Report each line of the output to the user. When the output contains a `.gitignore` notice, show the exception line it suggests and ask before editing `.gitignore`.
-5. When the project kind is `web-ui`, mention that UI stability checks can be added later with `/wb:ui-check`. Do not install anything now.
-6. codegraph: if `wb-config doctor` reports it missing, explain what it is and install it only after the user agrees. Never install it without consent.
-7. Finish with `wb-config doctor` so the user sees the resolved values and where each one came from.
+5. codegraph: if `wb-config doctor` reports it missing, explain what it is and install it only after the user agrees. Never install it without consent.
+6. Finish with `wb-config doctor` so the user sees the resolved values and where each one came from.
 
 ## Rules
 
-- Do not write to `~/.wb/machine.json` or `~/.wb/routing.json` here. Those are personal files the user edits through `/wb:advanced`.
+- Do not write to `~/.wb/machine.json` or `~/.wb/routing.json` here. Those are personal files the user edits by hand; `wb-config explain <key>` shows what each key does.
 - Do not commit. Suggest committing `.wb/config.json` and let the user decide.

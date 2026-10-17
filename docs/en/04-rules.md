@@ -394,4 +394,4 @@ Rules in the catalog with nothing that enforces them yet.
 - Rule: Words in screen text follow the project glossary.
 - Why: Calling one thing by different names on different screens confuses users.
 - If blocked: Until the glossary check is added, follow the haeyo rules in `style.map` and the words already used on screen.
-- Enforced in: not built yet (added by lane L10)
+- Enforced in: not built yet (planned for a later release)

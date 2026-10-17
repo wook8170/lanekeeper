@@ -126,7 +126,6 @@ switch (cmd) {
         else if (a.type === 'exclude') print(ti('init.exclude', a))
         else if (a.type === 'gitignore') print(ti('init.gitignore', a))
         else if (a.type === 'notGit') print(ti('init.notGit'))
-        else if (a.type === 'uiHint') print(ti('init.uiHint'))
         else if (a.type === 'worktreeHook') print(ti('init.worktreeHook', a))
         else if (a.type === 'worktreeHookKept') print(ti('init.worktreeHookKept'))
         else if (a.type === 'worktreeHookConflict') print(ti('wthook.conflict', a))
