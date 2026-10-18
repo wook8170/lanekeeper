@@ -262,6 +262,14 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 어디서 지키나: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 - 막혔을 때: `/wb:test-report` 로 결과 파일을 만들고 `wb-check test-results` 로 확인한다.
 
+### 출하 검증 전에 선행 검증 통과 (`ship-precheck`)
+
+출하 검증은 단위·통합·게이트·e2e·UI 안정성·사용성 등 필수 검증이 모두 현재 커밋에서 통과한 뒤에만 시작한다. 결과가 없거나, 다른 커밋의 것이거나, 실패했으면 먼저 다시 돌려 통과시킨다. 직전 통과 결과보다 시험 수가 줄거나, 건너뜀·보류가 늘거나, 임계값이 완화된 결과는 통과로 보지 않는다.
+
+- 왜: 출하 판정은 그 커밋의 실제 시험 결과에 기대야 한다. 오래된 결과나 시험을 줄여 얻은 통과는 판정의 근거가 되지 못한다.
+- 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+- 막혔을 때: `/wb:ship-verify` 를 실행한다. `wb-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 저장소 소유자가 자기 터미널에서 `wb-quality accept` 로 승인한다.
+
 ### 번호는 먼저 예약 (`number-reservation`)
 
 번호가 붙는 파일(데이터베이스 변경 스크립트, 결정 기록 등)은 번호를 먼저 예약한 뒤 만든다.

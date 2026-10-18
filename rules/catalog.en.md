@@ -262,6 +262,14 @@ Test results are saved as a workbook and committed. A report cannot be closed wi
 - Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 - If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
 
+### Required checks pass before ship verification (`ship-precheck`)
+
+Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass.
+
+- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision.
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+- If blocked: Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal.
+
 ### Reserve numbers first (`number-reservation`)
 
 Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.

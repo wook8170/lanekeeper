@@ -99,7 +99,7 @@ test('docs: every skill has its own section in the features chapter, and no unkn
   const names = skills()
   for (const l of LANGS) {
     const text = doc(l, '02-features.md')
-    const headings = [...text.matchAll(/^### \/wb:([a-z-]+)$/gm)].map((m) => m[1]).sort()
+    const headings = [...text.matchAll(/^### \/wb:([a-z0-9-]+)$/gm)].map((m) => m[1]).sort()
     assert.deepEqual(headings, names, `${l}: skill sections`)
   }
   const messages = read('locales/ko.json') + read('locales/en.json')
@@ -108,7 +108,7 @@ test('docs: every skill has its own section in the features chapter, and no unkn
     assert.ok(messages.includes(`/wb:${name}`) && messages.includes(`"${key}"`), `${name} no longer mentioned by ${key}`)
   }
   for (const f of docFiles()) {
-    for (const m of read(f).matchAll(/\/wb:([a-z][a-z-]*)/g)) {
+    for (const m of read(f).matchAll(/\/wb:([a-z][a-z0-9-]*)/g)) {
       assert.ok(names.includes(m[1]) || m[1] in ABSENT_SKILLS, `${f}: /wb:${m[1]} is not a skill`)
     }
   }

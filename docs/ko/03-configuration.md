@@ -185,6 +185,35 @@ wb-config validate
 | `project.ui_stability.enabled` | `false` | 예약 | 기본값 유지 |
 | `project.ui_stability.adapter` | `"uistab.adapter.ts"` | 예약 | 기본값 유지 |
 
+**품질 결과와 출하 검증 관문(`project.quality`)**
+
+| 키 | 기본값 | 뜻 | 예 |
+|---|---|---|---|
+| `project.quality.results_root` | `"docs/test-results"` | 종류별 결과(`<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx`), 색인, 버전 취합본을 두는 폴더(커밋) | 기본값 유지 |
+| `project.quality.raw_root` | `"test-results/runs"` | 실행 로그 같은 원자료 폴더(커밋 안 함) | 기본값 유지 |
+| `project.quality.version_file` | `"VERSION"` | 버전을 읽을 파일(첫 줄). 없으면 `package.json` 의 version | `"version.txt"` |
+| `project.quality.suites` | `{}` | 종류 이름별 실행 설정. 항목은 아래 표 | 아래 설정 예 |
+| `project.quality.ship.requires` | `[]` | 출하 검증 전에 통과해야 하는 종류. 비어 있으면 관문이 꺼진다 | `["unit","e2e","gate"]` |
+| `project.quality.ship.enforce` | `"deny"` | 관문 훅의 동작. `deny`(막음) · `warn`(알림만) · `off` | `"warn"` |
+| `project.quality.ship.agents` | `["readiness-auditor"]` | 관문을 거쳐야 하는 서브에이전트 종류(`플러그인:이름` 의 이름 부분도 맞춤) | 기본값 유지 |
+| `project.quality.ship.skills` | `["verifying-production-readiness"]` | 관문을 거쳐야 하는 스킬. 서브에이전트 지시문에 이 이름이 있어도 관문을 거친다 | 기본값 유지 |
+
+`quality.suites` 의 각 항목:
+
+| 항목 | 뜻 |
+|---|---|
+| `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ship`. 품질 스킬이 이 범주로 스위트를 고른다. 없으면 종류 이름이 범주 이름일 때 그 범주, 아니면 `unit` |
+| `command` | 실행할 셸 명령. `{file}` 은 결과 파일, `{dir}` 은 원자료 폴더, `{root}` 는 저장소 경로로 바뀐다. 없고 `steps` 도 없으면 스킬이 시험한 뒤 `wb-quality record` 로 기록하는 종류다 |
+| `steps` | `[{ "name": "docs", "cmd": "…" }]`. 단계마다 따로 실행하고 단계 하나를 시험 하나로 센다 |
+| `parser` | 결과 형식. `vitest` · `jest` · `playwright` · `pytest`(JUnit XML) · `vitest-log`(로그의 `Tests` 줄 합계) · `json`(`counts` 를 담은 파일) · `exit`(종료 코드만) · `steps`. 기본값은 `steps` 가 있으면 `steps`, 없으면 `exit` |
+| `result` | 결과 파일 경로. 기본 `{dir}/result.json`(pytest 는 `result.xml`). 마지막 경로 조각에 `*` 를 쓰면 여러 파일을 합친다 |
+| `slot` | `heavy`(기본) · `browser` · `heavy,browser` · `none` |
+| `thresholds` | 임계 파일 목록. `"경로"` 또는 `{ "file": "경로", "rule": "max" }`. `max` 는 숫자가 커지면, `min` 은 작아지면 완화로 보고, 배열이 길어지면 완화다. 규칙이 없으면 내용이 바뀐 것만으로 약화다 |
+| `stale_paths` | 이 경로(glob)가 바뀌었을 때만 결과를 낡았다고 본다. 없으면 결과 폴더 밖 변경 전부 |
+| `timeout_min` | 이 시간(분)이 지나면 명령을 멈춘다. 0 은 제한 없음 |
+| `env` | 명령에 더할 환경 변수. 값에 `{file}` · `{dir}` 을 쓸 수 있다 |
+| `note` | 설명 |
+
 **코드 색인, 실행, 레인**
 
 | 키 | 기본값 | 뜻 | 예 |
@@ -238,6 +267,22 @@ wb-config validate
   "worktree": { "setup": "npm ci" },
   "slots": { "heavy": ["^make all$"] },
   "machine": { "lanes": { "max": 2 } }
+}
+```
+
+**품질 스위트(`.wb/config.json` 의 `quality`)**
+
+pnpm 모노저장소에서 단위·시험용 DB·게이트·e2e·UI 안정성·사용성을 나눈 예다. 전체는 플러그인의 [examples/quality-config.json](../../examples/quality-config.json) 에 있다.
+
+```json
+"quality": {
+  "suites": {
+    "unit": { "command": "pnpm -r --workspace-concurrency=1 test", "parser": "vitest-log" },
+    "gate": { "category": "gate", "steps": [{ "name": "docs", "cmd": "pnpm docs:check" }, { "name": "lint", "cmd": "pnpm -r lint" }] },
+    "e2e": { "category": "e2e", "command": "pnpm e2e --reporter=list,json", "parser": "playwright", "slot": "heavy,browser", "env": { "PLAYWRIGHT_JSON_OUTPUT_NAME": "{file}" } },
+    "usability": { "category": "usability", "stale_paths": ["apps/**"] }
+  },
+  "ship": { "requires": ["unit", "gate", "e2e", "usability"] }
 }
 ```
 

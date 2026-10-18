@@ -1,0 +1,346 @@
+#!/usr/bin/env node
+// wb-quality — results per kind (unit · integration · gate · e2e · uistab · usability · ship), the
+// results index, the version quality report and the ship precheck.
+//
+//   wb-quality list [--json]                         configured suites (project.quality.suites)
+//   wb-quality run <kind>|--category <c> [--no-slot] [--no-xlsx]
+//                                                    run the suite command through wb-slot, write
+//                                                    <results>/<version>/<date>/<kind>-<HHMM>.{json,xlsx}, update the index
+//   wb-quality record <kind> --verdict passed|failed [--from <json>] [--report <file>]
+//                     [--total n --passed n --failed n --skipped n --fixme n]
+//                                                    record a result produced outside (ship verdict, usability by agents)
+//   wb-quality index                                 rebuild index.json and INDEX.md from the result files
+//   wb-quality status [--json]                       ship precheck table without running anything
+//   wb-quality precheck [--run] [--json]             ship precheck; --run runs every missing, stale or failed suite
+//                                                    first; exit 1 while any required kind is not ok
+//   wb-quality report [--version V] [--json] [--no-xlsx]
+//                                                    quality-<V>.{xlsx,md,html}: latest result per kind of the version
+//   wb-quality accept <kind> --reason "<text>"       owner only, from a terminal: accept a weakened result
+//
+// Settings: project.quality.* (results_root, raw_root, version_file, suites, ship). A run holds the
+// gate lock so merges wait for it. Heavy suites wait for a slot and for the load to drop (wb-slot).
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import readline from 'node:readline'
+import { spawn } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { stateDir } = await imp('config.mjs')
+const { translator } = await imp('i18n.mjs')
+const Q = await imp('quality.mjs')
+const TR = await imp('testresults.mjs')
+
+const BOOLEANS = ['json', 'run', 'no-slot', 'no-xlsx', 'no-index']
+const argv = process.argv.slice(2)
+const args = parseOptions(argv, BOOLEANS)
+const { root, resolved } = load(args)
+const t = translator(resolved.effective.language)
+const S = Q.qualitySettings(resolved.config)
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const warn = (s) => process.stderr.write(`${s}\n`)
+const [cmd, ...rest] = args._
+const WB_SLOT = path.join(libDir, '..', 'bin', 'wb-slot')
+const loadNow = () => {
+  const fake = Number(process.env.WB_LOAD_FAKE)
+  return Math.round((Number.isFinite(fake) && process.env.WB_LOAD_FAKE ? fake : os.loadavg()[0]) * 100) / 100
+}
+
+function needSuites() {
+  if (Object.keys(S.suites).length) return
+  warn(t('q.no_suites'))
+  process.exit(2)
+}
+
+function withGateLock(command, fn) {
+  const lock = TR.acquireGateLock(stateDir(root), { command })
+  if (!lock.ok) {
+    warn(t('tr.gate_locked', { pid: lock.pid }))
+    process.exit(3)
+  }
+  const stop = (sig) => {
+    lock.release()
+    process.exit(sig === 'SIGINT' ? 130 : 143)
+  }
+  process.on('SIGINT', stop)
+  process.on('SIGTERM', stop)
+  return Promise.resolve()
+    .then(fn)
+    .finally(() => lock.release())
+}
+
+const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
+
+// One shell command, through wb-slot unless the suite says "none" or --no-slot. Output goes to the
+// terminal and to the log. Resolves { exitCode, tail }.
+function runCommand(suite, command, vars, logFile) {
+  return new Promise((resolve) => {
+    const useSlot = !args['no-slot'] && suite.slot !== 'none'
+    const file = useSlot ? process.execPath : 'sh'
+    const a = useSlot ? [WB_SLOT, '--kind', suite.slot, '--lane', `quality-${suite.id}`, '--', 'sh', '-c', command] : ['-c', command]
+    const env = { ...process.env, WB_QUALITY_KIND: suite.id, WB_QUALITY_DIR: vars.dir, WB_QUALITY_FILE: vars.file }
+    for (const [k, v] of Object.entries(suite.env)) env[k] = fill(v, vars)
+    const out = fs.createWriteStream(logFile, { flags: 'a' })
+    out.write(`$ ${command}\n`)
+    let tail = ''
+    const child = spawn(file, a, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const keep = (c) => {
+      out.write(c)
+      tail = (tail + c.toString()).slice(-2000)
+    }
+    child.stdout.on('data', (c) => {
+      process.stdout.write(c)
+      keep(c)
+    })
+    child.stderr.on('data', (c) => {
+      process.stderr.write(c)
+      keep(c)
+    })
+    let timer = null
+    if (suite.timeout_min > 0) timer = setTimeout(() => child.kill('SIGTERM'), suite.timeout_min * 60_000)
+    child.on('close', (code, signal) => {
+      if (timer) clearTimeout(timer)
+      out.end(() => resolve({ exitCode: code ?? (signal ? 124 : 1), tail }))
+    })
+    child.on('error', (e) => {
+      out.end(() => resolve({ exitCode: 127, tail: String(e.message) }))
+    })
+  })
+}
+
+function rawDirFor(kind, d) {
+  let dir = path.join(root, S.rawRoot, `quality-${kind}-${Q.localStamp(d)}`)
+  for (let n = 2; fs.existsSync(dir); n++) dir = path.join(root, S.rawRoot, `quality-${kind}-${Q.localStamp(d)}-${n}`)
+  fs.mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+async function runSuite(suite) {
+  const started = new Date()
+  const loadStart = loadNow()
+  const version = Q.readVersion(root, S)
+  const { commit, branch } = Q.gitInfo(root)
+  const prefix = `${S.resultsRoot.replace(/\/+$/, '')}/`
+  const dirty = Q.treeDirty(root, prefix)
+  const dir = rawDirFor(suite.id, started)
+  const log = path.join(dir, 'run.log')
+  const defaultFile = path.join(dir, suite.parser === 'pytest' ? 'result.xml' : 'result.json')
+  const vars = { dir, root, kind: suite.id, file: defaultFile }
+  vars.file = suite.result ? path.resolve(root, fill(suite.result, vars)) : defaultFile
+  print(t('q.run.start', { kind: suite.id, category: suite.category, version, commit: (commit || '-').slice(0, 9), slot: args['no-slot'] ? 'none' : suite.slot }))
+  if (dirty) warn(t('q.run.dirty'))
+  let exitCode = 0
+  const steps = []
+  if (suite.steps.length) {
+    for (const s of suite.steps) {
+      const t0 = Date.now()
+      const r = await runCommand(suite, fill(s.cmd, vars), vars, log)
+      steps.push({ name: s.name, exitCode: r.exitCode, tail: r.exitCode ? r.tail.trim().split('\n').slice(-1)[0] : '', durationSec: Math.round((Date.now() - t0) / 1000) })
+      if (r.exitCode !== 0) exitCode = 1
+    }
+  } else {
+    const r = await runCommand(suite, fill(suite.command, vars), vars, log)
+    exitCode = r.exitCode
+  }
+  const ended = new Date()
+  let parsed
+  let parseError = null
+  try {
+    const logText = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : ''
+    parsed = Q.parseResult(suite.parser, { files: Q.expandResultFiles(vars.file), log: logText, exitCode, suiteName: suite.id, steps })
+  } catch (e) {
+    parseError = String(e.message || e)
+    parsed = { counts: { ...Q.emptyCounts(), total: null, passed: null, failed: null, skipped: null, fixme: null, flaky: null }, suites: [], failures: [] }
+  }
+  const notes = []
+  if (parseError) notes.push(t('q.run.parse_error', { error: parseError }))
+  if (exitCode === 75) notes.push(t('q.run.load_refused'))
+  const counts = parsed.counts
+  const verdict = parseError ? 'error' : Q.verdictOf({ exitCode, counts })
+  const head = Q.makeHead({
+    kind: suite.id, category: suite.category, version, commit, branch, dirty,
+    startedAt: Q.isoLocal(started), endedAt: Q.isoLocal(ended), durationSec: Math.round((ended - started) / 1000),
+    env: { ...Q.envInfo(), loadStart, loadEnd: loadNow() },
+    command: suite.steps.length ? suite.steps.map((s) => s.cmd).join(' ; ') : suite.command, exitCode, verdict, counts,
+    thresholds: Q.thresholdsOf(root, suite), suites: parsed.suites, failures: parsed.failures,
+    raw: { dir: path.relative(root, dir).split(path.sep).join('/') + '/', log: path.relative(root, log).split(path.sep).join('/'), committed: false },
+    notes: [...notes, ...(parsed.notes || [])], detail: parsed.detail || {},
+  })
+  const base = Q.resultBase(root, S, version, suite.id, started)
+  Q.saveResult(root, base, head, t, { noXlsx: args['no-xlsx'] })
+  if (!head.files.xlsx && !args['no-xlsx']) warn(t('q.xlsx_skipped'))
+  if (!args['no-index']) Q.writeIndex(root, S, t)
+  const c = head.counts
+  print(t('q.run.done', { kind: suite.id, verdict: t(`q.verdict.${verdict}`), total: c.total ?? '-', passed: c.passed ?? '-', failed: c.failed ?? '-', skipped: c.skipped ?? '-', fixme: c.fixme ?? '-', file: head.files.json }))
+  return head
+}
+
+function printTable(res) {
+  print(t('q.pre.head', { head: (res.head || '-').slice(0, 9) }))
+  for (const r of res.rows) {
+    const e = r.entry
+    const last = e ? `${e.date} ${String(e.commit || '-').slice(0, 9)} ${e.verdict ? t(`q.verdict.${e.verdict}`) : '-'}` : '-'
+    const why = r.reasons.map((x) => t(`q.why.${x.code}`, x.vars)).join(' · ')
+    print(`  ${r.kind.padEnd(12)} ${t(`q.state.${r.state}`).padEnd(8)} ${last}${why && r.state !== 'ok' ? `  — ${why}` : ''}`)
+  }
+  if (res.treeDirty) print(t('q.pre.tree_dirty'))
+  print(res.ok ? t('q.pre.ok') : t('q.pre.blocked', { n: res.rows.filter((r) => r.state !== 'ok').length + (res.treeDirty ? 1 : 0) }))
+  if (!res.ok) {
+    for (const r of res.rows.filter((x) => x.state === 'failed')) print(`  ${t('q.pre.fix_failed', { kind: r.kind })}`)
+    for (const r of res.rows.filter((x) => x.state === 'weakened')) print(`  ${t('q.pre.fix_weakened', { kind: r.kind })}`)
+    for (const r of res.rows.filter((x) => x.state === 'manual')) print(`  ${t('q.pre.fix_manual', { kind: r.kind, category: S.suites[r.kind]?.category || r.kind })}`)
+  }
+}
+
+function evaluate() {
+  const res = Q.precheck(root, S)
+  res.treeDirty = Q.treeDirty(root, `${S.resultsRoot.replace(/\/+$/, '')}/`)
+  if (res.treeDirty) res.ok = false
+  return res
+}
+
+const intFlag = (k) => (args[k] !== undefined && /^\d+$/.test(String(args[k])) ? Number(args[k]) : undefined)
+
+const COMMANDS = {
+  list() {
+    if (args.json) return print(JSON.stringify({ suites: S.suites, ship: S.ship }, null, 2))
+    if (!Object.keys(S.suites).length) return print(t('q.no_suites'))
+    for (const s of Object.values(S.suites)) print(`  ${s.id.padEnd(12)} ${s.category.padEnd(11)} ${s.parser.padEnd(10)} ${s.slot.padEnd(14)} ${s.steps.length ? t('q.list.steps', { n: s.steps.length }) : s.command || t('q.list.manual')}`)
+    print(t('q.list.requires', { kinds: S.ship.requires.join(', ') || '-' }))
+  },
+  async run() {
+    needSuites()
+    const list = typeof args.category === 'string' ? Q.suitesOf(S, args.category) : rest.map((k) => S.suites[k])
+    if (!list.length || list.some((s) => !s)) {
+      warn(t('q.unknown_kind', { kind: rest.join(', ') || args.category || '-', known: Object.keys(S.suites).join(', ') }))
+      process.exit(2)
+    }
+    const manual = list.filter((s) => !s.command && !s.steps.length)
+    if (manual.length) {
+      warn(t('q.run.manual', { kinds: manual.map((s) => s.id).join(', ') }))
+      process.exit(2)
+    }
+    let failed = 0
+    await withGateLock('wb-quality run', async () => {
+      for (const s of list) if ((await runSuite(s)).verdict !== 'passed') failed++
+    })
+    process.exit(failed ? 1 : 0)
+  },
+  record() {
+    const kind = rest[0]
+    const verdict = args.verdict
+    if (!kind || !['passed', 'failed'].includes(verdict)) {
+      warn(t('q.record.usage'))
+      process.exit(2)
+    }
+    const suite = S.suites[kind] || { id: kind, category: Q.CATEGORIES.includes(kind) ? kind : 'unit', thresholds: [] }
+    let parsed = { counts: Q.emptyCounts(), suites: [], failures: [] }
+    if (typeof args.from === 'string') {
+      try {
+        parsed = Q.parseResult('json', { files: [path.resolve(args.from)], suiteName: kind })
+      } catch (e) {
+        warn(t('q.record.bad_from', { file: args.from, error: e.message }))
+        process.exit(2)
+      }
+    } else {
+      for (const k of Q.COUNT_KEYS) if (intFlag(k) !== undefined) parsed.counts[k] = intFlag(k)
+      if (!parsed.counts.total) parsed.counts = { ...parsed.counts, total: 1, passed: verdict === 'passed' ? 1 : 0, failed: verdict === 'passed' ? 0 : 1 }
+    }
+    const now = new Date()
+    const version = Q.readVersion(root, S)
+    const { commit, branch } = Q.gitInfo(root)
+    const detail = { ...(parsed.detail || {}) }
+    if (typeof args.report === 'string') detail.report = args.report
+    if (kind === 'ship' || suite.category === 'ship') {
+      const pre = evaluate()
+      detail.precheck = { ok: pre.ok, rows: pre.rows.map((r) => ({ kind: r.kind, state: r.state, commit: r.entry?.commit || null })) }
+    }
+    const head = Q.makeHead({
+      kind, category: suite.category, version, commit, branch, dirty: Q.treeDirty(root, `${S.resultsRoot.replace(/\/+$/, '')}/`),
+      startedAt: Q.isoLocal(now), endedAt: Q.isoLocal(now), durationSec: 0, env: { ...Q.envInfo(), loadStart: loadNow(), loadEnd: loadNow() },
+      command: null, exitCode: null, verdict, counts: parsed.counts, thresholds: Q.thresholdsOf(root, suite),
+      suites: parsed.suites.length ? parsed.suites : [{ name: kind, ...parsed.counts }], failures: parsed.failures, notes: parsed.notes || [], detail,
+    })
+    Q.saveResult(root, Q.resultBase(root, S, version, kind, now), head, t, { noXlsx: args['no-xlsx'] })
+    Q.writeIndex(root, S, t)
+    print(t('q.record.done', { kind, verdict: t(`q.verdict.${verdict}`), file: head.files.json }))
+  },
+  index() {
+    const idx = Q.writeIndex(root, S, t)
+    print(t('q.index.done', { n: idx.entries.length, legacy: idx.entries.filter((e) => e.legacy).length, dir: S.resultsRoot }))
+  },
+  status() {
+    const res = evaluate()
+    if (args.json) return print(JSON.stringify(res, null, 2))
+    if (!S.ship.requires.length) return print(t('q.pre.no_requires'))
+    printTable(res)
+  },
+  async precheck() {
+    if (!S.ship.requires.length) {
+      print(t('q.pre.no_requires'))
+      return
+    }
+    let res = evaluate()
+    if (args.run && res.treeDirty) {
+      printTable(res)
+      process.exit(1)
+    }
+    if (args.run && res.rows.some(Q.needsRun)) {
+      await withGateLock('wb-quality precheck --run', async () => {
+        for (const r of res.rows.filter(Q.needsRun)) {
+          print(t('q.pre.running', { kind: r.kind, state: t(`q.state.${r.state}`) }))
+          await runSuite(S.suites[r.kind])
+        }
+      })
+      res = evaluate()
+    }
+    if (args.json) print(JSON.stringify(res, null, 2))
+    else printTable(res)
+    process.exit(res.ok ? 0 : 1)
+  },
+  report() {
+    const version = typeof args.version === 'string' ? args.version : Q.readVersion(root, S)
+    Q.writeIndex(root, S, t)
+    const r = Q.writeRollup(root, S, version, t, { noXlsx: args['no-xlsx'] })
+    if (args.json) return print(JSON.stringify({ version, allPassed: r.allPassed, missing: r.missing, files: r.files, latest: r.latest.map((l) => ({ kind: l.kind, entry: l.entry })) }, null, 2))
+    print(t('q.report.done', { version, md: r.files.md, html: r.files.html, xlsx: r.files.xlsx || '-' }))
+    if (r.xlsxError && !args['no-xlsx']) warn(t('q.xlsx_skipped'))
+    print(r.allPassed ? t('q.report.lead_ok', { n: r.latest.filter((l) => l.entry).length }) : t('q.report.lead_bad'))
+  },
+  async accept() {
+    const kind = rest[0]
+    if (!kind || typeof args.reason !== 'string' || !args.reason.trim()) {
+      warn(t('q.accept.usage'))
+      process.exit(2)
+    }
+    // Only a person at a terminal may accept a weaker result; an agent's shell has no TTY.
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      warn(t('q.accept.tty'))
+      process.exit(4)
+    }
+    const entry = Q.latestOf(Q.buildIndex(root, S).entries, kind)
+    if (!entry) {
+      warn(t('q.accept.none', { kind }))
+      process.exit(2)
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    const answer = await new Promise((r) => rl.question(t('q.accept.confirm', { kind, commit: entry.commit.slice(0, 9) }), r))
+    rl.close()
+    if (answer.trim() !== kind) {
+      warn(t('q.accept.cancelled'))
+      process.exit(1)
+    }
+    const file = Q.recordAcceptance(root, S, { kind, commit: entry.commit, reason: args.reason })
+    Q.writeIndex(root, S, t)
+    print(t('q.accept.done', { kind, commit: entry.commit.slice(0, 9), file: path.relative(root, file) }))
+  },
+}
+
+if (!COMMANDS[cmd]) {
+  print(`usage: wb-quality <${Object.keys(COMMANDS).join('|')}> …`)
+  process.exit(2)
+}
+await COMMANDS[cmd]()

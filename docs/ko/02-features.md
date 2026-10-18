@@ -2,7 +2,7 @@
 
 wb 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Code 가 도구를 실행하기 전후에 자동으로 판정한다. `wb-*` 명령은 사람이나 Claude 가 직접 실행한다. 스킬(`/wb:<이름>`)은 Claude 에게 정해진 순서로 명령을 실행하게 하는 작업 안내다.
 
-이 문서는 기능별로 언제 쓰는지와 어떻게 쓰는지를 설명하고, 끝에 스킬 17개를 하나씩 정리했다. 설정 키의 기본값과 뜻은 [설정](03-configuration.md), 규칙별 이유와 복구 방법은 [규칙 안내](04-rules.md)에 있다.
+이 문서는 기능별로 언제 쓰는지와 어떻게 쓰는지를 설명하고, 끝에 스킬 25개를 하나씩 정리했다. 설정 키의 기본값과 뜻은 [설정](03-configuration.md), 규칙별 이유와 복구 방법은 [규칙 안내](04-rules.md)에 있다.
 
 ## 1. 기능 한눈에 보기
 
@@ -14,6 +14,7 @@ wb 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Code 가 �
 | 레인 원장·진행판·재개 | 웨이브와 레인 상태 기록, 중단된 레인 재개 | `wb-waves`, `/wb:lanes`, `/wb:resume`, `/wb:pickup` |
 | 진행 기록 | `progress.md` 를 현재 상태로 유지, 끝난 내용은 아카이브 | `wb-waves handoff` |
 | 시험 결과 엑셀·케이스 원장 | 통합 검증 결과를 xlsx 로 저장, 시험 케이스와 결함 관리 | `wb-test-report`, `wb-cases`, `wb-defects`, `/wb:test-report` |
+| 품질 결과 보관·출하 검증 관문 | 종류별 시험 결과를 버전·날짜별로 보관, 출하 검증 전 선행 검증 확인 | `wb-quality`, `/wb:quality-unit` 등 품질 스킬, `/wb:ship-verify`, `/wb:quality-report` |
 | 검수·취합·보고 | 9항목 검수, 규칙 기반 병합, 아티팩트 보고 | `wb-check lane`, `wb-integrate`, `wb-art`, `/wb:review-lane`, `/wb:integrate`, `/wb:report` |
 | 시안 먼저 | 화면 구조 변경을 결정 기록 전에 막음 | `wb-decide`, `/wb:decide` |
 | 초보자 계층 | 한 줄 요청 안내, 막힌 이유 설명, 문체 지정 | `/wb:work`, `/wb:explain`, `/wb:writing-style` |
@@ -228,6 +229,22 @@ wb-cases check
 
 원장이 있으면 엑셀의 「원장 대조」 시트가 원장과 실행 결과의 불일치를 적는다. 불일치가 0 이어야 출하 판정을 한다.
 
+**종류별 결과 보관과 출하 검증 관문.** `wb-quality` 는 시험 종류(단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증)마다 결과를 따로 남긴다. 명령은 프로젝트 설정 `quality.suites` 에 종류별로 적는다(명령, 결과 형식 `parser`, 슬롯, 임계 파일, 낡음 판정 경로). 결과는 공통 머리 JSON(종류·버전·커밋·브랜치·시작·끝·환경·판정·총·통과·실패·건너뜀·보류·간헐·원자료 위치)과 같은 내용의 엑셀로 `docs/test-results/<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx` 에 저장한다. 버전은 `quality.version_file`(기본 `VERSION`)에서 읽는다. 로그 같은 원자료는 `quality.raw_root` 에 두고 커밋하지 않는다. 결과 폴더의 `index.json`·`INDEX.md` 는 결과 파일을 훑어 다시 만드는 색인이다. 이전 형식의 날짜 폴더(`docs/test-results/<날짜>/`)는 옮기지 않고 색인에 「이전 형식」으로 올린다.
+
+출하 검증(`quality.ship.skills`·`quality.ship.agents`)을 시작하기 전에 `quality.ship.requires` 의 종류마다 최신 결과를 확인한다. 결과가 없거나(없음), 다른 커밋의 것이거나 커밋하지 않은 변경이 있는 상태에서 돌았거나(낡음), 통과하지 못했으면(실패) 관문이 막고 `wb-quality precheck --run` 이 그 종류를 다시 돌린다. 직전 통과 결과보다 시험 수가 줄었거나, 건너뜀·보류가 늘었거나, 임계 파일이 바뀌거나 완화됐으면(약화) 다시 돌려도 풀리지 않는다. 의도한 변경이면 저장소 소유자가 자기 터미널에서 `wb-quality accept` 로 승인한다. 결과 폴더 안의 파일만 바뀐 커밋은 같은 커밋으로 본다.
+
+```
+wb-quality list                             설정된 종류와 명령
+wb-quality run unit                         한 종류를 슬롯으로 실행 → JSON·엑셀·색인
+wb-quality run --category e2e               한 범주의 종류를 모두 실행
+wb-quality record usability --verdict passed --from result.json
+                                            에이전트가 한 시험(사용성, 출하 판정)을 기록
+wb-quality status                           출하 검증 관문 표(실행하지 않음)
+wb-quality precheck --run                   빠졌거나 낡았거나 실패한 종류를 돌린 뒤 판정, 막히면 종료 코드 1
+wb-quality report                           버전 취합본 quality-<버전>.xlsx·md·html
+wb-quality index                            색인 다시 만들기
+```
+
 ## 8. 검수·취합·보고
 
 레인이 끝나면 메인 세션은 검수 → 취합 → 보고 순서로 진행한다. 판정은 명령이 하고, 사람은 되돌림을 보낼지와 병합 준비를 마칠지만 정한다.
@@ -335,7 +352,7 @@ wb-token status
 
 자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `wb-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜진다.
 
-## 13. 스킬 17개
+## 13. 스킬 25개
 
 스킬은 Claude Code 프롬프트에 `/wb:<이름>` 으로 입력한다. 설명에 맞는 요청을 하면 Claude 가 스스로 부르기도 한다. 단 `/wb:approve` 는 사람이 직접 입력할 때만 동작한다.
 
@@ -353,6 +370,14 @@ wb-token status
 | `/wb:review-lane` | 레인 결과를 9항목으로 검수한다 |
 | `/wb:integrate` | 검수를 통과한 레인을 통합 브랜치에 합친다 |
 | `/wb:test-report` | 검증을 돌리고 결과를 엑셀로 남긴다 |
+| `/wb:quality-unit` | 단위 시험을 돌리고 종류별 결과로 보관한다 |
+| `/wb:quality-integration` | 통합 시험(시험용 DB 등)을 돌리고 보관한다 |
+| `/wb:quality-gate` | 게이트 단계를 하나씩 돌리고 보관한다 |
+| `/wb:quality-e2e` | 종단 시험을 헤드리스로 돌리고 보관한다 |
+| `/wb:quality-uistab` | UI 안정성 하네스를 돌리고 임계 파일과 함께 보관한다 |
+| `/wb:quality-usability` | 초보 사용자 대역 에이전트로 사용성 시험을 하고 기록한다 |
+| `/wb:ship-verify` | 선행 검증 관문을 통과시킨 뒤 출하 검증을 한다 |
+| `/wb:quality-report` | 버전 품질 보고서(엑셀·Markdown·HTML)를 만든다 |
 | `/wb:report` | 최종 보고를 아티팩트로 게시한다 |
 | `/wb:approve` | 보호 브랜치 반영을 한 번 허가한다(사람만 입력) |
 | `/wb:auto-retry` | 한도 뒤 자동 재개를 관리한다 |
@@ -499,6 +524,62 @@ wb-test-report summary
   unit: 총 2 · 통과 2 · 실패 0 · 건너뜀 0 · 간헐 0
   gate: 1단계 · 실패 0 · 미실행 0
 ```
+
+### /wb:quality-unit
+
+- 언제: 단위 시험을 돌리고 결과를 남겨야 할 때, 출하 검증 관문이 단위 결과를 없음·낡음·실패로 보일 때.
+- 어떻게: 변경을 먼저 커밋한다. `wb-quality run --category unit` 을 실행한다. 출력의 `[quality] …` 줄 수치를 그대로 인용하고, 실패하면 원인을 고친 뒤 다시 돌린다. 결과 JSON·엑셀·색인을 커밋한다.
+- 예시: `wb-quality run unit`
+
+### /wb:quality-integration
+
+- 언제: 시험용 DB 같은 실제 서비스를 쓰는 통합 시험 결과가 필요할 때.
+- 어떻게: `wb-quality run --category integration`. 운영 DB 가 아니라 고정된 시험용 인스턴스를 가리키는지 설정을 먼저 확인한다.
+- 예시: `wb-quality run pg`
+
+### /wb:quality-gate
+
+- 언제: 문서·코드 규칙·타입 검사 같은 게이트 단계의 결과를 남길 때.
+- 어떻게: 게이트 스위트는 `steps` 로 단계를 나열한다. 앞 단계가 실패해도 모든 단계를 돌리고, 단계 하나가 시험 하나로 집계된다. 단계를 빼면 시험 수 감소로 잡힌다.
+- 예시: `wb-quality run gate`
+
+### /wb:quality-e2e
+
+- 언제: 종단 시험 결과가 필요할 때.
+- 어떻게: `wb-quality run --category e2e`. 슬롯 `heavy,browser` 로 헤드리스 실행한다. `playwright` 형식에서는 `test.fixme` 가 보류, 재시도 뒤 통과가 간헐로 집계된다. 케이스 원장 대조가 필요하면 `/wb:test-report` 도 함께 쓴다.
+- 예시: `wb-quality run e2e`
+
+### /wb:quality-uistab
+
+- 언제: 화면 배치·넘침·시각 점검 하네스의 결과가 필요할 때.
+- 어떻게: 하네스의 임계 파일을 스위트의 `thresholds` 에 적는다(`max` 는 숫자가 커지면 완화, `min` 은 작아지면 완화). 결과에 파일 해시가 남고, 관문이 완화를 막는다.
+- 예시: `wb-quality run uistab`
+
+### /wb:quality-usability
+
+- 언제: 처음 쓰는 사용자 기준의 사용성 시험 결과가 필요할 때.
+- 어떻게: 자동 부분은 스위트 명령으로 돌린다. 에이전트 부분은 시나리오마다 초보 사용자 대역 에이전트를 지시서와 함께 보내 목표 달성·단계 수·헤맨 곳·막힌 곳을 받는다. 목표 달성, 막힘 없음, 예상 단계의 1.5배 이내면 통과다. 모든 P0 시나리오가 통과하고 막힘이 없어야 전체 통과다. 결과는 `wb-quality record` 로 남긴다.
+- 예시: `wb-quality record usability --verdict passed --from usability.json`
+
+### /wb:ship-verify
+
+- 언제: 출하 여부를 판정할 때, 출하 검증 스킬이나 검증 에이전트가 관문 훅에 막혔을 때.
+- 어떻게: 모두 커밋한 뒤 `wb-quality precheck --run` 을 실행한다. 실패한 종류는 원인을 레인에 맡겨 고치고(지시서 필수) 그 종류를 다시 돌린다. 통과할 때까지 반복한다. 약화는 되돌리거나 소유자 승인을 받는다. 관문을 통과하면 출하 검증을 하고 `wb-quality record ship --verdict passed|failed --report <보고서>` 로 판정을 남긴 뒤 `/wb:quality-report` 로 취합한다.
+- 예시:
+
+```
+wb-quality precheck --run
+출하 검증 선행 관문 · HEAD 9df034edb
+  unit         통과     2026-10-18 9df034edb 통과
+  e2e          약화     2026-10-18 9df034edb 통과  — 건너뜀·보류 증가 2→5(기준 be05687d1)
+막힘: 1개 항목이 통과하지 않았습니다. 출하 검증을 시작할 수 없습니다.
+```
+
+### /wb:quality-report
+
+- 언제: 버전 품질 보고서가 필요할 때, 출하 검증을 마쳤을 때.
+- 어떻게: `wb-quality report [--version <버전>]` 이 그 버전의 종류별 최신 결과로 `quality-<버전>.xlsx`(요약 + 종류별 시트 + 실행 이력)와 `.md`·`.html` 을 만든다. 고객용 문서로 옮길 때는 수치와 버전·날짜를 그대로 쓰고 내부 경로나 도구 이름은 쓰지 않는다.
+- 예시: `wb-quality report --version 1.6.0`
 
 ### /wb:report
 

@@ -1,6 +1,6 @@
 # Rules
 
-wb keeps the 40 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
+wb keeps the 41 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
 
 A hook gives one of three verdicts. Block: the command does not run. Ask: the user is asked whether to go on. Note: the command runs and the hook says what to do next.
 
@@ -45,15 +45,16 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 29 | Terse mode keeps the evidence | `terse-mode` | Sessions and handoff |
 | 30 | Tests change with the feature | `tests-with-change` | Quality and documents |
 | 31 | Test results saved as a workbook | `test-results-workbook` | Quality and documents |
-| 32 | Reserve numbers first | `number-reservation` | Quality and documents |
-| 33 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
-| 34 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
-| 35 | Writing style per file kind | `style-per-file` | Quality and documents |
-| 36 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
-| 37 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
-| 38 | Code flow through the code index | `codegraph-first` | Quality and documents |
-| 39 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
-| 40 | Screen words follow the glossary | `glossary-terms` | Planned |
+| 32 | Required checks pass before ship verification | `ship-precheck` | Quality and documents |
+| 33 | Reserve numbers first | `number-reservation` | Quality and documents |
+| 34 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
+| 35 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
+| 36 | Writing style per file kind | `style-per-file` | Quality and documents |
+| 37 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
+| 38 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
+| 39 | Code flow through the code index | `codegraph-first` | Quality and documents |
+| 40 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
+| 41 | Screen words follow the glossary | `glossary-terms` | Planned |
 
 ## Git and branches
 
@@ -329,7 +330,15 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
 - Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 
-### 32. Reserve numbers first (`number-reservation`)
+### 32. Required checks pass before ship verification (`ship-precheck`)
+
+- Rule: Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass.
+- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision.
+- If blocked: Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal.
+- Message codes: `dispatch.ship_precheck`
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+
+### 33. Reserve numbers first (`number-reservation`)
 
 - Rule: Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.
 - Why: If parallel lanes use the same number, the merge conflicts and the numbers must be reassigned.
@@ -337,14 +346,14 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.numbers`
 - Enforced in: `bin/wb-number`, `lib/numbers.mjs`
 
-### 33. Remove finished lane worktrees (`worktree-cleanup`)
+### 34. Remove finished lane worktrees (`worktree-cleanup`)
 
 - Rule: A finished lane worktree is merged into its target branch and then removed. Before removal, the processes started in it are stopped by PID.
 - Why: Processes left in an old worktree keep using the CPU. If work continues in a leftover folder, the handoff record splits in two.
 - If blocked: See what to clean up with `wb-reap` and remove the worktree with `wb-worktree remove <lane>`.
 - Enforced in: `bin/wb-worktree`, `bin/wb-reap`, `skills/resume/SKILL.md`
 
-### 34. Owner decisions are written down (`owner-decisions-recorded`)
+### 35. Owner decisions are written down (`owner-decisions-recorded`)
 
 - Rule: What the owner decides is kept as a decision record (`docs/decisions/`).
 - Why: A decision made only in conversation is unknown to the next session, so the same question is asked again.
@@ -352,7 +361,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.paths.decisions`
 - Enforced in: `skills/decide/SKILL.md`, `bin/wb-decide`
 
-### 35. Writing style per file kind (`style-per-file`)
+### 36. Writing style per file kind (`style-per-file`)
 
 - Rule: Documents and screen text use the style set for each file kind (`style.map`).
 - Why: Without separate styles for screen text and reports, the text in one product reads inconsistently.
@@ -360,7 +369,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.style.map`
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`
 
-### 36. Mockup before a screen structure change (`mockup-first`)
+### 37. Mockup before a screen structure change (`mockup-first`)
 
 - Rule: A change to the structure of a screen shows a mockup and gets a decision before it is implemented.
 - Why: If the structure is rejected after implementation, the work starts over.
@@ -369,7 +378,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.mockup`
 - Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`
 
-### 37. Finished work is reported as an artifact (`report-artifact`)
+### 38. Finished work is reported as an artifact (`report-artifact`)
 
 - Rule: A report made with `/wb:report` publishes its result as an artifact. A project that keeps test result workbooks also has its newest workbook checked.
 - Why: A report given only in words cannot be checked from elsewhere, and its evidence such as captures and figures is not kept.
@@ -378,7 +387,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.report.artifact_check`
 - Enforced in: `hooks/scripts/report/artifact-check.mjs`, `bin/wb-art`, `skills/report/SKILL.md`
 
-### 38. Code flow through the code index (`codegraph-first`)
+### 39. Code flow through the code index (`codegraph-first`)
 
 - Rule: Flow, callers and the impact of a change are checked with the code index (codegraph). Exact line numbers and strings are checked with text search.
 - Why: Following callers one text search at a time multiplies the searches. The index lacks line numbers and some call links, so text search is never blocked.
@@ -386,7 +395,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.codegraph.nudge`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`
 
-### 39. No repeat calls on paths without an index (`codegraph-index-first`)
+### 40. No repeat calls on paths without an index (`codegraph-index-first`)
 
 - Rule: codegraph is not called again for a path that has no index. Every new worktree is queued for indexing when it is created.
 - Why: Most index tool errors came from new worktrees that had no index yet. Calling the same path again only added cost.
@@ -399,7 +408,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 Rules in the catalog with nothing that enforces them yet.
 
-### 40. Screen words follow the glossary (`glossary-terms`)
+### 41. Screen words follow the glossary (`glossary-terms`)
 
 - Rule: Words in screen text follow the project glossary.
 - Why: Calling one thing by different names on different screens confuses users.

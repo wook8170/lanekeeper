@@ -4,7 +4,18 @@
 
 ## [Unreleased]
 
+### Added
+- 종류별 품질 결과 보관 `wb-quality`(`list`·`run`·`record`·`index`·`status`·`precheck`·`report`·`accept`): 단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증 결과를 종류마다 공통 머리 JSON(`quality-result/1`: 종류·범주·버전·커밋·브랜치·미커밋 여부·시작·끝·환경·판정·총·통과·실패·건너뜀·보류·간헐·임계 파일 해시·원자료 위치)과 엑셀로 `<결과 루트>/<버전>/<날짜>/<종류>-<HHMM>.{json,xlsx}` 에 남긴다. 실행은 `wb-slot` 슬롯과 게이트 잠금 안에서 한다. 결과 형식: `vitest`·`jest`·`playwright`(fixme 주석·재시도 통과 구분)·`pytest`(JUnit XML)·`vitest-log`(모노저장소 로그의 `Tests` 줄 합계)·`json`·`exit`·`steps`(단계마다 시험 하나)
+- 결과 색인 `index.json`(`quality-index/1`)·`INDEX.md`: 결과 파일을 훑어 다시 만든다. 이전 형식의 날짜 폴더와 공통 머리가 없는 요약은 내용으로 추정해 올리고(`legacy`·`inferred`), 다른 도구가 붙인 선택 키(`originalPath`·`versionBasis`·`external`·`run`)는 다시 만들어도 남긴다
+- 버전 품질 보고서 `wb-quality report`: 버전별 종류 최신 결과로 `quality-<버전>.xlsx`(요약·종류별 시트·실패·실행 이력)와 `.md`·`.html`(밝기 테마 양쪽)을 만든다. 결과 없는 필수 종류, 직전 통과보다 약해진 종류, 알려진 문제(최신 실패), 제외 항목(건너뜀·보류)을 적는다
+- 출하 검증 선행 관문: `wb-quality precheck [--run]` 이 `quality.ship.requires` 의 종류마다 최신 결과를 없음·낡음(다른 커밋·미커밋 상태 실행, `stale_paths` 로 범위 지정 가능, 결과 폴더만 바뀐 커밋은 같은 커밋)·실패·약화·수동으로 판정하고, `--run` 은 없음·낡음·실패 종류를 다시 돌린다. 약화 = 직전 통과 결과(약화가 승인되지 않은 결과는 기준에서 빠지는 연쇄 기준) 대비 시험 수 감소·건너뜀+보류 증가·임계 파일 변경(규칙 `max`·`min` 은 완화 방향만, 배열 길이 증가는 완화). 약화 승인은 저장소 소유자가 터미널에서 `wb-quality accept` 로만 한다(에이전트 셸은 거부)
+- PreToolUse 훅 `hooks/scripts/quality/ship-gate.mjs`(Agent·Task·Skill): 출하 검증 스킬(`quality.ship.skills`)·에이전트(`quality.ship.agents`)·그 스킬 이름을 담은 지시문을 관문 통과 전에는 막는다(`dispatch.ship_precheck`, `quality.ship.enforce` 로 `warn`·`off` 가능)
+- 스킬 8개: `/wb:quality-unit`·`/wb:quality-integration`·`/wb:quality-gate`·`/wb:quality-e2e`·`/wb:quality-uistab`·`/wb:quality-usability`(초보 사용자 대역 에이전트, 판정 기준: 목표 달성·막힘 없음·예상 단계 1.5배 이내, P0 전부 통과)·`/wb:ship-verify`(관문 → 실패 수정·재실행 반복 → 출하 검증 → 판정 기록)·`/wb:quality-report`(스킬 25개)
+- 설정 `project.quality.*`(`results_root`·`raw_root`·`version_file`·`suites`·`ship.requires`·`ship.enforce`·`ship.agents`·`ship.skills`), 예시 `examples/quality-config.json`, 규칙 `ship-precheck`(규칙 41개), 엑셀 작성기 `templates/quality/write_xlsx.py`
+- 시험 `tests/quality.test.mjs`: 결과 형식 해석, 판정, 공통 머리 검사, 약화(수·건너뜀·임계 해시·max/min 방향), 약화 연쇄 기준(수정 전 실패 확인), 저장소 안 관문 판정(없음·실패·낡음·결과만 바뀐 커밋·미커밋 실행·`stale_paths`·약화·승인·수동), 색인(새 구조·이전 형식·추정·선택 키 보존·Markdown), 취합(버전 구분·누락·HTML), 엑셀, `wb-quality` 실행·관문 자동 실행·기록·보고·승인 거부, 관문 훅(막음·통과·경고·스킬 이름 지시문)
+
 ### Changed
+- 설명서 시험이 숫자가 든 스킬 이름(`/wb:quality-e2e`)을 스킬로 인식한다
 - 토큰 가드가 Claude Code 의 공식 사용량을 1순위로 쓴다. `~/.claude.json` 의 `cachedUsageUtilization`(5시간·7일 비율, 리셋 시각, 계정)과 계정 ID 만 읽는다. 조회한 지 `fresh_min` 분이 지나면 그 뒤 로컬 가중 토큰을 계정별 보정 계수로 환산해 더하고, 리셋 시각이 지나면 리셋 이후 사용분만 센다. 판정은 5시간·7일 중 높은 쪽. 5시간 창은 리셋 5시간 전에 시작하는 고정 구간으로 계산한다
 - 보정 계수는 자동으로 잡는다. 공식 값이 바뀔 때마다 `${CLAUDE_PLUGIN_DATA}/token-guard/official-history.jsonl` 에 기록하고, 같은 창 안 두 기록의 비율 증가 ÷ 그 사이 로컬 사용량(없으면 창 시작부터의 비율)을 `calib-<계정>.json` 에 둔다. 사용 한도 거절 기록은 100% 점으로 쓴다. 계정을 바꾸면 이전 계정의 공식 값과 보정은 쓰지 않는다
 - `personal.token_guard.budget` 은 공식 값이 없을 때의 대체 예산으로 바뀌었다. 0 이면 계정 보정 계수에서 100% 를 환산하고, 그것도 없으면 침묵한다

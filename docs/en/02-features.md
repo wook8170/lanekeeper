@@ -2,7 +2,7 @@
 
 wb works in three ways. Hooks judge automatically before and after Claude Code runs a tool. The `wb-*` commands are run by you or by Claude. Skills (`/wb:<name>`) are task guides that make Claude run commands in a set order.
 
-This page explains when and how to use each feature, and ends with the 17 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+This page explains when and how to use each feature, and ends with the 25 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
 
 ## 1. Features at a glance
 
@@ -14,6 +14,7 @@ This page explains when and how to use each feature, and ends with the 17 skills
 | Lane ledger, board and resume | Records wave and lane state, resumes stopped lanes | `wb-waves`, `/wb:lanes`, `/wb:resume`, `/wb:pickup` |
 | Progress record | Keeps `progress.md` as the current state, finished content goes to the archive | `wb-waves handoff` |
 | Test result workbook and case ledger | Saves integration results as xlsx, manages test cases and defects | `wb-test-report`, `wb-cases`, `wb-defects`, `/wb:test-report` |
+| Quality results and the ship precheck | Keeps test results per kind by version and date, checks the required verifications before ship verification | `wb-quality`, the quality skills such as `/wb:quality-unit`, `/wb:ship-verify`, `/wb:quality-report` |
 | Review, integrate and report | Nine-item review, rule-based merge, artifact report | `wb-check lane`, `wb-integrate`, `wb-art`, `/wb:review-lane`, `/wb:integrate`, `/wb:report` |
 | Mockup first | Blocks screen structure changes until a decision is recorded | `wb-decide`, `/wb:decide` |
 | Beginner layer | Guides a one-line request, explains blocks, sets the writing voice | `/wb:work`, `/wb:explain`, `/wb:writing-style` |
@@ -228,6 +229,22 @@ wb-cases check
 
 With a ledger, the ledger comparison sheet lists mismatches between the ledger and the run. Mismatches must be 0 before a ship decision.
 
+**Results per kind and the ship precheck.** `wb-quality` keeps a result per test kind (unit, integration, gate, e2e, UI stability, usability, ship verification). The commands are set per kind in the project setting `quality.suites` (command, result format `parser`, slot, threshold files, stale paths). A result is a common head JSON (kind, version, commit, branch, start, end, environment, verdict, total, passed, failed, skipped, fixme, flaky, raw file location) and a workbook with the same content, saved as `docs/test-results/<version>/<date>/<kind>-<HHMM>.json` and `.xlsx`. The version is read from `quality.version_file` (default `VERSION`). Raw files such as logs stay in `quality.raw_root` and are not committed. `index.json` and `INDEX.md` in the results folder are an index rebuilt from the result files. Older date folders (`docs/test-results/<date>/`) are not moved; the index lists them as the older layout.
+
+Before ship verification starts (`quality.ship.skills`, `quality.ship.agents`), the newest result of each kind in `quality.ship.requires` is checked. When there is none (missing), when it belongs to another commit or ran with uncommitted changes (stale), or when it did not pass (failed), the gate blocks and `wb-quality precheck --run` runs that kind again. When it has fewer tests, more skipped or fixme tests, or a changed or loosened threshold file compared with the previous passed result (weakened), running again does not help. When the change is intended, the repository owner accepts it with `wb-quality accept` in their own terminal. A commit that only changes files in the results folder counts as the same commit.
+
+```
+wb-quality list                             configured kinds and commands
+wb-quality run unit                         run one kind through a slot → JSON, workbook, index
+wb-quality run --category e2e               run every kind of one category
+wb-quality record usability --verdict passed --from result.json
+                                            record a test done by agents (usability, ship verdict)
+wb-quality status                           ship precheck table (runs nothing)
+wb-quality precheck --run                   run missing, stale or failed kinds, then decide; exit 1 when blocked
+wb-quality report                           version roll-up quality-<version>.xlsx, md, html
+wb-quality index                            rebuild the index
+```
+
 ## 8. Review, integrate and report
 
 When lanes finish, the main session goes through review → integrate → report. Commands make the verdicts; people decide only whether to send a return and whether to stop at "ready to merge".
@@ -335,7 +352,7 @@ Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window start
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `wb-retry mode bypassPermissions --i-understand`.
 
-## 13. The 17 skills
+## 13. The 25 skills
 
 Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skill on its own when a request matches its description. `/wb:approve` is the exception: it works only when a person types it.
 
@@ -353,6 +370,14 @@ Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skil
 | `/wb:review-lane` | Reviews a lane result against the nine items |
 | `/wb:integrate` | Merges reviewed lanes into the integration branch |
 | `/wb:test-report` | Runs the verification and keeps the result as a workbook |
+| `/wb:quality-unit` | Runs the unit tests and keeps the result per kind |
+| `/wb:quality-integration` | Runs the integration tests (test database and so on) and keeps the result |
+| `/wb:quality-gate` | Runs the gate steps one by one and keeps the result |
+| `/wb:quality-e2e` | Runs the end-to-end tests headless and keeps the result |
+| `/wb:quality-uistab` | Runs the UI stability harness and keeps the result with its threshold files |
+| `/wb:quality-usability` | Runs a usability test with beginner stand-in agents and records it |
+| `/wb:ship-verify` | Gets the precheck through, then runs ship verification |
+| `/wb:quality-report` | Builds the quality report of a version (workbook, Markdown, HTML) |
 | `/wb:report` | Publishes the final report as an artifact |
 | `/wb:approve` | Grants one change to a protected branch (typed by a person only) |
 | `/wb:auto-retry` | Manages the automatic resume after a limit |
@@ -498,6 +523,62 @@ Test results docs/test-results/2026-10-17/integration-2238.xlsx · verdict passe
   unit: total 2 · passed 2 · failed 0 · skipped 0 · flaky 0
   gate: 1 steps · failed 0 · not run 0
 ```
+
+### /wb:quality-unit
+
+- When: the unit tests must run with a recorded result, or the ship precheck shows the unit result as missing, stale or failed.
+- How: commit your changes first. Run `wb-quality run --category unit`. Quote the figures of the `[quality] …` line; on a failure fix the cause and run it again. Commit the result JSON, the workbook and the index.
+- Example: `wb-quality run unit`
+
+### /wb:quality-integration
+
+- When: you need the result of integration tests that use real services such as a test database.
+- How: `wb-quality run --category integration`. Check first that the settings point at a fixed test instance, not the production database.
+- Example: `wb-quality run pg`
+
+### /wb:quality-gate
+
+- When: you keep the result of gate steps such as docs, code rules and type checks.
+- How: a gate suite lists its steps in `steps`. Every step runs even when an earlier one fails, and each step counts as one test, so a removed step shows up as fewer tests.
+- Example: `wb-quality run gate`
+
+### /wb:quality-e2e
+
+- When: you need the end-to-end test result.
+- How: `wb-quality run --category e2e`. It runs headless in the `heavy,browser` slot. With the `playwright` format a `test.fixme` counts as fixme and a pass after a retry as flaky. For the case ledger comparison use `/wb:test-report` as well.
+- Example: `wb-quality run e2e`
+
+### /wb:quality-uistab
+
+- When: you need the result of the layout, overflow and visual check harness.
+- How: list the harness threshold files under the suite's `thresholds` (`max` when a larger number is looser, `min` when a smaller one is). The result keeps the file hashes, and the precheck blocks a loosening.
+- Example: `wb-quality run uistab`
+
+### /wb:quality-usability
+
+- When: you need a usability result from a first-time user's point of view.
+- How: the automated part runs as the suite command. For the agent part, send a beginner stand-in agent with a brief per scenario and collect goal reached, steps, wrong turns and blockers. A scenario passes when the goal was reached, nothing blocked and the steps stayed within 1.5 × the expected steps. The whole test passes when every P0 scenario passed and nothing blocked. Record it with `wb-quality record`.
+- Example: `wb-quality record usability --verdict passed --from usability.json`
+
+### /wb:ship-verify
+
+- When: deciding whether to ship, or when the ship gate hook blocked a readiness skill or agent.
+- How: commit everything and run `wb-quality precheck --run`. Give the cause of a failed kind to a lane (a brief is required), then run that kind again. Repeat until it passes. Revert a weakening or get the owner's acceptance. Once the precheck passes, run ship verification, record the verdict with `wb-quality record ship --verdict passed|failed --report <report>`, then roll up with `/wb:quality-report`.
+- Example:
+
+```
+wb-quality precheck --run
+Ship precheck · HEAD 9df034edb
+  unit         ok       2026-10-18 9df034edb passed
+  e2e          weakened 2026-10-18 9df034edb passed  — more skipped or fixme 2→5 (baseline be05687d1)
+Blocked: 1 items did not pass. Ship verification cannot start.
+```
+
+### /wb:quality-report
+
+- When: you need the quality report of a version, or ship verification is done.
+- How: `wb-quality report [--version <version>]` builds `quality-<version>.xlsx` (summary, one sheet per kind, run history) and `.md` and `.html` from the newest result per kind of that version. When the text goes into a customer document, keep the figures with their version and date and leave out internal paths and tool names.
+- Example: `wb-quality report --version 1.6.0`
 
 ### /wb:report
 

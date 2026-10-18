@@ -259,6 +259,8 @@ wb-check test-results [--json] [--require-pass]
 
 저장 위치는 `paths.test_results`(기본 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx`, 같은 이름의 `.json` 이 함께 생긴다)이고 커밋한다. 원본 로그는 `paths.test_runs_raw` 에 두며 커밋하지 않는다. `test-results/` 같은 넓은 `.gitignore` 패턴이 `docs/test-results/` 를 가리면 `/wb:init` 이 예외 줄을 제안하고, `wb-check test-results` 는 커밋되지 않은 파일로 보고한다. `/wb:report` 는 `wb-check test-results --json` 의 `file`·`json` 을 증거로 붙이고 `wb-test-report summary --json` 의 수치를 그대로 인용한다.
 
+**종류별 결과와 출하 검증 관문.** `wb-quality` 는 단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증 결과를 종류마다 따로 `docs/test-results/<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx` 로 남기고 색인(`index.json`·`INDEX.md`)을 갱신한다. 명령은 `.wb/config.json` 의 `quality.suites` 에 적는다(예: `examples/quality-config.json`). 품질 스킬(`/wb:quality-unit`·`/wb:quality-integration`·`/wb:quality-gate`·`/wb:quality-e2e`·`/wb:quality-uistab`·`/wb:quality-usability`)이 종류별로 돌리고, `/wb:quality-report` 가 버전 취합본(엑셀·Markdown·HTML)을 만든다. `quality.ship.requires` 를 설정하면 출하 검증 스킬·에이전트를 부르기 전에 훅이 각 종류의 최신 결과를 확인한다. 없거나 다른 커밋의 것이거나 실패했으면 막고, `/wb:ship-verify`(`wb-quality precheck --run`)가 다시 돌린다. 직전 통과 결과보다 시험 수가 줄거나 건너뜀·보류가 늘거나 임계값이 완화된 결과도 막는다.
+
 ## 검수·취합·보고
 
 레인이 끝나면 메인 세션은 검수(`/wb:review-lane`) → 취합(`/wb:integrate`) → 보고(`/wb:report`) 순서로 진행한다. 판정은 스크립트가 하고, 사람이 정할 것(되돌림을 보낼지, 병합 준비를 마칠지)만 묻는다.

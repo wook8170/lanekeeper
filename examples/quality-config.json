@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "quality": {
+    "results_root": "docs/test-results",
+    "raw_root": "test-results/runs",
+    "version_file": "VERSION",
+    "suites": {
+      "unit": {
+        "category": "unit",
+        "command": "pnpm -r --workspace-concurrency=1 test",
+        "parser": "vitest-log",
+        "slot": "heavy",
+        "note": "vitest per package; the log has one Tests line per package"
+      },
+      "pg": {
+        "category": "integration",
+        "command": "pnpm test:pg",
+        "parser": "vitest-log",
+        "slot": "heavy",
+        "env": { "PG_URL_TEST": "postgres://test:test@localhost:55432/test" },
+        "note": "a fixed test database, never the working one"
+      },
+      "gate": {
+        "category": "gate",
+        "slot": "heavy",
+        "steps": [
+          { "name": "docs", "cmd": "pnpm docs:check" },
+          { "name": "design-lint", "cmd": "pnpm design-lint:ci" },
+          { "name": "migration-lint", "cmd": "pnpm migration-lint" },
+          { "name": "lint", "cmd": "pnpm -r lint" },
+          { "name": "typecheck", "cmd": "pnpm -r typecheck" }
+        ],
+        "thresholds": ["scripts/design-lint/baseline.json"]
+      },
+      "e2e": {
+        "category": "e2e",
+        "command": "pnpm e2e --grep @p0 --reporter=list,json",
+        "parser": "playwright",
+        "slot": "heavy,browser",
+        "env": { "PLAYWRIGHT_JSON_OUTPUT_NAME": "{file}" },
+        "timeout_min": 120
+      },
+      "uistab": {
+        "category": "uistab",
+        "command": "pnpm uistab --json {file}",
+        "parser": "json",
+        "slot": "heavy,browser",
+        "thresholds": [{ "file": "scripts/uistab/thresholds.json", "rule": "max" }]
+      },
+      "usability": {
+        "category": "usability",
+        "stale_paths": ["apps/**", "packages/tokens/**"],
+        "note": "beginner stand-in agents; /wb:quality-usability records the result"
+      }
+    },
+    "ship": {
+      "requires": ["unit", "pg", "gate", "e2e", "uistab", "usability"],
+      "enforce": "deny"
+    }
+  }
+}

@@ -22,6 +22,16 @@
         ]
       },
       {
+        "matcher": "Agent|Task|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/scripts/quality/ship-gate.mjs",
+            "timeout": 20
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {

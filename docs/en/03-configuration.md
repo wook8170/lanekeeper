@@ -185,6 +185,35 @@ Placeholders are `{lane}`, `{date}`, `{slug}`, `{name}`, `{HHMM}`, `{stamp}` and
 | `project.ui_stability.enabled` | `false` | Reserved | keep the default |
 | `project.ui_stability.adapter` | `"uistab.adapter.ts"` | Reserved | keep the default |
 
+**Quality results and the ship precheck (`project.quality`)**
+
+| Key | Default | Meaning | Example |
+|---|---|---|---|
+| `project.quality.results_root` | `"docs/test-results"` | Folder of the results per kind (`<version>/<date>/<kind>-<HHMM>.json` and `.xlsx`), the index and the version roll-ups (committed) | keep the default |
+| `project.quality.raw_root` | `"test-results/runs"` | Folder of raw files such as run logs (not committed) | keep the default |
+| `project.quality.version_file` | `"VERSION"` | File whose first line is the version. Without it, the version in `package.json` | `"version.txt"` |
+| `project.quality.suites` | `{}` | Run settings per kind name. Fields in the table below | see the settings example |
+| `project.quality.ship.requires` | `[]` | Kinds that must pass before ship verification. Empty turns the precheck off | `["unit","e2e","gate"]` |
+| `project.quality.ship.enforce` | `"deny"` | What the gate hook does: `deny` (block) · `warn` (note only) · `off` | `"warn"` |
+| `project.quality.ship.agents` | `["readiness-auditor"]` | Subagent types that need the precheck (the name part of `plugin:name` also matches) | keep the default |
+| `project.quality.ship.skills` | `["verifying-production-readiness"]` | Skills that need the precheck. A subagent prompt that names one also needs it | keep the default |
+
+Fields of each `quality.suites` entry:
+
+| Field | Meaning |
+|---|---|
+| `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ship`. The quality skills pick suites by category. Without it: the kind name when that is a category, otherwise `unit` |
+| `command` | Shell command to run. `{file}` becomes the result file, `{dir}` the raw folder, `{root}` the repository. Without it and without `steps`, the skill tests and records the kind with `wb-quality record` |
+| `steps` | `[{ "name": "docs", "cmd": "…" }]`. Each step runs on its own and counts as one test |
+| `parser` | Result format: `vitest` · `jest` · `playwright` · `pytest` (JUnit XML) · `vitest-log` (sum of the `Tests` lines in the log) · `json` (a file with `counts`) · `exit` (exit code only) · `steps`. Default `steps` when steps are set, otherwise `exit` |
+| `result` | Result file path. Default `{dir}/result.json` (`result.xml` for pytest). A `*` in the last path part merges several files |
+| `slot` | `heavy` (default) · `browser` · `heavy,browser` · `none` |
+| `thresholds` | Threshold files: `"path"` or `{ "file": "path", "rule": "max" }`. `max` counts a larger number as looser, `min` a smaller one, and a longer array is looser. Without a rule any change of the content is a weakening |
+| `stale_paths` | A result is stale only when these paths (globs) changed. Without it, any change outside the results folder |
+| `timeout_min` | Stop the command after this many minutes. 0 means no limit |
+| `env` | Extra environment variables for the command. Values may use `{file}` and `{dir}` |
+| `note` | Description |
+
 **Code index, runs and lanes**
 
 | Key | Default | Meaning | Example |
@@ -238,6 +267,22 @@ The default `project.integrate.rules` are seven rules. `**/*.cases.json` and `**
   "worktree": { "setup": "npm ci" },
   "slots": { "heavy": ["^make all$"] },
   "machine": { "lanes": { "max": 2 } }
+}
+```
+
+**Quality suites (`quality` in `.wb/config.json`)**
+
+An example for a pnpm monorepo with unit tests, a test database, gate steps, e2e, UI stability and usability. The full file is [examples/quality-config.json](../../examples/quality-config.json) in the plugin.
+
+```json
+"quality": {
+  "suites": {
+    "unit": { "command": "pnpm -r --workspace-concurrency=1 test", "parser": "vitest-log" },
+    "gate": { "category": "gate", "steps": [{ "name": "docs", "cmd": "pnpm docs:check" }, { "name": "lint", "cmd": "pnpm -r lint" }] },
+    "e2e": { "category": "e2e", "command": "pnpm e2e --reporter=list,json", "parser": "playwright", "slot": "heavy,browser", "env": { "PLAYWRIGHT_JSON_OUTPUT_NAME": "{file}" } },
+    "usability": { "category": "usability", "stale_paths": ["apps/**"] }
+  },
+  "ship": { "requires": ["unit", "gate", "e2e", "usability"] }
 }
 ```
 

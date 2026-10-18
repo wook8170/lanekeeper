@@ -9,9 +9,9 @@ wb (Agent Workbench) is a Claude Code plugin that keeps the rules for running se
 | 문서 | 내용 |
 |---|---|
 | [1. 시작하기](ko/01-getting-started.md) | 설치, `/wb:init`, 처음 30분 따라 하기(브리프 → 시안 → 레인 → 검수 → 취합 → 보고) |
-| [2. 기능 안내](ko/02-features.md) | 기능별 사용법과 스킬 17개 |
+| [2. 기능 안내](ko/02-features.md) | 기능별 사용법과 스킬 25개 |
 | [3. 설정](ko/03-configuration.md) | 설정 층, 합치는 규칙, 키 전체 참조 |
-| [4. 규칙 안내](ko/04-rules.md) | 규칙 40개: 무엇을 막는지, 왜, 걸렸을 때 고치는 법 |
+| [4. 규칙 안내](ko/04-rules.md) | 규칙 41개: 무엇을 막는지, 왜, 걸렸을 때 고치는 법 |
 | [5. 문제 해결](ko/05-troubleshooting.md) | 메시지별 해결, 자주 묻는 질문, 알려진 제한 |
 
 ## English
@@ -19,9 +19,9 @@ wb (Agent Workbench) is a Claude Code plugin that keeps the rules for running se
 | Page | Contents |
 |---|---|
 | [1. Getting started](en/01-getting-started.md) | Installation, `/wb:init`, the first 30 minutes (brief → mockup → lane → review → integrate → report) |
-| [2. Features](en/02-features.md) | How to use each feature, and the 17 skills |
+| [2. Features](en/02-features.md) | How to use each feature, and the 25 skills |
 | [3. Configuration](en/03-configuration.md) | Settings layers, merge rules, reference of every key |
-| [4. Rules](en/04-rules.md) | The 40 rules: what each blocks, why, and how to fix the work |
+| [4. Rules](en/04-rules.md) | The 41 rules: what each blocks, why, and how to fix the work |
 | [5. Troubleshooting](en/05-troubleshooting.md) | Fixes by message, frequently asked questions, known limitations |
 
 ## 문서 관리 · Maintaining these pages

@@ -1106,6 +1106,44 @@
       }
     },
     {
+      "id": "ship-precheck",
+      "group": "quality",
+      "title": {
+        "ko": "출하 검증 전에 선행 검증 통과",
+        "en": "Required checks pass before ship verification"
+      },
+      "rule": {
+        "ko": "출하 검증은 단위·통합·게이트·e2e·UI 안정성·사용성 등 필수 검증이 모두 현재 커밋에서 통과한 뒤에만 시작한다. 결과가 없거나, 다른 커밋의 것이거나, 실패했으면 먼저 다시 돌려 통과시킨다. 직전 통과 결과보다 시험 수가 줄거나, 건너뜀·보류가 늘거나, 임계값이 완화된 결과는 통과로 보지 않는다.",
+        "en": "Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass."
+      },
+      "why": {
+        "ko": "출하 판정은 그 커밋의 실제 시험 결과에 기대야 한다. 오래된 결과나 시험을 줄여 얻은 통과는 판정의 근거가 되지 못한다.",
+        "en": "A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/quality/ship-gate.mjs",
+          "codes": [
+            "dispatch.ship_precheck"
+          ]
+        },
+        {
+          "kind": "tool",
+          "path": "bin/wb-quality",
+          "codes": []
+        },
+        {
+          "kind": "skill",
+          "path": "skills/ship-verify/SKILL.md"
+        }
+      ],
+      "recover": {
+        "ko": "`/wb:ship-verify` 를 실행한다. `wb-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 저장소 소유자가 자기 터미널에서 `wb-quality accept` 로 승인한다.",
+        "en": "Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal."
+      }
+    },
+    {
       "id": "number-reservation",
       "group": "quality",
       "title": {

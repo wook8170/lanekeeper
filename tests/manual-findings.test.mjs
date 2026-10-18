@@ -235,7 +235,7 @@ test('6 messages, skills and READMEs name only skills that exist', () => {
   const names = new Set(fs.readdirSync(path.join(root, 'skills')).filter((d) => fs.existsSync(path.join(root, 'skills', d, 'SKILL.md'))))
   const files = ['locales/ko.json', 'locales/en.json', 'README.md', 'README.en.md', ...[...names].map((n) => `skills/${n}/SKILL.md`)]
   for (const f of files) {
-    for (const m of fs.readFileSync(path.join(root, f), 'utf8').matchAll(/\/wb:([a-z][a-z-]*)/g)) assert.ok(names.has(m[1]), `${f}: /wb:${m[1]}`)
+    for (const m of fs.readFileSync(path.join(root, f), 'utf8').matchAll(/\/wb:([a-z][a-z0-9-]*)/g)) assert.ok(names.has(m[1]), `${f}: /wb:${m[1]}`)
   }
 })
 

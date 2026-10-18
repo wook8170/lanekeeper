@@ -52,5 +52,17 @@
     "regenerate": [],
     "guards": []
   },
-  "explain": { "links": [] }
+  "explain": { "links": [] },
+  "quality": {
+    "results_root": "docs/test-results",
+    "raw_root": "test-results/runs",
+    "version_file": "VERSION",
+    "suites": {},
+    "ship": {
+      "requires": [],
+      "enforce": "deny",
+      "agents": ["readiness-auditor"],
+      "skills": ["verifying-production-readiness"]
+    }
+  }
 }
