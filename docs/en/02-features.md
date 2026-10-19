@@ -2,7 +2,7 @@
 
 wb works in three ways. Hooks judge automatically before and after Claude Code runs a tool. The `wb-*` commands are run by you or by Claude. Skills (`/wb:<name>`) are task guides that make Claude run commands in a set order.
 
-This page explains when and how to use each feature, and ends with the 25 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+This page explains when and how to use each feature, and ends with the 26 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
 
 ## 1. Features at a glance
 
@@ -15,6 +15,7 @@ This page explains when and how to use each feature, and ends with the 25 skills
 | Progress record | Keeps `progress.md` as the current state, finished content goes to the archive | `wb-waves handoff` |
 | Test result workbook and case ledger | Saves integration results as xlsx, manages test cases and defects | `wb-test-report`, `wb-cases`, `wb-defects`, `/wb:test-report` |
 | Quality results and the ship precheck | Keeps test results per kind by version and date, checks the required verifications before ship verification | `wb-quality`, the quality skills such as `/wb:quality-unit`, `/wb:ship-verify`, `/wb:quality-report` |
+| Docs sync | Finds the documents a change of screens or features affects, drafts the edits, recaptures and checks, and blocks a change that leaves a required document alone | `wb-docs`, `/wb:docs-sync` |
 | Review, integrate and report | Nine-item review, rule-based merge, artifact report | `wb-check lane`, `wb-integrate`, `wb-art`, `/wb:review-lane`, `/wb:integrate`, `/wb:report` |
 | Mockup first | Blocks screen structure changes until a decision is recorded | `wb-decide`, `/wb:decide` |
 | Beginner layer | Guides a one-line request, explains blocks, sets the writing voice | `/wb:work`, `/wb:explain`, `/wb:writing-style` |
@@ -245,6 +246,16 @@ wb-quality report                           version roll-up quality-<version>.xl
 wb-quality index                            rebuild the index
 ```
 
+**Docs sync.** A change of screens or features has to reach the manual, guides, help articles, UI strings, product page, screenshots and changelog too. `wb-docs` builds an impact map from the change between the merge-base with the base branch (`docs_sync.base`) and the working tree. For each target (`docs_sync.targets`) it decides "required" or "review". Required: a document line that still quotes a phrase the screen code no longer has, the other side of a pair (`mirrors`), the rest of a group (`groups`), a generated document a rule (`rules`) asks for. Review: documents that mention the changed part of a screen, capture scenes that carry the test ids of the changed screens (recapture candidates) and the documents that show those pictures. Phrases come from string literals and text between tags; by default a phrase has at least two words (`text_pattern` changes that). When a required item is left alone in the same change, `wb-docs check` exits 1. With `docs_sync.targets` set, `wb-quality` knows a kind `docs` (category gate) that the ship precheck can require.
+
+```
+wb-docs map                                 impact map, drafts, recapture commands, what is left (writes nothing)
+wb-docs apply                               run the autofix commands that apply
+wb-docs drafts --out drafts.md              edit drafts per file
+wb-docs verify                              run the check commands
+wb-docs check                               gate: exit 1 while a required item is unmet
+```
+
 ## 8. Review, integrate and report
 
 When lanes finish, the main session goes through review → integrate → report. Commands make the verdicts; people decide only whether to send a return and whether to stop at "ready to merge".
@@ -352,7 +363,7 @@ Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window start
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `wb-retry mode bypassPermissions --i-understand`.
 
-## 13. The 25 skills
+## 13. The 26 skills
 
 Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skill on its own when a request matches its description. `/wb:approve` is the exception: it works only when a person types it.
 
@@ -378,6 +389,7 @@ Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skil
 | `/wb:quality-usability` | Runs a usability test with beginner stand-in agents and records it |
 | `/wb:ship-verify` | Gets the precheck through, then runs ship verification |
 | `/wb:quality-report` | Builds the quality report of a version (workbook, Markdown, HTML) |
+| `/wb:docs-sync` | Brings documents and screenshots up to date with a change of screens or features |
 | `/wb:report` | Publishes the final report as an artifact |
 | `/wb:approve` | Grants one change to a protected branch (typed by a person only) |
 | `/wb:auto-retry` | Manages the automatic resume after a limit |
@@ -579,6 +591,12 @@ Blocked: 1 items did not pass. Ship verification cannot start.
 - When: you need the quality report of a version, or ship verification is done.
 - How: `wb-quality report [--version <version>]` builds `quality-<version>.xlsx` (summary, one sheet per kind, run history) and `.md` and `.html` from the newest result per kind of that version. When the text goes into a customer document, keep the figures with their version and date and leave out internal paths and tool names.
 - Example: `wb-quality report --version 1.6.0`
+
+### /wb:docs-sync
+
+- When: after a change of screens or features, to bring the manual, documents, UI strings and screenshots along; or when `wb-docs check` or the quality kind `docs` failed.
+- How: read the impact map with `wb-docs map`, regenerate generated documents with `wb-docs apply`, and edit the text following `wb-docs drafts`. Recapture the candidates with the command in the map, on your own ports, headless, at scale 2. Check with `wb-docs verify` and repeat until `wb-docs check` passes. A document that keeps an old phrase on purpose goes into `docs_sync.ack_file` with the reason.
+- Example: `wb-docs drafts --out drafts.md`
 
 ### /wb:report
 

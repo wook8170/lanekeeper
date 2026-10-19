@@ -2,7 +2,7 @@
 
 wb 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Code 가 도구를 실행하기 전후에 자동으로 판정한다. `wb-*` 명령은 사람이나 Claude 가 직접 실행한다. 스킬(`/wb:<이름>`)은 Claude 에게 정해진 순서로 명령을 실행하게 하는 작업 안내다.
 
-이 문서는 기능별로 언제 쓰는지와 어떻게 쓰는지를 설명하고, 끝에 스킬 25개를 하나씩 정리했다. 설정 키의 기본값과 뜻은 [설정](03-configuration.md), 규칙별 이유와 복구 방법은 [규칙 안내](04-rules.md)에 있다.
+이 문서는 기능별로 언제 쓰는지와 어떻게 쓰는지를 설명하고, 끝에 스킬 26개를 하나씩 정리했다. 설정 키의 기본값과 뜻은 [설정](03-configuration.md), 규칙별 이유와 복구 방법은 [규칙 안내](04-rules.md)에 있다.
 
 ## 1. 기능 한눈에 보기
 
@@ -15,6 +15,7 @@ wb 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Code 가 �
 | 진행 기록 | `progress.md` 를 현재 상태로 유지, 끝난 내용은 아카이브 | `wb-waves handoff` |
 | 시험 결과 엑셀·케이스 원장 | 통합 검증 결과를 xlsx 로 저장, 시험 케이스와 결함 관리 | `wb-test-report`, `wb-cases`, `wb-defects`, `/wb:test-report` |
 | 품질 결과 보관·출하 검증 관문 | 종류별 시험 결과를 버전·날짜별로 보관, 출하 검증 전 선행 검증 확인 | `wb-quality`, `/wb:quality-unit` 등 품질 스킬, `/wb:ship-verify`, `/wb:quality-report` |
+| 문서 현행화 | 화면·기능 변경에서 고칠 문서를 찾아 초안·재촬영·검사까지 진행, 필수 문서를 안 고친 변경을 막음 | `wb-docs`, `/wb:docs-sync` |
 | 검수·취합·보고 | 9항목 검수, 규칙 기반 병합, 아티팩트 보고 | `wb-check lane`, `wb-integrate`, `wb-art`, `/wb:review-lane`, `/wb:integrate`, `/wb:report` |
 | 시안 먼저 | 화면 구조 변경을 결정 기록 전에 막음 | `wb-decide`, `/wb:decide` |
 | 초보자 계층 | 한 줄 요청 안내, 막힌 이유 설명, 문체 지정 | `/wb:work`, `/wb:explain`, `/wb:writing-style` |
@@ -245,6 +246,16 @@ wb-quality report                           버전 취합본 quality-<버전>.xl
 wb-quality index                            색인 다시 만들기
 ```
 
+**문서 현행화.** 화면·기능을 고치면 매뉴얼·안내서·도움말·화면 문구·제품 소개·스크린샷·변경 기록이 함께 바뀌어야 한다. `wb-docs` 는 기준 브랜치(`docs_sync.base`)와의 merge-base 부터 작업 트리까지의 변경으로 영향 지도를 만든다. 대상(`docs_sync.targets`)마다 「필수」와 「검토」를 판정한다. 필수는 화면 코드에서 사라진 문구가 아직 남아 있는 문서 줄, 짝 파일(`mirrors`)의 다른 쪽, 묶음(`groups`)의 나머지, 규칙(`rules`)이 요구한 생성 문서다. 검토는 바뀐 화면 부분의 문구가 나오는 문서, 바뀐 화면의 시험 ID 가 찍힌 촬영 장면(재촬영 후보)과 그 그림이 실린 문서다. 문구는 문자열과 태그 사이 글자에서 뽑고, 기본은 낱말 두 개 이상이다(`text_pattern` 으로 바꾼다). 필수 항목을 같은 변경에서 고치지 않으면 `wb-docs check` 가 종료 코드 1 을 낸다. `docs_sync.targets` 를 설정하면 `wb-quality` 에 종류 `docs`(범주 gate)가 생겨 출하 검증 관문에 넣을 수 있다.
+
+```
+wb-docs map                                 영향 지도 · 초안 · 재촬영 명령 · 남은 수동 항목(파일을 쓰지 않음)
+wb-docs apply                               해당하는 자동 생성 명령 실행
+wb-docs drafts --out drafts.md              파일별 수정 초안
+wb-docs verify                              검사 명령 실행
+wb-docs check                               관문: 필수 미충족이면 종료 코드 1
+```
+
 ## 8. 검수·취합·보고
 
 레인이 끝나면 메인 세션은 검수 → 취합 → 보고 순서로 진행한다. 판정은 명령이 하고, 사람은 되돌림을 보낼지와 병합 준비를 마칠지만 정한다.
@@ -352,7 +363,7 @@ wb-token status
 
 자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `wb-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜진다.
 
-## 13. 스킬 25개
+## 13. 스킬 26개
 
 스킬은 Claude Code 프롬프트에 `/wb:<이름>` 으로 입력한다. 설명에 맞는 요청을 하면 Claude 가 스스로 부르기도 한다. 단 `/wb:approve` 는 사람이 직접 입력할 때만 동작한다.
 
@@ -378,6 +389,7 @@ wb-token status
 | `/wb:quality-usability` | 초보 사용자 대역 에이전트로 사용성 시험을 하고 기록한다 |
 | `/wb:ship-verify` | 선행 검증 관문을 통과시킨 뒤 출하 검증을 한다 |
 | `/wb:quality-report` | 버전 품질 보고서(엑셀·Markdown·HTML)를 만든다 |
+| `/wb:docs-sync` | 화면·기능 변경에 맞춰 문서·스크린샷을 한 번에 현행화한다 |
 | `/wb:report` | 최종 보고를 아티팩트로 게시한다 |
 | `/wb:approve` | 보호 브랜치 반영을 한 번 허가한다(사람만 입력) |
 | `/wb:auto-retry` | 한도 뒤 자동 재개를 관리한다 |
@@ -580,6 +592,12 @@ wb-quality precheck --run
 - 언제: 버전 품질 보고서가 필요할 때, 출하 검증을 마쳤을 때.
 - 어떻게: `wb-quality report [--version <버전>]` 이 그 버전의 종류별 최신 결과로 `quality-<버전>.xlsx`(요약 + 종류별 시트 + 실행 이력)와 `.md`·`.html` 을 만든다. 고객용 문서로 옮길 때는 수치와 버전·날짜를 그대로 쓰고 내부 경로나 도구 이름은 쓰지 않는다.
 - 예시: `wb-quality report --version 1.6.0`
+
+### /wb:docs-sync
+
+- 언제: 화면·기능을 고친 뒤 매뉴얼·문서·화면 문구·스크린샷을 맞출 때, `wb-docs check` 나 품질 종류 `docs` 가 실패했을 때.
+- 어떻게: `wb-docs map` 으로 영향 지도를 보고, `wb-docs apply` 로 생성 문서를 다시 만들고, `wb-docs drafts` 의 초안대로 글을 고친다. 재촬영 후보는 지도에 나온 명령을 전용 포트·헤드리스·2배 배율로 돌린다. `wb-docs verify` 로 검사하고 `wb-docs check` 가 통과할 때까지 되풀이한다. 일부러 옛 문구를 남기는 문서는 근거와 함께 `docs_sync.ack_file` 에 적는다.
+- 예시: `wb-docs drafts --out drafts.md`
 
 ### /wb:report
 

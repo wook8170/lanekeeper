@@ -5,6 +5,9 @@
 ## [Unreleased]
 
 ### Added
+- 문서 현행화 `wb-docs`(`map`·`apply`·`drafts`·`verify`·`check`): 기준 브랜치와의 merge-base 부터 작업 트리까지의 변경으로 영향 지도를 만든다. 대상(`docs_sync.targets`)별로 필수(화면 코드에서 사라진 문구가 남은 문서 줄, 짝 파일 `mirrors`, 묶음 `groups`, 규칙 `rules` 의 require)와 검토(바뀐 화면 부분의 문구가 나오는 문서, 바뀐 화면의 시험 ID 가 찍힌 촬영 장면과 그 그림이 실린 문서)를 판정하고, 자동 생성 명령·파일별 수정 초안(옛 문구 → 새 문구)·재촬영 명령·검사·남은 수동 항목을 보여 준다. 촬영 장면은 캡처 스크립트의 키 묶음과 함수 호출 관계(최대 6단계)로 찾는다. `check` 는 필수 미충족이면 종료 코드 1, `--json` 은 품질 결과 `json` 형식(대상 하나 = 시험 하나), 확인 기록(`ack_file`)은 해당 항목만 통과로 센다
+- 품질 종류 `docs`(범주 gate): `docs_sync.targets` 가 있으면 `wb-quality` 가 `wb-docs check --base <quality_base>` 를 실행하는 종류를 등록한다(같은 이름의 스위트가 있으면 그쪽). `quality.ship.requires` 에 넣으면 출하 검증 관문이 요구한다. 대상을 빼면 시험 수 감소로 약화 판정
+- 스킬 `/wb:docs-sync`(스킬 26개), 설정 `project.docs_sync.*`(24개 키), 예시 `examples/docs-sync-config.json`, 설명서 ko/en, 시험 `tests/docsync.test.mjs` 15건(수정 전 15건 실패 확인)
 - 종류별 품질 결과 보관 `wb-quality`(`list`·`run`·`record`·`index`·`status`·`precheck`·`report`·`accept`): 단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증 결과를 종류마다 공통 머리 JSON(`quality-result/1`: 종류·범주·버전·커밋·브랜치·미커밋 여부·시작·끝·환경·판정·총·통과·실패·건너뜀·보류·간헐·임계 파일 해시·원자료 위치)과 엑셀로 `<결과 루트>/<버전>/<날짜>/<종류>-<HHMM>.{json,xlsx}` 에 남긴다. 실행은 `wb-slot` 슬롯과 게이트 잠금 안에서 한다. 결과 형식: `vitest`·`jest`·`playwright`(fixme 주석·재시도 통과 구분)·`pytest`(JUnit XML)·`vitest-log`(모노저장소 로그의 `Tests` 줄 합계)·`json`·`exit`·`steps`(단계마다 시험 하나)
 - 결과 색인 `index.json`(`quality-index/1`)·`INDEX.md`: 결과 파일을 훑어 다시 만든다. 이전 형식의 날짜 폴더와 공통 머리가 없는 요약은 내용으로 추정해 올리고(`legacy`·`inferred`), 다른 도구가 붙인 선택 키(`originalPath`·`versionBasis`·`external`·`run`)는 다시 만들어도 남긴다
 - 버전 품질 보고서 `wb-quality report`: 버전별 종류 최신 결과로 `quality-<버전>.xlsx`(요약·종류별 시트·실패·실행 이력)와 `.md`·`.html`(밝기 테마 양쪽)을 만든다. 결과 없는 필수 종류, 직전 통과보다 약해진 종류, 알려진 문제(최신 실패), 제외 항목(건너뜀·보류)을 적는다

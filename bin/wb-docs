@@ -1,0 +1,234 @@
+#!/usr/bin/env node
+// wb-docs — docs sync after a change of screens or features (settings: project.docs_sync).
+//
+//   wb-docs map [--base <ref>] [--json <file>]     impact map: per target verdict, required and review
+//                                                  items, automatic regeneration, edit drafts, recapture
+//                                                  commands, checks and what is left by hand (writes nothing)
+//   wb-docs apply [--base <ref>]                   run the autofix commands that apply to this change
+//   wb-docs drafts [--base <ref>] [--out <file>]   edit drafts per file (old phrase → new phrase, pictures)
+//   wb-docs verify [--base <ref>]                  run the check commands one by one
+//   wb-docs check [--base <ref>] [--strict] [--json <file>]
+//                                                  gate: exit 1 while a required item is unmet; --json
+//                                                  writes counts · suites · failures (quality parser json)
+//
+// The change is the merge-base with the base (docs_sync.base, default main) up to the working tree,
+// uncommitted and untracked files included. --base release takes the newest tag matching
+// docs_sync.release_tag. With project.docs_sync.targets set, wb-quality knows a kind `docs`
+// (category gate) that runs `wb-docs check --base <docs_sync.quality_base>`.
+import fs from 'node:fs'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
+
+const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
+const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
+const { load, parseOptions } = await imp('cli.mjs')
+const { getPath } = await imp('config.mjs')
+const { translator } = await imp('i18n.mjs')
+const D = await imp('docsync.mjs')
+
+const args = parseOptions(process.argv.slice(2), ['strict'])
+const { root, resolved } = load(args)
+const t = translator(resolved.effective.language)
+const raw = getPath(resolved.config, 'project.docs_sync') || {}
+const cfg = D.normalizeConfig(raw)
+const print = (s = '') => process.stdout.write(`${s}\n`)
+const warn = (s) => process.stderr.write(`${s}\n`)
+const [cmd = 'map'] = args._
+
+function git(a, { allowFail = false } = {}) {
+  const r = spawnSync('git', ['-C', root, '-c', 'core.quotepath=off', ...a], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+  if (r.status !== 0) {
+    if (allowFail) return null
+    throw new Error(`git ${a.join(' ')}: ${(r.stderr || '').trim()}`)
+  }
+  return r.stdout
+}
+
+function resolveBase(wanted) {
+  let ref = wanted || cfg.base
+  if (ref === 'release') {
+    const tag = (git(['describe', '--tags', '--abbrev=0', `--match=${cfg.releaseTag}`], { allowFail: true }) || '').trim()
+    if (!tag) warn(t('docs.no_release_tag', { pattern: cfg.releaseTag, base: cfg.base }))
+    ref = tag || cfg.base
+  }
+  const mb = (git(['merge-base', 'HEAD', ref], { allowFail: true }) || '').trim()
+  if (!mb && !git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { allowFail: true })) {
+    warn(t('docs.bad_base', { ref }))
+    process.exit(2)
+  }
+  return { ref, sha: mb || ref }
+}
+
+const readFile = (f) => {
+  try { return fs.readFileSync(path.join(root, f), 'utf8') } catch { return null }
+}
+
+function collect(base) {
+  const changed = []
+  for (const line of git(['diff', '--name-status', '-M', base.sha]).split('\n').filter(Boolean)) {
+    const [st, a, b] = line.split('\t')
+    if (st.startsWith('R')) { changed.push({ file: b, status: 'R', from: a }); changed.push({ file: a, status: 'D' }) } else changed.push({ file: a, status: st[0] })
+  }
+  const untracked = git(['ls-files', '--others', '--exclude-standard']).split('\n').filter(Boolean)
+  for (const f of untracked) if (!changed.some((c) => c.file === f)) changed.push({ file: f, status: 'A' })
+  const isScreen = (f) => D.matchAny(f, cfg.screenSources) && !D.matchAny(f, cfg.screenExclude) && !D.matchAny(f, cfg.ignore)
+  const screens = changed.filter((c) => isScreen(c.file))
+  let diffText = ''
+  const tracked = screens.filter((c) => !untracked.includes(c.file)).map((c) => c.file)
+  for (let i = 0; i < tracked.length; i += 200) diffText += git(['diff', '-U3', '--no-color', '--no-ext-diff', base.sha, '--', ...tracked.slice(i, i + 200)])
+  for (const c of screens.filter((x) => untracked.includes(x.file))) {
+    const body = readFile(c.file) || ''
+    diffText += `\ndiff --git a/${c.file} b/${c.file}\nnew file mode 100644\n--- /dev/null\n+++ b/${c.file}\n@@ -0,0 +1 @@\n${body.split('\n').map((l) => `+${l}`).join('\n')}\n`
+  }
+  const all = [...git(['ls-files']).split('\n').filter(Boolean), ...untracked]
+  return { changed, diff: D.parseDiff(diffText), read: readFile, list: (globs) => all.filter((f) => D.matchAny(f, globs) && fs.existsSync(path.join(root, f))) }
+}
+
+function loadAcks() {
+  if (!cfg.ackFile) return []
+  try { return JSON.parse(fs.readFileSync(path.join(root, cfg.ackFile), 'utf8')).acks || [] } catch { return [] }
+}
+
+const level = (l) => (l ? t(`docs.level.${l}`) : '-')
+const reason = (it) => t(`docs.reason.${it.code}`, { ...it.vars, more: it.vars?.more ? t('docs.and_more', { n: it.vars.more }) : '' })
+function itemLine(it) {
+  const where = it.file ? `${it.file}${it.line ? `:${it.line}` : ''}` : t('docs.any_path')
+  const fix = it.suggestion ? ` → "${it.suggestion}"` : ''
+  return `${where} — ${reason(it)}${fix}`
+}
+
+function table(map) {
+  const rows = map.targets.filter((x) => x.level || x.changed)
+  const out = [`| ${t('docs.col.target')} | ${t('docs.col.level')} | ${t('docs.col.changed')} | ${t('docs.col.items')} |`, '|---|---|---|---|']
+  for (const x of rows) out.push(`| ${x.name || x.id} (${x.id}) | ${level(x.level)} | ${x.changed ? t('docs.yes') : t('docs.no')} | ${x.count} |`)
+  if (!rows.length) out.push(`| ${t('docs.none')} | - | - | 0 |`)
+  return out.join('\n')
+}
+
+function drafts(map) {
+  const out = []
+  const byFile = new Map()
+  for (const it of map.items) if (it.file) byFile.set(it.file, [...(byFile.get(it.file) || []), it])
+  for (const [file, list] of byFile) {
+    out.push(`- [ ] \`${file}\` (${level(list.some((i) => i.level === 'required') ? 'required' : 'review')})`)
+    for (const it of list.slice(0, 6)) {
+      const at = it.line ? t('docs.draft.line', { line: it.line }) : ''
+      if (it.phrase && it.suggestion) out.push(`  - ${at}${t('docs.draft.replace', { from: it.phrase, to: it.suggestion })}`)
+      else if (it.phrase && it.level === 'required') out.push(`  - ${at}${t('docs.draft.gone', { phrase: it.phrase })}`)
+      else if (it.phrase) out.push(`  - ${at}${t('docs.draft.nearby', { phrase: it.phrase })}`)
+      else if (it.image) out.push(`  - ${t('docs.draft.image', { image: it.image })}`)
+      else out.push(`  - ${reason(it)}`)
+    }
+    if (list.length > 6) out.push(`  - ${t('docs.and_more', { n: list.length - 6 })}`)
+  }
+  for (const it of map.items.filter((i) => !i.file && i.level === 'required')) out.push(`- [ ] ${it.target}: ${reason(it)}`)
+  if (map.phrases.added.length) out.push('', t('docs.draft.new_phrases', { list: map.phrases.added.slice(0, 20).map((p) => `"${p}"`).join(' · ') }))
+  if (out.length && map.style) out.push('', t('docs.draft.style', { style: map.style }))
+  return out.join('\n')
+}
+
+function report(map, gate, base) {
+  const out = [`# ${t('docs.title')}`, '', t('docs.summary', { ref: base.ref, sha: base.sha.slice(0, 9), changed: map.changed.length, screens: map.screenFiles.length }), '']
+  out.push(`## 1. ${t('docs.sec.map')}`, '', table(map), '')
+  const changedSet = new Set(map.changed.map((c) => c.file))
+  const req = map.items.filter((i) => i.level === 'required')
+  if (req.length) {
+    out.push(`### ${t('docs.sec.required')}`, '')
+    for (const it of req) out.push(`- [${(it.file ? changedSet.has(it.file) : !gate.missing.includes(it)) ? 'x' : ' '}] ${it.target} · ${itemLine(it)}`)
+    out.push('')
+  }
+  const rev = map.items.filter((i) => i.level === 'review')
+  if (rev.length) {
+    out.push(`### ${t('docs.sec.review', { n: rev.length })}`, '')
+    const by = new Map()
+    for (const it of rev) by.set(it.target, [...(by.get(it.target) || []), it])
+    for (const [k, list] of by) {
+      out.push(`- ${k || t('docs.outside')}: ${list.length}`)
+      for (const it of list.slice(0, 8)) out.push(`  - ${itemLine(it)}`)
+      if (list.length > 8) out.push(`  - ${t('docs.and_more', { n: list.length - 8 })}`)
+    }
+    out.push('')
+  }
+  if (map.screens.length) out.push(t('docs.screens', { list: map.screens.map((s) => s.id).join(', ') }), '')
+  if (map.skippedPhrases.length) out.push(t('docs.skipped', { list: map.skippedPhrases.slice(0, 10).map((p) => `"${p.phrase}" (${p.files})`).join(', ') }), '')
+  out.push(`## 2. ${t('docs.sec.autofix')}`, '')
+  out.push(map.autofix.length ? map.autofix.map((a) => `- ${a.name}: \`${a.command}\``).join('\n') : `- ${t('docs.none')}`, '', t('docs.apply_hint'), '')
+  out.push(`## 3. ${t('docs.sec.drafts')}`, '', drafts(map) || `- ${t('docs.none')}`, '')
+  out.push(`## 4. ${t('docs.sec.shots')}`, '')
+  if (map.shots.length) {
+    for (const s of map.shots.slice(0, 40)) out.push(`- ${s.key} → ${s.path || s.image} (${s.testids.slice(0, 3).join(', ')})`)
+    if (map.shots.length > 40) out.push(`- ${t('docs.and_more', { n: map.shots.length - 40 })}`)
+    if (map.recapture) out.push('', t('docs.shots_hint'), '', '```', map.recapture, '```')
+  } else out.push(`- ${t('docs.none')}`)
+  out.push('', `## 5. ${t('docs.sec.checks')}`, '')
+  out.push(map.checks.length ? map.checks.map((c) => `- ${c.name}: \`${c.command}\``).join('\n') : `- ${t('docs.none')}`, '', t('docs.verify_hint'), '')
+  out.push(`## 6. ${t('docs.sec.manual')}`, '')
+  const manual = [...map.manual, ...gate.missing.map((it) => t('docs.unmet', { target: it.target, item: itemLine(it) }))]
+  out.push(manual.length ? manual.map((m) => `- ${m}`).join('\n') : `- ${t('docs.none')}`, '')
+  out.push(gateLine(gate))
+  return out.join('\n')
+}
+
+const gateLine = (gate) => t(gate.verdict === 'passed' ? 'docs.gate.passed' : 'docs.gate.failed', { ...gate.required, warnings: gate.warnings.length })
+
+function run(command) {
+  print(`\n$ ${command}`)
+  const r = spawnSync(command, { cwd: root, shell: true, stdio: 'inherit', env: process.env })
+  print(t('docs.exit', { code: r.status ?? 1 }))
+  return r.status ?? 1
+}
+
+if (!cfg.targets.length) {
+  warn(t('docs.no_config'))
+  process.exit(2)
+}
+if (!['map', 'apply', 'drafts', 'verify', 'check'].includes(cmd)) {
+  warn(t('docs.unknown_cmd', { cmd }))
+  process.exit(2)
+}
+const base = resolveBase(typeof args.base === 'string' ? args.base : '')
+const map = D.buildImpactMap({ config: raw, ...collect(base) })
+const gate = D.judgeGate(map, { acks: loadAcks(), strict: Boolean(args.strict) })
+const out = (file, obj) => fs.writeFileSync(path.resolve(root, file), `${JSON.stringify(obj, null, 1)}\n`)
+
+if (cmd === 'map') {
+  print(report(map, gate, base))
+  if (typeof args.json === 'string') out(args.json, { base, map: { ...map, changed: map.changed.length }, gate })
+} else if (cmd === 'drafts') {
+  const md = `# ${t('docs.sec.drafts')} (${base.ref})\n\n${drafts(map) || `- ${t('docs.none')}`}\n`
+  if (typeof args.out === 'string') {
+    fs.writeFileSync(path.resolve(root, args.out), md)
+    print(t('docs.wrote', { file: args.out }))
+  } else print(md)
+} else if (cmd === 'apply') {
+  if (!map.autofix.length) print(t('docs.nothing_to_apply'))
+  let bad = 0
+  for (const a of map.autofix) if (run(a.command) !== 0) bad++
+  process.exitCode = bad ? 1 : 0
+} else if (cmd === 'verify') {
+  let bad = 0
+  for (const c of map.checks) if (run(c.command) !== 0) bad++
+  print(t('docs.verify_done', { n: map.checks.length, bad }))
+  process.exitCode = bad ? 1 : 0
+} else if (cmd === 'check') {
+  print(t('docs.check_head', { ref: base.ref, sha: base.sha.slice(0, 9), screens: map.screenFiles.length }))
+  print(table(map))
+  for (const it of gate.missing) print(`  ✗ ${it.target} · ${itemLine(it)}`)
+  for (const it of gate.acked) print(`  ✓ ${it.target} · ${itemLine(it)} — ${t('docs.acked', { reason: it.ack.reason || '-' })}`)
+  if (gate.warnings.length) print(`  · ${t('docs.warnings', { n: gate.warnings.length })}`)
+  print(gateLine(gate))
+  if (typeof args.json === 'string') {
+    out(args.json, {
+      counts: gate.counts,
+      suites: map.targets.map((x) => {
+        const failed = gate.failedTargets.includes(x.id) ? 1 : 0
+        return { name: x.id, total: 1, passed: 1 - failed, failed, skipped: 0, fixme: 0, flaky: 0 }
+      }),
+      failures: gate.missing.slice(0, 200).map((it) => ({ suite: it.target || '-', name: it.file || it.target, message: itemLine(it).slice(0, 300) })),
+      notes: [t('docs.note', { ref: base.ref, ...gate.required, warnings: gate.warnings.length })],
+      detail: { base, required: gate.required, failedTargets: gate.failedTargets, warnings: gate.warnings.length },
+    })
+  }
+  process.exitCode = gate.verdict === 'passed' ? 0 : 1
+}

@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "docs_sync": {
+    "base": "main",
+    "release_tag": "v*",
+    "quality_base": "release",
+    "screen_sources": ["apps/web/src/screens/**", "apps/web/src/components/**"],
+    "screen_exclude": ["apps/web/src/screens/manual/**"],
+    "ignore": ["**/*.test.*", "**/*.spec.*", "**/*.css"],
+    "text_pattern": "",
+    "min_phrase_length": 4,
+    "max_files_per_phrase": 12,
+    "targets": [
+      { "id": "manual", "name": "In-app manual", "paths": ["apps/web/src/screens/manual/**"] },
+      { "id": "manual-shots", "name": "Manual screenshots", "kind": "shots", "paths": ["apps/web/public/manual/**"] },
+      { "id": "user-docs", "name": "User guide", "paths": ["docs/guide/**/*.md"] },
+      { "id": "dev-docs", "name": "Developer docs", "paths": ["docs/dev/**/*.md"] },
+      { "id": "help", "name": "Help center articles", "paths": ["apps/api/help/*.md"] },
+      { "id": "locales", "name": "UI strings", "paths": ["apps/web/src/locales/**"] },
+      { "id": "landing", "name": "Product page", "paths": ["apps/site/src/content/**"] },
+      { "id": "api-ref", "name": "API reference", "kind": "generated", "paths": ["docs/api/reference.md"] },
+      { "id": "roadmap", "name": "Roadmap and its copy", "paths": ["docs/roadmap.md", "apps/web/src/screens/about/roadmap.ts"] },
+      { "id": "changelog", "name": "Changelog", "paths": ["CHANGELOG.md"] }
+    ],
+    "rules": [
+      { "when": ["apps/web/src/screens/**", "apps/web/src/components/**"], "unless": ["apps/web/src/screens/manual/**"], "review": ["manual", "user-docs", "help", "landing", "changelog"], "why": "screen code changed" },
+      { "when": ["apps/api/src/routes/**"], "require": ["api-ref"], "review": ["dev-docs", "changelog"], "why": "API changed" },
+      { "when": ["VERSION"], "require": ["changelog"], "why": "version changed" }
+    ],
+    "mirrors": [
+      { "from": "^apps/web/src/locales/en/(.+)\\.json$", "to": "apps/web/src/locales/ko/$1.json", "target": "locales" },
+      { "from": "^apps/web/src/locales/ko/(.+)\\.json$", "to": "apps/web/src/locales/en/$1.json", "target": "locales" }
+    ],
+    "groups": [
+      { "name": "roadmap and its copy on the about screen", "target": "roadmap", "files": ["docs/roadmap.md", "apps/web/src/screens/about/roadmap.ts"] }
+    ],
+    "reverse_index": { "targets": ["manual", "user-docs", "help", "landing"], "exclude": [] },
+    "shots": {
+      "scripts": [
+        {
+          "file": "scripts/capture.mjs",
+          "call_pattern": "\\bshot\\(page, ['\"`]([\\w.-]+)['\"`]",
+          "key_pattern": "^  ['\"]?([\\w-]+)['\"]?: \\{",
+          "key_scope": "^const SCENES = \\{",
+          "entry_functions": {},
+          "image": "apps/web/public/manual/{name}.png",
+          "ref": "/manual/{name}.png",
+          "command": ""
+        }
+      ],
+      "command": "SCENES={keys} BASE_URL=http://localhost:<own port> node scripts/capture.mjs"
+    },
+    "screen_registry": {},
+    "autofix": [
+      { "name": "API reference", "when": ["apps/api/src/routes/**"], "command": "pnpm api:docs" }
+    ],
+    "checks": [
+      { "name": "links and counts in docs", "when": [], "command": "pnpm docs:check" }
+    ],
+    "manual_items": [
+      { "when": ["VERSION"], "text": "Make the release brochure for this version and keep the previous ones" }
+    ],
+    "ack_file": ".wb/docs-sync-acks.json",
+    "style": "Short plain sentences, one fact each; quote screen text exactly as shown",
+    "fail_on": "required"
+  }
+}

@@ -549,7 +549,7 @@ If only result files were committed after the stamp, it stays valid. Any other c
 
 ## What to read next
 
-- [Features](02-features.md): how to use each feature, and the 25 skills
+- [Features](02-features.md): how to use each feature, and the 26 skills
 - [Configuration](03-configuration.md): settings layers and every key
 - [Rules](04-rules.md): the 41 rules and how to fix the work when blocked
 - [Troubleshooting](05-troubleshooting.md): common messages and questions

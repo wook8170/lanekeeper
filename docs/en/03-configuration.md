@@ -214,6 +214,37 @@ Fields of each `quality.suites` entry:
 | `env` | Extra environment variables for the command. Values may use `{file}` and `{dir}` |
 | `note` | Description |
 
+**Docs sync (`project.docs_sync`)**
+
+| Key | Default | Meaning | Example |
+|---|---|---|---|
+| `project.docs_sync.base` | `"main"` | Base branch. The change runs from the merge-base with it to the working tree (uncommitted and new files included) | `"develop"` |
+| `project.docs_sync.release_tag` | `"v*"` | Pattern of the newest tag `--base release` picks | `"release-*"` |
+| `project.docs_sync.quality_base` | `"release"` | Base of the quality kind `docs`. `release` is the newest release tag (or `base` without one) | `"main"` |
+| `project.docs_sync.screen_sources` | `[]` | Screen code paths (glob). Phrases and test ids are read from their changes | `["apps/web/src/screens/**"]` |
+| `project.docs_sync.screen_exclude` | `[]` | Paths left out of the screen code (screens that hold documents, …) | `["apps/web/src/screens/manual/**"]` |
+| `project.docs_sync.ignore` | `["**/*.test.*","**/*.spec.*"]` | Paths left out of every decision | keep the default |
+| `project.docs_sync.text_pattern` | `""` | Regular expression (Unicode) a phrase must match. Empty: at least two words | `"\\p{Script=Hangul}"` |
+| `project.docs_sync.min_phrase_length` | `4` | Shortest phrase in characters | `3` |
+| `project.docs_sync.max_files_per_phrase` | `12` | A phrase found in more documents than this is too common and left out of the reverse index | `20` |
+| `project.docs_sync.targets` | `[]` | Documents to keep current `[{ "id", "name", "kind", "paths" }]`. One target is one test in the quality result | see the example file |
+| `project.docs_sync.rules` | `[]` | `[{ "when", "unless", "require", "review", "why" }]`. Changed paths (`when`) make targets required or review | see the example file |
+| `project.docs_sync.mirrors` | `[]` | `[{ "from", "to", "target" }]`. When only a file matching `from` changed, the `to` file is required | see the example file |
+| `project.docs_sync.groups` | `[]` | `[{ "name", "target", "files" }]`. When part changed, the rest is required | see the example file |
+| `project.docs_sync.reverse_index.targets` | `[]` | Target ids searched for phrases that left or surround the change | `["manual","help"]` |
+| `project.docs_sync.reverse_index.exclude` | `[]` | Paths left out of the reverse index (generated files, …) | `["docs/generated/**"]` |
+| `project.docs_sync.shots.scripts` | `[]` | Capture scripts `[{ "file", "call_pattern", "key_pattern", "key_scope", "entry_functions", "image", "ref", "command" }]` | see the example file |
+| `project.docs_sync.shots.command` | `""` | Recapture command; `{keys}` becomes the scene keys | `"SCENES={keys} node scripts/capture.mjs"` |
+| `project.docs_sync.screen_registry` | `{}` | Screen list file `{ "file", "list", "sources", "id", "title" }`; shows the screens whose sources changed | `{"file":"e2e/screens.json","list":"screens"}` |
+| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs apply` runs the ones that apply | see the example file |
+| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs verify` runs them; an empty `when` always applies | see the example file |
+| `project.docs_sync.manual_items` | `[]` | `[{ "when", "text" }]`. Shown at the end of the map as work left by hand | see the example file |
+| `project.docs_sync.ack_file` | `".wb/docs-sync-acks.json"` | Acknowledgements of required items left alone on purpose (`{ "acks": [ … ] }`) | keep the default |
+| `project.docs_sync.style` | `""` | Writing-style note appended to the drafts | `"Short sentences; quote screen text exactly"` |
+| `project.docs_sync.fail_on` | `"required"` | What fails the gate: `required` · `review` (review items fail too) | `"review"` |
+
+A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-config.json) of the plugin.
+
 **Code index, runs and lanes**
 
 | Key | Default | Meaning | Example |

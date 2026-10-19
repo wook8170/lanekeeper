@@ -214,6 +214,37 @@ wb-config validate
 | `env` | 명령에 더할 환경 변수. 값에 `{file}` · `{dir}` 을 쓸 수 있다 |
 | `note` | 설명 |
 
+**문서 현행화(`project.docs_sync`)**
+
+| 키 | 기본값 | 뜻 | 예 |
+|---|---|---|---|
+| `project.docs_sync.base` | `"main"` | 비교 기준 브랜치. 변경 = 이 기준과의 merge-base 부터 작업 트리까지(미커밋·새 파일 포함) | `"develop"` |
+| `project.docs_sync.release_tag` | `"v*"` | `--base release` 가 고르는 최근 태그의 패턴 | `"release-*"` |
+| `project.docs_sync.quality_base` | `"release"` | 품질 종류 `docs` 가 비교할 기준. `release` 는 최근 릴리스 태그(없으면 `base`) | `"main"` |
+| `project.docs_sync.screen_sources` | `[]` | 화면 코드 경로(glob). 이 파일의 변경에서 문구와 시험 ID 를 읽는다 | `["apps/web/src/screens/**"]` |
+| `project.docs_sync.screen_exclude` | `[]` | 화면 코드에서 뺄 경로(문서를 담은 화면 등) | `["apps/web/src/screens/manual/**"]` |
+| `project.docs_sync.ignore` | `["**/*.test.*","**/*.spec.*"]` | 모든 판정에서 뺄 경로 | 기본값 유지 |
+| `project.docs_sync.text_pattern` | `""` | 문구로 볼 문자열의 정규식(유니코드). 비우면 낱말 두 개 이상 | `"\\p{Script=Hangul}"` |
+| `project.docs_sync.min_phrase_length` | `4` | 문구 최소 글자 수 | `3` |
+| `project.docs_sync.max_files_per_phrase` | `12` | 이보다 많은 문서에 나오는 문구는 너무 흔해 역색인에서 뺀다 | `20` |
+| `project.docs_sync.targets` | `[]` | 현행화 대상 `[{ "id", "name", "kind", "paths" }]`. 대상 하나가 품질 결과의 시험 하나 | 예시 파일 |
+| `project.docs_sync.rules` | `[]` | `[{ "when", "unless", "require", "review", "why" }]`. 바뀐 경로(`when`)에 따라 대상을 필수·검토로 | 예시 파일 |
+| `project.docs_sync.mirrors` | `[]` | `[{ "from", "to", "target" }]`. `from` 정규식에 맞는 파일만 바뀌면 `to` 파일이 필수 | 예시 파일 |
+| `project.docs_sync.groups` | `[]` | `[{ "name", "target", "files" }]`. 일부만 바뀌면 나머지가 필수 | 예시 파일 |
+| `project.docs_sync.reverse_index.targets` | `[]` | 사라진 문구 · 주변 문구를 찾을 대상 id | `["manual","help"]` |
+| `project.docs_sync.reverse_index.exclude` | `[]` | 역색인에서 뺄 경로(생성물 등) | `["docs/generated/**"]` |
+| `project.docs_sync.shots.scripts` | `[]` | 캡처 스크립트 `[{ "file", "call_pattern", "key_pattern", "key_scope", "entry_functions", "image", "ref", "command" }]` | 예시 파일 |
+| `project.docs_sync.shots.command` | `""` | 재촬영 명령. `{keys}` 에 장면 키 목록 | `"SCENES={keys} node scripts/capture.mjs"` |
+| `project.docs_sync.screen_registry` | `{}` | 화면 목록 파일 `{ "file", "list", "sources", "id", "title" }`. 바뀐 파일이 소스인 화면을 보여 준다 | `{"file":"e2e/screens.json","list":"screens"}` |
+| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs apply` 가 해당하는 것만 돈다 | 예시 파일 |
+| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs verify` 가 돈다. `when` 이 비면 늘 | 예시 파일 |
+| `project.docs_sync.manual_items` | `[]` | `[{ "when", "text" }]`. 사람이 할 일로 지도 끝에 나온다 | 예시 파일 |
+| `project.docs_sync.ack_file` | `".wb/docs-sync-acks.json"` | 일부러 고치지 않는 필수 항목의 확인 기록(`{ "acks": [ … ] }`) | 기본값 유지 |
+| `project.docs_sync.style` | `""` | 수정 초안 끝에 붙는 문체 안내 | `"짧은 문장, 화면 문구는 그대로 인용"` |
+| `project.docs_sync.fail_on` | `"required"` | 관문이 실패로 보는 수준. `required` · `review`(검토 항목도 실패) | `"review"` |
+
+설정 예는 플러그인의 [examples/docs-sync-config.json](../../examples/docs-sync-config.json) 에 있다.
+
 **코드 색인, 실행, 레인**
 
 | 키 | 기본값 | 뜻 | 예 |

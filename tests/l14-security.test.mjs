@@ -219,6 +219,7 @@ test('commands through a shell only where the user or project supplies the comma
   // Each place runs a command string written by the user or the project config, the same
   // trust as running it by hand. Adding a new place needs a security review.
   const allowed = new Map([
+    ['bin/wb-docs', 'project.docs_sync.autofix and checks (apply · verify)'],
     ['bin/wb-slot', 'the command the user wraps'],
     ['bin/wb-test-report', 'project.gate.command (gate-pass)'],
     ['lib/review.mjs', 'project.review.guards'],

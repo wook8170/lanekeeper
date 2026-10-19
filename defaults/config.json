@@ -64,5 +64,29 @@
       "agents": ["readiness-auditor"],
       "skills": ["verifying-production-readiness"]
     }
+  },
+  "docs_sync": {
+    "base": "main",
+    "release_tag": "v*",
+    "quality_base": "release",
+    "screen_sources": [],
+    "screen_exclude": [],
+    "ignore": ["**/*.test.*", "**/*.spec.*"],
+    "text_pattern": "",
+    "min_phrase_length": 4,
+    "max_files_per_phrase": 12,
+    "targets": [],
+    "rules": [],
+    "mirrors": [],
+    "groups": [],
+    "reverse_index": { "targets": [], "exclude": [] },
+    "shots": { "scripts": [], "command": "" },
+    "screen_registry": {},
+    "autofix": [],
+    "checks": [],
+    "manual_items": [],
+    "ack_file": ".wb/docs-sync-acks.json",
+    "style": "",
+    "fail_on": "required"
   }
 }
