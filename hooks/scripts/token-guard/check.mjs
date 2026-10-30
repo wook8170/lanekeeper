@@ -49,4 +49,4 @@ export function handle(input, env = process.env, deps = {}) {
   return ctxOutput(input.hook_event_name || 'PostToolUse', t(key, vars))
 }
 
-hookMain(import.meta, handle)
+hookMain(import.meta, handle, { defer: 'token_guard' })

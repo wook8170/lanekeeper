@@ -7,4 +7,4 @@ import { hookMain } from '../../../lib/runtime.mjs'
 hookMain(import.meta, (input, env) => {
   detectAndSchedule(input, { env })
   return null
-})
+}, { defer: 'auto_retry' })

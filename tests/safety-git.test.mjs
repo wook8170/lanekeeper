@@ -223,3 +223,20 @@ test('grant: an owner grant does not help a lane', () => {
   expect(lane('git merge wb/t/int', f.repo), 'deny', 'git.lane_merge')
   expect(lane('git push origin main', f.repo), 'deny', 'git.lane_push')
 })
+
+// ── branch switches inside one command line (C2 · C3) ─────────────────
+test('chain: checkout/switch to a protected branch, then merge or commit, is judged on the protected branch', () => {
+  // main session on the feature worktree; the next command would run on main
+  expect(main('git checkout main && git merge feature/x', f.wt.feat), 'deny', 'grant.missing')
+  expect(main('git switch main; git commit --allow-empty -m x', f.wt.feat), 'deny', 'grant.missing')
+  expect(main('git switch release/1.0 && git commit -m x', f.wt.feat), 'deny', 'grant.missing')
+})
+test('chain: switching away from a protected branch lets later commands run on the new branch', () => {
+  expect(main('git switch -c topic/new && git commit -m x', f.repo), 'allow')
+})
+test('chain: a switch to an unknown target (git switch -) makes later guarded git commands unresolved', () => {
+  expect(main('git switch - && git commit -m x', f.wt.feat), 'deny', 'git.unresolved')
+})
+test('chain: restoring a file with checkout does not move the branch', () => {
+  expect(main('git checkout -- a.txt && git commit -m x', f.wt.feat), 'allow')
+})

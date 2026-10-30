@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { resolveConfig, projectRoot, getPath } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
-import { excerpt, countLines, handoffSettings } from '../../../lib/handoff.mjs'
+import { excerpt, summary, countLines, handoffSettings } from '../../../lib/handoff.mjs'
 import { ctxOutput, hookMain } from '../../../lib/runtime.mjs'
 
 export function handle(input, env = process.env) {
@@ -28,11 +28,15 @@ export function handle(input, env = process.env) {
       const text = fs.readFileSync(p, 'utf8')
       const lines = countLines(text)
       const over = lines > maxLines
-      parts.push(t('handoff.start', { src, file, excerpt: excerpt(text, { maxLines }), path: p, archive: archiveDir, shown: t(over ? 'handoff.shown.newest' : 'handoff.shown.whole') }))
+      // personal.handoff.inject: "summary" (default) puts only the head in context; "full" the whole current state
+      const full = h.inject === 'full'
+      const body = full ? excerpt(text, { maxLines }) : summary(text)
+      const shown = full ? (over ? 'handoff.shown.newest' : 'handoff.shown.whole') : 'handoff.shown.summary'
+      parts.push(t('handoff.start', { src, file, excerpt: body, path: p, archive: archiveDir, shown: t(shown) }))
       if (over) parts.push(t('handoff.oversize', { file, lines, max: maxLines, archive: archiveDir }))
     }
   }
   return ctxOutput('SessionStart', parts.join('\n\n'))
 }
 
-hookMain(import.meta, handle)
+hookMain(import.meta, handle, { defer: 'handoff' })

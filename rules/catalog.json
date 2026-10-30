@@ -234,6 +234,44 @@
       }
     },
     {
+      "id": "lane-commit-policy",
+      "group": "git",
+      "title": {
+        "ko": "레인 커밋은 프로젝트 정책대로",
+        "en": "Lane commits follow the project policy"
+      },
+      "rule": {
+        "ko": "`project.lanes.commit` 이 `on-instruction` 이면 레인은 지시서에 커밋 허용 표식(`commit=allowed` 또는 「커밋 허용」 줄)이 있을 때만 커밋한다. 표식이 없으면 커밋 전에 확인을 받는다. 기본값 `allowed` 는 지금처럼 자기 브랜치 커밋을 허용한다.",
+        "en": "With `project.lanes.commit` set to `on-instruction`, a lane commits only when its brief allows it (`commit=allowed` in the marker or a \"commit allowed\" line). Without that, a commit needs confirmation first. The default `allowed` keeps commits to the lane's own branch as they are."
+      },
+      "why": {
+        "ko": "검수 전 변경을 커밋하지 않고 작업 트리에 두게 하는 프로젝트가 있다. 레인이 지시 없이 커밋하면 취합 담당이 검수 전 상태와 검수 후 상태를 구분하기 어렵다.",
+        "en": "Some projects keep unreviewed changes in the working tree, uncommitted. When a lane commits without an instruction, the controller cannot tell reviewed and unreviewed states apart."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/safety/git-guard.mjs",
+          "codes": [
+            "safety.git.lane_commit_instruction"
+          ]
+        },
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/checkpoint/checkpoint.mjs",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "project.lanes.commit"
+        }
+      ],
+      "recover": {
+        "ko": "커밋하지 말고 변경을 작업 트리에 둔 채 보고한다. 커밋이 필요하면 메인 세션이 지시서 표지에 `commit=allowed` 를 넣어 다시 디스패치한다.",
+        "en": "Do not commit; leave the changes in the working tree and report. When a commit is needed, the main session adds `commit=allowed` to the brief marker and dispatches again."
+      }
+    },
+    {
       "id": "resolvable-commands",
       "group": "safety",
       "title": {
@@ -508,8 +546,8 @@
         "en": "Blocked when the check cannot decide"
       },
       "rule": {
-        "ko": "안전 검사가 판정하지 못하거나 설정 파일에 오류가 있으면 실행을 막는다.",
-        "en": "When a safety check cannot decide, or a settings file has an error, the call is blocked."
+        "ko": "안전 검사가 판정하지 못하거나 설정 파일에 오류가 있으면 실행을 막는다. 안전 훅·디스패치 가드·출하 관문 훅 자체가 실행되지 않거나 시간이 초과되면 Claude Code 가 그 호출을 막는다(`onFailure: block`).",
+        "en": "When a safety check cannot decide, or a settings file has an error, the call is blocked. When the safety hook, the dispatch guard or the ship gate hook itself fails to run or times out, Claude Code blocks the call (`onFailure: block`)."
       },
       "why": {
         "ko": "판정하지 못한 명령을 통과시키면 안전 규칙이 가장 필요한 때에 동작하지 않는다.",
@@ -528,11 +566,54 @@
           "kind": "hook",
           "path": "hooks/scripts/safety/context.mjs",
           "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "hooks/hooks.json",
+          "codes": []
         }
       ],
       "recover": {
         "ko": "`/wb:doctor` 로 오류가 난 파일과 키를 확인해 고친다. 고친 뒤 `wb-config validate` 로 다시 확인한다.",
         "en": "Run `/wb:doctor` to find the file and key with the error and fix it. Then check again with `wb-config validate`."
+      }
+    },
+    {
+      "id": "protected-data",
+      "group": "safety",
+      "title": {
+        "ko": "시험 데이터는 보호 데이터에 쓰지 않음",
+        "en": "Test data stays off protected data"
+      },
+      "rule": {
+        "ko": "`project.protected_data` 에 등록한 DB 파일·DB 포트·컨테이너에 쓰는 명령은 레인에서 막고, 메인 세션에서는 확인을 받는다. 쓰기인지 판정할 수 없으면 확인을 받는다. 읽기 질의는 통과한다.",
+        "en": "Commands that write to a database file, database port or container listed in `project.protected_data` are blocked for lanes and need confirmation in the main session. When it cannot be told whether a command writes, it needs confirmation. Read-only queries pass."
+      },
+      "why": {
+        "ko": "시험 중 만든 행이나 이미지가 소유자·운영 DB 에 섞이면 되돌리기 어렵고, 실제 데이터와 시험 데이터를 구분할 수 없게 된다.",
+        "en": "Rows or images made during a test that end up in the owner's or the production database are hard to undo, and real data can no longer be told apart from test data."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/safety/data-guard.mjs",
+          "codes": [
+            "safety.data.*"
+          ]
+        },
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/safety/pretool.mjs",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "project.protected_data"
+        }
+      ],
+      "recover": {
+        "ko": "레인 전용 시험 DB(배정 포트·전용 컨테이너·시험용 파일)로 바꿔 실행한다. 읽기만 하는 질의는 `-c`·`-e` 뒤에 SELECT 문을 직접 적으면 통과한다.",
+        "en": "Run against the lane's own test database (assigned port, own container or test file). A read-only query passes when the SELECT is written directly after `-c` or `-e`."
       }
     },
     {
@@ -547,8 +628,8 @@
         "en": "A subagent runs on the model set for its task type. Denied models, models outside the fallback order and models below the minimum level are not used."
       },
       "why": {
-        "ko": "작업마다 필요한 판단 수준이 다르다. 설계나 검수를 낮은 등급 모델에 맡기면 결함을 놓쳐 나중에 고치는 비용이 커진다.",
-        "en": "Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later."
+        "ko": "작업마다 필요한 판단 수준이 다르다. 설계나 검수를 낮은 등급 모델에 맡기면 결함을 놓쳐 나중에 고치는 비용이 커진다. 적대 검증은 기본값으로 가장 높은 등급(fable)을 먼저 쓰고 구현 모델과 다르게 고른다.",
+        "en": "Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest level (fable) first by default and picks a model other than the implementer's."
       },
       "enforced": [
         {
@@ -703,19 +784,20 @@
         "en": "Lanes follow the load tiers"
       },
       "rule": {
-        "ko": "1분 부하가 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.",
-        "en": "At or above the hold-new-lanes threshold of the 1-minute load, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped."
+        "ko": "1분 부하가 가벼운 작업만 허용 문턱 이상이면 무거운 실행(시험·빌드·설치)이 있는 작업 종류의 새 레인을 띄우지 않는다. 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.",
+        "en": "At or above the light-only threshold of the 1-minute load, no new lane starts for a task type with heavy runs (tests, builds, installs). At or above the hold-new-lanes threshold, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped."
       },
       "why": {
-        "ko": "부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.",
-        "en": "Starting more lanes on a loaded machine makes every lane's tests time out. Verification can wait for the executors without changing its result."
+        "ko": "부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 설계·검수·문서처럼 무거운 실행이 없는 레인은 부하를 거의 늘리지 않으므로 중간 단계에서도 계속 띄울 수 있다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.",
+        "en": "Starting more lanes on a loaded machine makes every lane's tests time out. Lanes without heavy runs, such as design, review and docs, add little load, so they can still start in the middle tier. Verification can wait for the executors without changing its result."
       },
       "enforced": [
         {
           "kind": "hook",
           "path": "hooks/scripts/dispatch/dispatch-guard.mjs",
           "codes": [
-            "dispatch.load_hold"
+            "dispatch.load_hold",
+            "dispatch.load_light_only"
           ]
         },
         {
@@ -738,11 +820,15 @@
         {
           "kind": "config",
           "key": "machine.load.tiers"
+        },
+        {
+          "kind": "config",
+          "key": "routing.tasks.*.weight"
         }
       ],
       "recover": {
-        "ko": "`wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 부하가 내려가면 다시 디스패치한다.",
-        "en": "Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. Dispatch again once the load drops."
+        "ko": "`wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 가벼운 작업만 허용 단계에서는 가벼운 종류(`weight: light`)만 먼저 띄우고, 부하가 내려가면 나머지를 디스패치한다.",
+        "en": "Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. In the light-only tier start only light task types (`weight: light`) and dispatch the rest once the load drops."
       }
     },
     {
@@ -904,8 +990,8 @@
         "en": "Commit the record after each wave"
       },
       "rule": {
-        "ko": "웨이브가 끝나면 진행 기록을 커밋하고, 사용자에게 `/clear` 로 대화를 비우라고 안내한다.",
-        "en": "When a wave ends, commit the progress record and tell the user to clear the conversation with `/clear`."
+        "ko": "웨이브가 끝나면 진행 기록을 커밋하고, 사용자에게 `/clear` 로 대화를 비우라고 안내한다. 레인 브랜치의 작업 중 커밋(체크포인트)은 레인 커밋 정책(`project.lanes.commit`)을 따른다.",
+        "en": "When a wave ends, commit the progress record and tell the user to clear the conversation with `/clear`. The work-in-progress commit on a lane branch (checkpoint) follows the lane commit policy (`project.lanes.commit`)."
       },
       "why": {
         "ko": "대화가 길어지면 사용 한도에 걸려 세션이 멈춘다. 기록을 일찍 남겨 두면 새 세션이 어느 시점에서든 이어받을 수 있다.",
@@ -920,6 +1006,10 @@
         {
           "kind": "skill",
           "path": "skills/resume/SKILL.md"
+        },
+        {
+          "kind": "config",
+          "key": "project.lanes.commit"
         }
       ],
       "recover": {
@@ -1031,6 +1121,163 @@
       "recover": {
         "ko": "`/wb:terse off` 로 끈다.",
         "en": "Turn it off with `/wb:terse off`."
+      }
+    },
+    {
+      "id": "output-language",
+      "group": "session",
+      "title": {
+        "ko": "출력 언어는 설정대로",
+        "en": "Output follows the language setting"
+      },
+      "rule": {
+        "ko": "`personal.language` 가 `ko` 나 `en` 이면 사용자에게 보이는 모든 출력을 그 언어로 쓰고, 서브에이전트 지시문에도 보고 언어를 적는다. 코드·경로·명령은 원문 그대로 둔다.",
+        "en": "With `personal.language` set to `ko` or `en`, every output the user sees is written in that language and every subagent brief states the report language. Code, paths and commands stay as they are."
+      },
+      "why": {
+        "ko": "서브에이전트가 다른 언어로 보고하면 메인 세션이 다시 옮겨 써야 하고, 옮기는 과정에서 수치와 근거가 빠진다.",
+        "en": "When a subagent reports in another language, the main session has to rewrite it, and figures and evidence drop out on the way."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/rules/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/language.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.session_rules.language"
+        }
+      ],
+      "recover": {
+        "ko": "다른 언어로 쓴 출력은 설정 언어로 다시 쓴다. 이 안내를 끄려면 `personal.session_rules.language` 를 `false` 로 둔다.",
+        "en": "Rewrite output in the set language. To turn this guidance off, set `personal.session_rules.language` to `false`."
+      }
+    },
+    {
+      "id": "remote-viewer",
+      "group": "session",
+      "title": {
+        "ko": "원격 사용자에게는 아티팩트로",
+        "en": "Artifacts for a remote viewer"
+      },
+      "rule": {
+        "ko": "`personal.report.viewer` 가 `remote` 이면 `localhost` 주소·로컬 경로·로컬 파일 첨부로 안내하지 않는다. 보여 줄 것은 아티팩트로 올리고, 이미지는 base64 `data:` URI 로 넣으며, 캡처는 2배율로 찍는다.",
+        "en": "With `personal.report.viewer` set to `remote`, results are never pointed to with `localhost` addresses, local paths or local file attachments. Anything to show is published as an artifact, images are embedded as base64 `data:` URIs and captures are taken at 2x."
+      },
+      "why": {
+        "ko": "다른 기기에서 접속한 사용자는 이 머신의 주소와 파일을 열 수 없다. 1배율 캡처는 글자가 뭉개져 화면 차이를 눈으로 확인할 수 없다.",
+        "en": "A user on another device cannot open this machine's addresses or files. A 1x capture blurs the text, so screen differences cannot be checked by eye."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/rules/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/remote-viewer.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "bin/wb-art",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.report.viewer"
+        },
+        {
+          "kind": "config",
+          "key": "personal.session_rules.remote"
+        }
+      ],
+      "recover": {
+        "ko": "`wb-art report` 로 이미지를 넣은 HTML 을 만들어 아티팩트로 올리고 링크를 준다. 갱신은 같은 파일 경로로 다시 올린다.",
+        "en": "Build the HTML with the images inside using `wb-art report`, publish it as an artifact and give the link. Update it by publishing from the same file path."
+      }
+    },
+    {
+      "id": "report-accuracy",
+      "group": "session",
+      "title": {
+        "ko": "구현과 반영을 구분해 보고",
+        "en": "Report implemented and deployed apart"
+      },
+      "rule": {
+        "ko": "「기능 구현됨」과 「병합·배포 완료」를 구분해서 보고한다. 병합 뒤에는 영향받는 서버를 재기동·재동기화한 다음에 「반영됐다」고 말한다. 수정 전에는 실제로 돌고 있는 앱과 변형을 확인한다.",
+        "en": "Reports keep \"implemented\" apart from \"merged and deployed\". After a merge, the affected servers are restarted or resynced before saying the change is live. Before fixing, the app and variant actually running are checked."
+      },
+      "why": {
+        "ko": "코드만 바뀌고 서버가 예전 코드를 돌리고 있으면 사용자는 고쳐지지 않은 화면을 보게 된다. 다른 변형을 고치면 시간을 쓰고도 문제가 그대로 남는다.",
+        "en": "When only the code changed and the server still runs the old code, the user sees the unfixed screen. Fixing a different variant spends the time and leaves the problem in place."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/rules/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/conduct.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.session_rules.conduct"
+        }
+      ],
+      "recover": {
+        "ko": "보고에 구현·병합·배포·재기동 상태를 따로 적는다. 서버 목록은 `machine.servers` 에 두고 재기동 뒤 응답을 확인한다.",
+        "en": "State implementation, merge, deployment and restart separately in the report. Keep the servers in `machine.servers` and check their response after a restart."
+      }
+    },
+    {
+      "id": "communication",
+      "group": "session",
+      "title": {
+        "ko": "모호하면 되묻고 반복 질문에 먼저 답함",
+        "en": "Ask when unclear, answer repeats first"
+      },
+      "rule": {
+        "ko": "코드·문서 변경인지 운영 조치인지 모호한 요청은 한 번 되묻는다. 같은 질문이 반복되면 다른 작업보다 먼저 그 질문에 답한다. 채팅 응답에도 근거와 수치를 직접 적는다.",
+        "en": "A request that could mean a code or docs change or an operational action is asked about once. A repeated question is answered before any other work. Chat replies carry the evidence and figures themselves."
+      },
+      "why": {
+        "ko": "운영 조치를 코드 변경으로 받아들이면 필요 없는 수정이 생긴다. 같은 질문이 반복된다는 것은 앞선 답이 전달되지 않았다는 뜻이다.",
+        "en": "Taking an operational request as a code change produces edits nobody asked for. A repeated question means the earlier answer did not get through."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/rules/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/conduct.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.report.chat_detail"
+        },
+        {
+          "kind": "config",
+          "key": "personal.session_rules.conduct"
+        }
+      ],
+      "recover": {
+        "ko": "되물을 때는 선택지를 두세 개로 좁혀 묻는다. 반복된 질문에는 한 줄 결론부터 답한다.",
+        "en": "When asking back, narrow it to two or three options. Answer a repeated question with a one-line conclusion first."
       }
     },
     {
@@ -1258,8 +1505,8 @@
         "en": "Writing style per file kind"
       },
       "rule": {
-        "ko": "문서와 화면 문구는 파일 종류마다 정한 문체(`style.map`)로 쓴다.",
-        "en": "Documents and screen text use the style set for each file kind (`style.map`)."
+        "ko": "문서와 화면 문구는 파일 종류마다 정한 문체(`style.map`)로 쓴다. 보고서체 문서에는 작성 흔적, 과장·비유, 근거 없는 판단, 개발자 용어를 남기지 않고 마지막 점검 세 질문으로 확인한다.",
+        "en": "Documents and screen text use the style set for each file kind (`style.map`). Report-style documents keep no trace of the writing, no hype or metaphors, no unsupported judgments and no developer slang, and pass the three final-check questions."
       },
       "why": {
         "ko": "화면 문구와 보고서의 문체를 구분하지 않으면 같은 제품 안에서 문구의 인상이 제각각이 된다.",
@@ -1468,6 +1715,150 @@
       "recover": {
         "ko": "grep 과 Read 로 계속 진행한다. 색인 진행은 `wb-index status` 로 보고, 색인이 생기면 같은 세션에서도 다시 호출할 수 있다. 직접 넣으려면 `wb-index add <경로>` 를 쓴다.",
         "en": "Continue with grep and Read. See the indexing progress with `wb-index status`; once the index exists, calls work again in the same session. Queue a path yourself with `wb-index add <path>`."
+      }
+    },
+    {
+      "id": "rg-search",
+      "group": "quality",
+      "title": {
+        "ko": "텍스트 검색은 rg",
+        "en": "Text search with rg"
+      },
+      "rule": {
+        "ko": "재귀 텍스트 검색은 `grep -r` 대신 `rg` 로 한다. 한글 주석이 많은 소스는 `rg -a` 로 찾는다. 막지는 않고 안내만 한다.",
+        "en": "Recursive text search uses `rg` instead of `grep -r`. Sources with many Korean comments are searched with `rg -a`. Nothing is blocked; a note is added."
+      },
+      "why": {
+        "ko": "`grep -r` 은 node_modules 와 빌드 결과까지 훑어 느리고 결과가 섞인다. 한글 소스는 grep 이 바이너리로 오인해 결과를 빠뜨린다.",
+        "en": "`grep -r` walks node_modules and build output too, so it is slow and the results are mixed. grep takes Korean sources for binary files and leaves out matches."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/codegraph/nudge.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "lib/search.mjs",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.search.rg_hint"
+        }
+      ],
+      "recover": {
+        "ko": "같은 검색을 `rg` 로 다시 한다. rg 가 없으면 `brew install ripgrep` 으로 설치한다. 안내를 끄려면 `personal.search.rg_hint` 를 `false` 로 둔다.",
+        "en": "Run the same search with `rg`. Install it with `brew install ripgrep` when it is missing. To turn the note off, set `personal.search.rg_hint` to `false`."
+      }
+    },
+    {
+      "id": "root-cause-fix",
+      "group": "quality",
+      "title": {
+        "ko": "임시방편 대신 근본 원인 수정",
+        "en": "Fix the root cause, not the symptom"
+      },
+      "rule": {
+        "ko": "임시방편이나 우회로 증상만 가리지 않고 근본 원인을 고친다. 지금 고칠 수 없으면 그 사실과 이유를 보고한다.",
+        "en": "A symptom is not hidden with a stopgap or a workaround; the root cause is fixed. When it cannot be fixed now, the report says so and why."
+      },
+      "why": {
+        "ko": "우회로 막은 결함은 다른 조건에서 다시 나타나고, 그때는 원래 원인을 찾기가 더 어렵다.",
+        "en": "A defect patched over comes back under other conditions, and by then the original cause is harder to find."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/rules/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/conduct.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.session_rules.conduct"
+        }
+      ],
+      "recover": {
+        "ko": "원인을 재현하는 시험을 먼저 쓰고, 그 시험이 통과하도록 고친다. 고치지 못한 결함은 결함 원장에 남긴다(`wb-defects`).",
+        "en": "Write a test that reproduces the cause first, then fix until it passes. A defect that cannot be fixed now goes into the defect register (`wb-defects`)."
+      }
+    },
+    {
+      "id": "no-emoji-ui",
+      "group": "quality",
+      "title": {
+        "ko": "제품 화면에 이모지 금지",
+        "en": "No emoji in the product UI"
+      },
+      "rule": {
+        "ko": "제품 화면에는 이모지를 쓰지 않는다. 아이콘이 필요하면 아이콘 리소스(SVG 등)를 쓴다.",
+        "en": "The product UI uses no emoji. Where an icon is needed, an icon resource (SVG and the like) is used."
+      },
+      "why": {
+        "ko": "이모지는 운영체제와 글꼴마다 모양과 크기가 달라 같은 화면이 기기마다 다르게 보인다.",
+        "en": "Emoji look and size differently on each operating system and font, so the same screen looks different on each device."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/rules/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/conduct.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "personal.session_rules.conduct"
+        }
+      ],
+      "recover": {
+        "ko": "이모지를 프로젝트의 아이콘 리소스로 바꾼다. 화면 구조까지 바뀌면 시안부터 만든다.",
+        "en": "Replace the emoji with the project's icon resource. When the screen structure changes too, start with a mockup."
+      }
+    },
+    {
+      "id": "codegraph-install",
+      "group": "quality",
+      "title": {
+        "ko": "색인 도구가 없으면 설치하고 계속",
+        "en": "Install the code index when missing and go on"
+      },
+      "rule": {
+        "ko": "codegraph 가 설치되어 있지 않으면 사용자에게 묻고 멈추지 않고 설치·초기화한 뒤 계속한다. 워크트리에서 질의할 때는 `projectPath` 에 그 워크트리 경로를 넘긴다.",
+        "en": "When codegraph is not installed, it is installed and initialised and the work goes on, without stopping to ask the user. Queries in a worktree pass that worktree's path as `projectPath`."
+      },
+      "why": {
+        "ko": "색인 없이 텍스트 검색만으로 호출 흐름을 따라가면 검색 횟수가 크게 늘어난다. `projectPath` 를 빼면 워크트리 질의가 빈 결과를 돌려준다.",
+        "en": "Following call flow with text search alone multiplies the searches. Without `projectPath` a worktree query returns an empty result."
+      },
+      "enforced": [
+        {
+          "kind": "hook",
+          "path": "hooks/scripts/codegraph/session-start.mjs",
+          "codes": []
+        },
+        {
+          "kind": "tool",
+          "path": "rules/codegraph-install.ko.md",
+          "codes": []
+        },
+        {
+          "kind": "config",
+          "key": "project.codegraph.nudge"
+        }
+      ],
+      "recover": {
+        "ko": "`brew install codegraph` 로 설치하고 `wb-slot` 안에서 `codegraph init .` 를 실행한다. 설치할 수 없는 환경이면 grep 과 Read 로 진행하고 이유를 보고한다.",
+        "en": "Install with `brew install codegraph` and run `codegraph init .` inside `wb-slot`. Where it cannot be installed, go on with grep and Read and report why."
       }
     }
   ]

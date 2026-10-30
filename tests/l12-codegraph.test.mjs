@@ -60,7 +60,7 @@ function fixture({ project = {}, fake = true } = {}) {
   const env = {
     PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`,
     HOME: home,
-    WB_HOME: path.join(home, '.wb'),
+    WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'),
     CLAUDE_PLUGIN_DATA: path.join(base, 'data'),
     LANG: 'en_US.UTF-8',
     GIT_CONFIG_GLOBAL: '/dev/null',

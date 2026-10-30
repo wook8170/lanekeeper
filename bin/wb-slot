@@ -103,7 +103,7 @@ if (sub === 'check') {
     process.stdout.write(`${JSON.stringify({ load: l, sample: ls.sample, tiers: ls.tiers, tier, loadMax: settings.loadMax, lanes: { count: lanes.length, max, roles: lanes.map((x) => ({ id: x.id, role: loadLib.laneRole(sd, x).role })) }, slots: st, orphans: scan }, null, 2)}\n`)
   } else {
     process.stdout.write(`${t('load.check.load', { load: l.toFixed(2), sample: ls.sample, tier: t(`load.tier.${tier}`) })}\n`)
-    process.stdout.write(`${t('load.check.tiers', { hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy, max: settings.loadMax })}\n`)
+    process.stdout.write(`${t('load.check.tiers', { light: ls.tiers.light_only, hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy, max: settings.loadMax })}\n`)
     process.stdout.write(`${t('load.check.lanes', { count: lanes.length, max: max ?? '-', roles: lanes.map((x) => `${x.id}:${loadLib.laneRole(sd, x).role}`).join(' ') || '-' })}\n`)
     for (const k of st) process.stdout.write(`${t('slot.kind_line', { kind: k.kind, used: k.held.length, count: k.count })}\n`)
     process.stdout.write(`${t('load.orphan.head', { count: scan.candidates.length })}\n`)

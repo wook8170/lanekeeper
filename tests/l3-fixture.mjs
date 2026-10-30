@@ -20,7 +20,7 @@ export function makeEnv(extra = {}) {
   const home = path.join(base, 'home')
   const env = {
     HOME: home,
-    WB_HOME: path.join(home, '.wb'),
+    WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'),
     CLAUDE_PLUGIN_DATA: path.join(base, 'data'),
     CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
     WB_NO_NOTIFY: '1',

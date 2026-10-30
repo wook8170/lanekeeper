@@ -7,12 +7,15 @@
 // never blocked (text search is needed to finish most answers).
 // A grep in a checkout without an index adds that checkout to the index queue
 // instead (no note). Turn the note off with project.codegraph.nudge = "off".
+// The same process adds the rg note on a recursive grep (lib/search.mjs), so a
+// Bash call starts one node process for both notes.
 // Not a safety guard: any error lets the call through.
 import path from 'node:path'
 import { resolveConfig, projectRoot } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { ctxOutput, hookMain } from '../../../lib/runtime.mjs'
 import * as cg from '../../../lib/codegraph.mjs'
+import { rgHint } from '../../../lib/search.mjs'
 import { parse, resolvePath } from '../safety/shell.mjs'
 
 const MAX_PATHS = 5
@@ -74,9 +77,22 @@ export function judgeNudge(input, env = process.env, { queue = cg.autoQueue } = 
 }
 
 export function handle(input, env = process.env) {
+  const notes = []
   const r = judgeNudge(input, env)
-  if (!r) return null
-  return ctxOutput('PreToolUse', `[wb] ${translator(r.language)('cg.nudge', r)}`)
+  if (r) notes.push(translator(r.language)('cg.nudge', r))
+  if (input.tool_name === 'Bash' && /\b[ef]?grep\b/.test(String(input.tool_input?.command || ''))) {
+    // once per session, like the codegraph note
+    const sid = input.session_id || 'global'
+    const state = cg.loadSession(sid, env)
+    if (!state.rg_hinted) {
+      const rg = rgHint(input, resolveConfig({ projectDir: projectRoot(input.cwd || process.cwd(), env), env }), env)
+      if (rg) {
+        notes.push(rg)
+        cg.saveSession(sid, { ...cg.loadSession(sid, env), rg_hinted: true }, env)
+      }
+    }
+  }
+  return notes.length ? ctxOutput('PreToolUse', notes.map((n) => `[wb] ${n}`).join('\n')) : null
 }
 
 hookMain(import.meta, handle)

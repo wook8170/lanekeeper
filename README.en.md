@@ -21,6 +21,8 @@ claude plugin marketplace add <repository URL>
 claude plugin install wb@wb-plugin
 ```
 
+Claude Code 2.1.295 or later is needed (`onFailure: block` on the safety hooks). Installing alone turns on the safety hooks only. The workflow hooks (dispatch guard, ship gate, handoff, checkpoint, load, slots, session rules) act only in a repository with `.wb/config.json` and do nothing elsewhere. Handoff, token guard, automatic resume and terse mode turn off when the Claude Code settings (`~/.claude/settings.json` and the like) already hook the same kind (`personal.global_hooks`).
+
 Then run `/wb:init` in the project folder. It asks four questions:
 
 1. Project kind (`web-ui` · `service` · `library` · `other`)
@@ -108,7 +110,7 @@ A `PreToolUse` hook judges Bash, Write, Edit, MultiEdit, NotebookEdit and Skill 
 
 | Action | Lane · own branch | Lane · elsewhere | Main · integration/feature | Main · protected |
 |---|---|---|---|---|
-| commit · cherry-pick · revert · am | allow | deny | allow | deny; once with a `commit-main` grant |
+| commit · cherry-pick · revert · am | allow (with `lanes.commit: on-instruction`, asks unless the brief allows commits) | deny | allow | deny; once with a `commit-main` grant |
 | merge · rebase · pull | only taking in the integration branch | deny | allow (denied while the gate lock is held) | deny; `merge-main` grant plus gate stamp. Syncing with its own upstream is allowed |
 | push | deny | deny | `git.feature_push` (ask · allow · deny) | deny; `push-main` grant plus gate stamp |
 | force push · `--all` · `--mirror` | deny | deny | deny | deny |
@@ -126,10 +128,11 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 - Deletes: `rm -r` of `/`, the home folder, system folders, the project root or `.git` is blocked. Outside the project it asks; inside the project and temp folders it passes.
 - Browsers: Chrome without headless mode, `--headed`, `PWDEBUG`, `playwright codegen` / `--ui`, and `open` with a browser or URL are blocked.
 - Paths: writes to `project.protected_paths` are blocked, and so are writes to wb state files (grant, gate stamp, lane ledger). Editing a wb settings file asks first.
+- Protected data: commands that write to a database file, database port or container in `project.protected_data` (psql, mysql or sqlite3 sending write SQL, `pg_restore`, a writing `docker exec`, `docker cp`, overwriting the file) are blocked for lanes and ask first in the main session. When it cannot be told whether a command writes it asks; read-only queries pass.
 
 **Fail-closed.** With a settings error, git changes, kills, deletes and browser runs are blocked and the message points at the faulty file and key. An internal hook error also blocks.
 
-**Protected lists only grow.** `protected_branches`, `protected_paths`, `ports.protected` and `denied` are the union of every layer. No layer can remove an entry another layer added.
+**Protected lists only grow.** `protected_branches`, `protected_paths`, `protected_data`, `ports.protected` and `denied` are the union of every layer. No layer can remove an entry another layer added.
 
 ## Session helper hooks
 
@@ -139,7 +142,8 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 | Automatic resume | When a usage limit ends a turn, resumes the same session headless two minutes after the reset time. Scheduling uses launchd on macOS, a systemd user timer on Linux and a background waiter elsewhere. The model that hit the limit is recorded in `limits.json` | `personal.auto_retry.{enabled, permission_mode, bypass_ack}`, `routing.limits_state` | `wb-retry`, `/wb:auto-retry` |
 | Token guard | Judges from the official five-hour and seven-day usage Claude Code keeps, plus an estimate of the local use since then, and adds an instruction only when the stage rises. 90%: smaller work units. 95%: handoff after every wave. 99%: last handoff, notification, then wait | `personal.token_guard.{enabled, stages, budget, window_hours, fresh_min, source}` | `wb-token`, `/wb:token-guard` |
 | Terse mode | In a repository where it is on, injects rules that shorten output and tool calls at session start | `personal.terse`, repository switch | `wb-terse`, `/wb:terse` |
-| Checkpoint | On a limit, a subagent stop or a context compaction, commits changes to tracked files on a lane branch as a `wip(wb)` commit. Untracked files and secret-like files (`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`) are not committed; they are reported in `.git/wb/checkpoint.json` and a notification. If a project hook (pre-commit) fails, the checkpoint is skipped and the reason recorded. Protected and non-lane branches are left alone and nothing is pushed | `personal.checkpoint.enabled` | |
+| Session rules | Adds working rules no hook can check at session start, after `/clear` and after a compaction: output language (`personal.language` set to `ko` or `en`), remote viewer (`personal.report.viewer: remote`: no local addresses, artifacts, base64 images, 2x captures), reporting, communication and fixing rules (implemented vs deployed, ask when unclear, fix the root cause, no emoji in the product UI) | `personal.session_rules.{language, remote, conduct}` | |
+| Checkpoint | On a limit, a subagent stop or a context compaction, commits changes to tracked files on a lane branch as a `wip(wb)` commit. With `project.lanes.commit` set to `on-instruction`, only lanes whose brief allows commits are committed. Untracked files and secret-like files (`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`) are not committed; they are reported in `.git/wb/checkpoint.json` and a notification. If a project hook (pre-commit) fails, the checkpoint is skipped and the reason recorded. Protected and non-lane branches are left alone and nothing is pushed | `personal.checkpoint.enabled` | |
 
 The permission mode of the automatic resume defaults to `default`. In that mode tools that need approval are refused in the unattended run, so the resumed work can stop at that point. `bypassPermissions` is enabled only by `wb-retry mode bypassPermissions --i-understand` after reading the risk; without the recorded acknowledgement (`bypass_ack`) the resume uses `default`.
 
@@ -314,7 +318,7 @@ For users who do not know the lane workflow: start from one sentence, and read t
 
 ## Code index (codegraph)
 
-codegraph is optional. Without it the hooks below do nothing and `wb-index` only explains how to install it. `/wb:init` installs it only after the user agrees. `WB_CODEGRAPH=off` turns the whole layer off; `WB_CODEGRAPH=<path>` names the binary.
+codegraph is optional. Without it the session start adds guidance to install and initialise it and go on (off with `project.codegraph.nudge: off`), and the other hooks below do nothing. `wb-index` only explains how to install it. A recursive text search such as `grep -r` gets a one-time `rg` hint per session (`rg -a` for Korean sources; `personal.search.rg_hint`). `WB_CODEGRAPH=off` turns the whole layer off; `WB_CODEGRAPH=<path>` names the binary.
 
 **Index queue.** A new worktree gets its index when it is created. Jobs run one at a time, at low priority (`nice`), inside a heavy run slot, so they wait while the 1-minute load is at or above `machine.load.max`.
 

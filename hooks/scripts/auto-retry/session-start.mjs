@@ -20,4 +20,4 @@ export function handle(input, env = process.env) {
   return lines.length ? ctxOutput('SessionStart', lines.join('\n')) : null
 }
 
-hookMain(import.meta, handle)
+hookMain(import.meta, handle, { defer: 'auto_retry' })

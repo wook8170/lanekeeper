@@ -1,4 +1,4 @@
-<!-- wb-brief v1 type=impl-spec lane={{lane}} template=docs -->
+<!-- wb-brief v1 type=docs lane={{lane}} template=docs -->
 <!-- 표지: type 은 라우팅 작업 종류(wb-route tasks), lane 은 레인 이름. {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}}
 

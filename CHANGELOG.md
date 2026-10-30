@@ -4,6 +4,32 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-31
+
+### Added
+- 규칙 10개(규칙 51개): `lane-commit-policy`·`protected-data`·`rg-search`·`output-language`·`remote-viewer`·`report-accuracy`·`communication`·`root-cause-fix`·`no-emoji-ui`·`codegraph-install`
+- 부하 단계 「가벼운 작업만」: `machine.load.tiers.light_only`(기본 `auto` = 논리 코어 × 2, 새 레인 보류 문턱보다 크면 그 값으로 내림). 이 문턱 이상, 새 레인 보류 문턱 미만이면 무게가 `light` 인 작업 종류만 새 레인을 띄우고 나머지는 막는다(`dispatch.load_light_only`). `wb-slot check`·부하 안내·`wb-config doctor` 가 세 문턱을 보인다
+- 작업 종류 무게 `routing.tasks.<종류>.weight`(`light` · `heavy`, 없으면 `heavy`). 기본값: design·review·security·adversarial·docs·mockup·mechanical·research 는 light, impl-multi·impl-spec·defect-history 는 heavy
+- 작업 종류 `docs`(sonnet → opus, 최소 sonnet, light). 지시서 틀 docs 의 표지가 `type=docs` 를 쓴다
+- 보호 데이터 `project.protected_data.{paths, ports, containers}`(보호 목록 규칙): 등록한 DB 파일·DB 포트·컨테이너에 쓰는 명령(쓰기 SQL 을 보내는 psql·mysql·mariadb·sqlite3·duckdb, `pg_restore`·`mysqlimport`·`createdb`·`dropdb`, 쓰기 `docker exec`, `docker cp`, 리다이렉트·cp·mv·rm 등 파일 쓰기, Write·Edit)는 레인에서 막고 메인 세션은 확인 요청(`safety.data.write`). SQL 을 읽을 수 없으면 확인 요청(`safety.data.unclear`), 읽기 질의는 통과
+- 레인 커밋 정책 `project.lanes.commit`(`allowed` 기본 · `on-instruction`): `on-instruction` 이면 지시서 표지 `commit=allowed` 나 「커밋 허용」 줄이 없을 때 레인 커밋·cherry-pick·revert 가 확인 요청(`safety.git.lane_commit_instruction`), 체크포인트 커밋은 건너뜀(`commit-policy`)
+- 세션 규칙 훅 `hooks/scripts/rules/session-start.mjs`: 세션 시작·`/clear`·압축 뒤에 `rules/language`(personal.language 가 ko·en), `rules/remote-viewer`(personal.report.viewer 가 remote), `rules/conduct`(보고 정확성·소통·수정 원칙)를 넣는다. 설정 `personal.session_rules.{language, remote, conduct}`
+- 재귀 grep 안내: `grep -r` 류에 세션당 한 번 `rg`(한글 소스는 `rg -a`) 안내, rg 가 없으면 설치 방법. codegraph 안내 훅과 같은 프로세스에서 돈다(Bash 호출당 node 기동 수 그대로). 설정 `personal.search.rg_hint`
+- 시험: `tests/data-guard.test.mjs`·`tests/commit-policy.test.mjs`·`tests/session-rules.test.mjs`, 부하 「가벼운 작업만」 단계·무게 시험
+
+- 옵트인: 안전 훅(`safety/pretool`·`safety/approve`)만 모든 저장소에서 돈다. 디스패치 가드·출하 관문·핸드오프·체크포인트·부하·슬롯·시안·codegraph·토큰 가드·자동 재개·간결 모드·세션 규칙·워크트리 동기화는 `.wb/config.json` 이 있는 저장소(또는 그 저장소의 워크트리)에서만 동작한다. 지시서 없는 Agent 호출 차단도 옵트인 저장소에서만 한다. `WB_ACTIVE=1`·`0` 으로 강제
+- `"onFailure": "block"`: `safety/pretool`·`dispatch/dispatch-guard`·`quality/ship-gate` 훅이 실행되지 않거나 시간 초과·비정상 종료하면 도구 호출을 막는다(Claude Code 2.1.295 이상)
+- 설정 `personal.global_hooks`(`defer` 기본 · `ignore`): Claude Code 설정(`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`)에 같은 종류의 훅(핸드오프·토큰 가드·자동 재개·간결 모드)이 있으면 wb 의 그 훅을 끈다
+- 설정 `personal.handoff.inject`(`summary` 기본 · `full`): 세션 시작에 `progress.md` 첫 절(최대 40줄·2,500자)만 넣고 전체는 파일을 읽게 한다
+
+### Fixed
+- 명령 연쇄 안의 브랜치 전환: `git checkout main && git merge feat/x`, `git switch main; git commit …` 처럼 같은 줄에서 브랜치를 옮긴 뒤의 git 명령을 옮긴 브랜치 기준으로 판정한다. 대상을 알 수 없는 전환(`git switch -`) 뒤의 보호 대상 git 명령은 막는다. 회귀 시험 3건(수정 전 실패 확인)
+
+### Changed
+- 적대 검증(`adversarial`) 기본 대체 순서를 fable → opus 로 바꿨다(구현 모델 제외 규칙은 그대로)
+- codegraph 가 없을 때 세션 시작에 설치·초기화 후 계속하라는 안내(`rules/codegraph-install.<lang>.md`)를 넣는다. 전에는 아무것도 넣지 않았다. `project.codegraph.nudge: off` 면 넣지 않는다
+- 문체 규칙 report 에 작성 흔적 목록, 과장·비유 금지 낱말, 근거 없는 판단 예, 개발자 용어 대체표, 마지막 점검 세 질문을 합쳤다
+
 ## [0.1.1] - 2026-10-31
 
 ### Added

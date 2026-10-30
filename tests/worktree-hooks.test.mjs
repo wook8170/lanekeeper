@@ -23,7 +23,7 @@ function fixture() {
   git(repo, 'commit', '-q', '--allow-empty', '-m', 'i')
   const home = path.join(base, 'home')
   fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  const env = { PATH: process.env.PATH, HOME: home, WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
+  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
   const settings = path.join(repo, '.claude', 'settings.local.json')
   const read = () => JSON.parse(fs.readFileSync(settings, 'utf8'))
   const project = (obj) => {

@@ -551,5 +551,5 @@ If only result files were committed after the stamp, it stays valid. Any other c
 
 - [Features](02-features.md): how to use each feature, and the 27 skills
 - [Configuration](03-configuration.md): settings layers and every key
-- [Rules](04-rules.md): the 41 rules and how to fix the work when blocked
+- [Rules](04-rules.md): the 51 rules and how to fix the work when blocked
 - [Troubleshooting](05-troubleshooting.md): common messages and questions

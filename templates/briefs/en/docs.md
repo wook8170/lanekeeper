@@ -1,4 +1,4 @@
-<!-- wb-brief v1 type=impl-spec lane={{lane}} template=docs -->
+<!-- wb-brief v1 type=docs lane={{lane}} template=docs -->
 <!-- Marker: type is the routing task type (wb-route tasks), lane is the lane name. Every {{…}} placeholder must be filled before dispatch. -->
 # {{lane}} — {{title}}
 

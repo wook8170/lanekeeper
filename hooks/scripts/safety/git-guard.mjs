@@ -13,6 +13,7 @@ import { allow, ask, deny, matchAny, inside, readJsonSafe } from './common.mjs'
 import { checkGrant, checkStamp, gateLocked } from './grant.mjs'
 import { parse, tokenize } from './shell.mjs'
 import { onlyUnder, resultsPrefix } from '../../../lib/testresults.mjs'
+import { laneCommitPolicy } from '../../../lib/brief.mjs'
 
 const GLOBAL_WITH_ARG = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix', '--config-env'])
 const BUILTIN = new Set([
@@ -140,11 +141,59 @@ export function judgeGit(cmd, ctx, depth = 0) {
   if (!kind) return null
   // xargs appends arguments only known at run time
   if (!target.cwdKnown || (cmd.xargs && kind !== 'control')) return deny('git.unresolved', { cmd: shortCmd(cmd) })
-  const info = ctx.git.info(target)
-  if (!info) return null // not a repository: git itself will refuse
+  const real = ctx.git.info(target)
+  if (!real) return null // not a repository: git itself will refuse
+  // an earlier checkout/switch in the same command line moved this worktree:
+  // judge with the branch it will be on, not the one it is on now
+  const moved = ctx.pendingBranches?.get(real.top)
+  if (moved?.unknown && kind !== 'switch' && kind !== 'checkout?') return deny('git.unresolved', { cmd: shortCmd(cmd) })
+  const info = moved && !moved.unknown ? { ...real, branch: moved.branch, head: moved.head } : real
   const facts = describe(info, ctx)
   const v = facts.actor === 'lane' ? judgeLane(kind, sub, args, target, info, facts, ctx) : judgeMain(kind, sub, args, target, info, facts, ctx, cmd)
+  if (ctx.pendingBranches && (kind === 'switch' || kind === 'checkout?')) recordSwitch(sub, args, target, info, ctx)
   return v
+}
+
+const CREATE_OPTS = new Set(['-c', '-C', '--create', '--force-create', '-b', '-B', '--orphan'])
+
+// Branch a checkout/switch leaves the worktree on, for the commands after it.
+function recordSwitch(sub, args, target, info, ctx) {
+  const o = opts(args)
+  let branch = null
+  let unknown = false
+  let created = false
+  for (let i = 0; i < args.length; i++) {
+    const t = args[i].text
+    const eq = t.indexOf('=')
+    const name = eq === -1 ? t : t.slice(0, eq)
+    if (CREATE_OPTS.has(name)) {
+      branch = eq === -1 ? args[i + 1]?.text : t.slice(eq + 1)
+      created = true
+      break
+    }
+  }
+  if (!created) {
+    if (sub === 'checkout' && !isSwitchTarget(args, target, ctx)) return
+    const pos = positional(args)
+    if (o.includes('--detach') || (sub === 'switch' && o.includes('-d'))) {
+      ctx.pendingBranches.set(info.top, { branch: null, head: pos[0] ? ctx.git.revParse(target, pos[0]) : info.head })
+      return
+    }
+    if (!pos[0] || pos[0] === '-' || pos[0].startsWith('@{')) unknown = true
+    else if (ctx.git.revParse(target, `refs/heads/${pos[0]}`)) branch = pos[0]
+    // switch (and checkout of a remote name) creates the local branch from origin/<name>
+    else if (sub === 'switch' || ctx.git.revParse(target, `refs/remotes/origin/${pos[0]}`)) branch = pos[0]
+    else {
+      ctx.pendingBranches.set(info.top, { branch: null, head: ctx.git.revParse(target, pos[0]) }) // a commit: detached HEAD
+      return
+    }
+  }
+  if (unknown || (created && !branch)) {
+    ctx.pendingBranches.set(info.top, { unknown: true })
+    return
+  }
+  const head = created ? info.head : ctx.git.revParse(target, branch) || info.head
+  ctx.pendingBranches.set(info.top, { branch, head })
 }
 
 function mutating(sub, args) {
@@ -258,9 +307,12 @@ function judgeLane(kind, sub, args, target, info, f, ctx) {
   const vars = { branch: info.branch || 'HEAD', own: f.ownBranch || '-' }
   switch (kind) {
     case 'commit':
-      return f.own ? allow() : deny('git.lane_commit', vars)
-    case 'control':
-      return f.own ? allow() : deny('git.lane_commit', vars)
+    case 'control': {
+      if (!f.own) return deny('git.lane_commit', vars)
+      // project.lanes.commit = on-instruction: the brief has to allow commits
+      const cp = laneCommitPolicy(ctx.config, info.stateDir, f.lane?.id)
+      return cp.allowed ? allow() : ask('git.lane_commit_instruction', { ...vars, lane: f.lane?.id || '-' })
+    }
     case 'merge':
     case 'rebase':
     case 'pull': {

@@ -15,7 +15,7 @@ function emptyRepo() {
   const repo = path.join(dir, 'sample')
   fs.mkdirSync(repo)
   execFileSync('git', ['init', '-q', repo])
-  const env = { HOME: dir, WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8' }
+  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8' }
   return { dir, repo, env }
 }
 
@@ -64,7 +64,7 @@ test('init: rejects unknown answers', () => {
 
 test('init: outside git it writes settings and reports notGit', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-nogit-'))
-  const env = { HOME: dir, WB_HOME: path.join(dir, '.wb'), PATH: process.env.PATH, GIT_CEILING_DIRECTORIES: path.dirname(dir) }
+  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: path.join(dir, '.wb'), PATH: process.env.PATH, GIT_CEILING_DIRECTORIES: path.dirname(dir) }
   const actions = initProject(dir, { kind: 'other', language: 'en' }, env)
   assert.ok(actions.some((a) => a.type === 'notGit'))
   assert.ok(fs.existsSync(path.join(dir, '.wb', 'config.json')))

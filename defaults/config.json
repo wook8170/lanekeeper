@@ -35,6 +35,8 @@
   "slots": { "heavy": [], "browser": [] },
   "worktree": { "setup": "", "hook": false },
   "protected_paths": [],
+  "protected_data": { "paths": [], "ports": [], "containers": [] },
+  "lanes": { "commit": "allowed" },
   "dispatch": { "brief": "deny", "exempt_agents": ["fork", "claude-code-guide", "statusline-setup"] },
   "waves": { "stale_min": 20 },
   "numbers": {},

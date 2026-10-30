@@ -12,7 +12,8 @@ The wb safety hooks stop an agent from running dangerous commands by mistake. Th
 
 - The safety hooks judge Bash command strings and the target paths of Write and Edit. They do not judge commands inside script files, git or kill calls made from python or node, `find -delete`, or bulk reverts such as `git checkout -- .`.
 - An owner grant (`/wb:approve`) is created only when a person types it in the prompt. The grant file is `<git common dir>/wb/owner-grant.json`; it can be used once, within a time limit (15 minutes by default), and only for the commit it names. Another process on the same machine writing this file directly is not prevented. An agent's Write or Edit of the path, and Bash commands that mention it, are blocked, but a script that assembles the path is not.
-- If a hook command does not run at all (node missing, or the 20-second timeout), Claude Code treats it as a non-blocking error. The safety hooks do not act in that case. `/wb:doctor` checks that node is installed.
+- The safety hook (`safety/pretool`), the dispatch guard and the ship gate hook carry `"onFailure": "block"`. When such a hook does not run (node missing), times out (20 seconds) or exits abnormally, Claude Code 2.1.295 or later blocks the tool call. Older versions do not know the field and treat it as a non-blocking error; the safety hooks do not act in that case. `/wb:doctor` checks that node is installed.
+- The safety hooks (`safety/pretool`, `safety/approve`) run in every repository. The other workflow hooks act only in a repository with `.wb/config.json` (every repository with `WB_ACTIVE=1`).
 
 ## When a hook fails
 

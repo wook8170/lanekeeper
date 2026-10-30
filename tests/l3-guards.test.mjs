@@ -143,6 +143,7 @@ const nowSec = () => Math.floor(Date.now() / 1000)
 test('handoff session start: whole current-state file with the archive hint; startup and clear inject, resume is silent', () => {
   const f = makeEnv()
   try {
+    f.personal({ handoff: { inject: 'full' } })
     const hs = (source) => runScript('hooks/scripts/handoff/session-start.mjs', { hook_event_name: 'SessionStart', source, cwd: f.repo }, f.env)
     assert.doesNotMatch(hs('startup').out.hookSpecificOutput.additionalContext, /handoff file/, 'no progress.md: no handoff text')
     fs.writeFileSync(path.join(f.repo, 'progress.md'), '# progress\n\n## Goals\n\n> content A\n\n## Next\n\n> content B\n')
@@ -163,7 +164,7 @@ test('handoff session start: whole current-state file with the archive hint; sta
 test('handoff session start: an accumulated file over max_lines shows the newest section and a warning with the move command', () => {
   const f = makeEnv()
   try {
-    f.personal({ handoff: { max_lines: 40, archive_dir: 'notes/old' } })
+    f.personal({ handoff: { inject: 'full', max_lines: 40, archive_dir: 'notes/old' } })
     const filler = Array.from({ length: 60 }, (_, i) => `- old item ${i}`).join('\n')
     fs.writeFileSync(path.join(f.repo, 'progress.md'), `# progress\n\n## newest: wave A\n\n> content A\n\n## older: wave B\n\n> content B\n${filler}\n`)
     const a = runScript('hooks/scripts/handoff/session-start.mjs', { source: 'startup', cwd: f.repo }, f.env).out.hookSpecificOutput.additionalContext
@@ -173,6 +174,21 @@ test('handoff session start: an accumulated file over max_lines shows the newest
     assert.match(a, /has 6\d lines, over the 40-line target/)
     assert.match(a, /wb-waves handoff migrate/)
     assert.match(a, /notes\/old\/progress-until-/)
+  } finally {
+    f.cleanup()
+  }
+})
+test('handoff session start: the default injects only the head of progress.md and says to read the file', () => {
+  const f = makeEnv()
+  try {
+    const body = Array.from({ length: 80 }, (_, i) => `- item ${i}`).join('\n')
+    fs.writeFileSync(path.join(f.repo, 'progress.md'), `# progress\n\n## Now\n\n> content A\n${body}\n\n## Next\n\n> content B\n`)
+    const a = runScript('hooks/scripts/handoff/session-start.mjs', { source: 'startup', cwd: f.repo }, f.env).out.hookSpecificOutput.additionalContext
+    assert.match(a, /content A/)
+    assert.doesNotMatch(a, /content B/, 'the rest stays in the file')
+    assert.doesNotMatch(a, /item 60/, 'at most 40 lines')
+    assert.match(a, /the head only/)
+    assert.match(a, /from start to end/)
   } finally {
     f.cleanup()
   }

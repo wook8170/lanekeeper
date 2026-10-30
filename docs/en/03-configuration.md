@@ -21,7 +21,7 @@ To use another folder than `~/.wb`, set the environment variable `WB_HOME`. Samp
 | Kind of key | Rule | Keys |
 |---|---|---|
 | Ordinary value | The higher layer wins: personal > plugin settings screen > machine > project > default | Every key not in the two rows below |
-| Protected list | Union of every layer. No layer can remove an entry another layer added | `routing.denied`, `machine.ports.protected`, `project.git.protected_branches`, `project.protected_paths` |
+| Protected list | Union of every layer. No layer can remove an entry another layer added | `routing.denied`, `machine.ports.protected`, `project.git.protected_branches`, `project.protected_paths`, `project.protected_data.paths`, `project.protected_data.ports`, `project.protected_data.containers` |
 | Cap | The smallest value among the non-default layers. The default applies only when no other layer sets it | `machine.lanes.max`, `machine.slots.heavy.count`, `machine.slots.browser.count`, `machine.load.max` |
 
 Caps leave the default out so that a personal machine file can set a value above the default (3 lanes). A project can only lower it further.
@@ -57,10 +57,10 @@ Kept in the personal file `~/.wb/routing.json`.
 | `routing.models` | see below | Agent tool value (`agent_param`) and grade (`rank`) per model name. A larger rank is a higher grade | `{"opus":{"agent_param":"opus","rank":3}}` |
 | `routing.denied` | `[]` | Models not to use. Merged as a protected list | `["fable"]` |
 | `routing.denied_note` | `{}` | Notes on why a model is denied (skill reference) | `{"fable":"personal choice"}` |
-| `routing.tasks` | see below | Per task type: `label`, `chain` (fallback order), `floor` (minimum grade), `on_floor` (`wait-notify`), `differ_from` (`implementer`) | `{"review":{"chain":["opus"]}}` |
+| `routing.tasks` | see below | Per task type: `label`, `chain` (fallback order), `floor` (minimum grade), `on_floor` (`wait-notify`), `differ_from` (`implementer`), `weight` (`light` · `heavy`, `heavy` when missing) | `{"review":{"chain":["opus"]}}` |
 | `routing.limits_state` | `"${CLAUDE_PLUGIN_DATA}/limits.json"` | File that records models out of quota | keep the default |
 
-The default `routing.models` are fable (rank 4), opus (3), sonnet (2) and haiku (1). The ten default `routing.tasks` match the table in section 2 of [Features](02-features.md). To change one task type, write only the keys to change.
+The default `routing.models` are fable (rank 4), opus (3), sonnet (2) and haiku (1). The eleven default `routing.tasks` match the table in section 2 of [Features](02-features.md). To change one task type, write only the keys to change.
 
 ```json
 {
@@ -82,6 +82,7 @@ Kept in the personal file `~/.wb/machine.json`. Port numbers live only in this f
 | `machine.load.max` | `"auto"` | Slot runs wait at or above this 1-minute load. `auto` is logical cores × 2. Cap rule | `16` |
 | `machine.load.auto_rule` | `"logical_cores * 2"` | Description of the `auto` formula (reserved) | keep the default |
 | `machine.load.sample` | `"1min"` | Load average to compare: `1min` · `5min` · `15min` | `"5min"` |
+| `machine.load.tiers.light_only` | `"auto"` | At or above this 1-minute load, new lanes are refused for task types with heavy runs (any `weight` other than `light`). Light types such as design, review, adversarial review, docs and mockups can still start. `auto` is logical cores × 2. Lowered to the hold-new-lanes threshold when larger (with both on `auto` this tier is empty) | `20` |
 | `machine.load.tiers.hold_new_lanes` | `"auto"` | New lanes (Agent dispatches) are refused at or above this 1-minute load. A dispatch to an existing lane is not held. `auto` is logical cores × 2 | `20` |
 | `machine.load.tiers.stop_heavy` | `"auto"` | A verifier lane's heavy run is refused at once at or above this 1-minute load. Slots already held are left alone. `auto` is logical cores × 2.8 (rounded). Raised to the hold-new-lanes threshold when smaller | `28` |
 | `machine.load.check_every_min` | `30` | Minutes between load checks when a prompt is sent. One line is added only when a threshold is reached. `0` turns it off | `0` |
@@ -116,6 +117,7 @@ Kept in the personal file `~/.wb/personal.json`. `language` and `report.chat_det
 | `personal.auto_retry.permission_mode` | `"default"` | Permission mode of the resumed session: `default` · `acceptEdits` · `plan` · `bypassPermissions` | `"acceptEdits"` |
 | `personal.auto_retry.bypass_ack` | `false` | Record that the `bypassPermissions` risk was confirmed. Written by `wb-retry mode bypassPermissions --i-understand` | do not write by hand |
 | `personal.handoff.enabled` | `true` | `progress.md` handoff hooks | `false` |
+| `personal.handoff.inject` | `"summary"` | How much of `progress.md` goes in at session start. `summary` puts in the first section (at most 40 lines, 2,500 characters) and has the agent read the file; `full` the whole current state | `"full"` |
 | `personal.handoff.file` | `"progress.md"` | Handoff file path (relative to the repository) | `"docs/progress.md"` |
 | `personal.handoff.throttle_min` | `20` | Minutes before the same session is blocked again | `30` |
 | `personal.handoff.max_lines` | `300` | Line target of the handoff file (20 or more) | `200` |
@@ -129,6 +131,11 @@ Kept in the personal file `~/.wb/personal.json`. `language` and `report.chat_det
 | `personal.token_guard.fresh_min` | `10` | Minutes the official usage is used as it is. Older than that, an estimate of the local use since then is added | `5` |
 | `personal.token_guard.source` | `"auto"` | Usage source. `auto`: official value plus estimate, `official`: official value only, `local`: fallback budget only | `"official"` |
 | `personal.terse` | `false` | Terse mode in every repository without its own switch | `true` |
+| `personal.global_hooks` | `"defer"` | When the Claude Code settings (`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`) already hook the same kind (handoff, token guard, auto resume, terse), wb's hook of that kind stays off. `ignore` keeps it on | `"ignore"` |
+| `personal.search.rg_hint` | `true` | `rg` note on a recursive `grep -r` search (once per session, never blocks) | `false` |
+| `personal.session_rules.language` | `true` | With `personal.language` set to `ko` or `en`, add the output language rule at session start | `false` |
+| `personal.session_rules.remote` | `true` | With `personal.report.viewer` set to `remote`, add the remote viewer rule (artifacts, base64 images, 2x captures) at session start | `false` |
+| `personal.session_rules.conduct` | `true` | Add the reporting, communication and fixing rules at session start | `false` |
 | `personal.design_plugin` | `""` | Name of a separate plugin to point to for large design requests | `"my-design-plugin"` |
 
 ### 4.4 Project (`project`)
@@ -258,6 +265,10 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 | `project.worktree.setup` | `""` | Setup command run inside a slot in a new lane worktree. It receives `WB_LANE` and `WB_PORT_<name>` | `"npm ci"` |
 | `project.worktree.hook` | `false` | Let wb also create the worktrees Claude Code makes | `true` |
 | `project.protected_paths` | `[]` | Paths (globs) agents must not write. Protected list rule | `["db/prod/**"]` |
+| `project.protected_data.paths` | `[]` | Database files or folders tests must not write (globs, relative to the project or absolute, `~` allowed). Protected list rule | `["data/owner.db"]` |
+| `project.protected_data.ports` | `[]` | Database server ports tests must not write to. A psql or mysql write to one is blocked for a lane and needs confirmation in the main session | `[5432]` |
+| `project.protected_data.containers` | `[]` | Container names tests must not write to. Writing `docker exec` commands and `docker cp` are judged | `["owner-pg"]` |
+| `project.lanes.commit` | `"allowed"` | Lane commit policy. `allowed` lets a lane commit to its own branch; `on-instruction` allows it only when the brief marker has `commit=allowed` (or a "commit allowed" line) and otherwise asks. Checkpoint commits follow it too | `"on-instruction"` |
 | `project.dispatch.brief` | `"deny"` | Brief check: `deny` blocks, `warn` only shows a hint, `off` skips it | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | Agent types that skip the brief check | `["fork"]` |
 | `project.waves.stale_min` | `20` | A running lane with no activity for this many minutes counts as stopped | `40` |

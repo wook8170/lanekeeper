@@ -28,8 +28,18 @@
     "source": "auto"
   },
   "terse": false,
+  "search": {
+    "rg_hint": true
+  },
+  "global_hooks": "defer",
+  "session_rules": {
+    "language": true,
+    "remote": true,
+    "conduct": true
+  },
   "handoff": {
     "enabled": true,
+    "inject": "summary",
     "file": "progress.md",
     "throttle_min": 20,
     "max_lines": 300,

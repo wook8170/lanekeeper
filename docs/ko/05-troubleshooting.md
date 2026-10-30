@@ -87,6 +87,9 @@ Claude Code 안에서는 `/wb:explain` 과 `/wb:doctor` 가 같은 일을 한다
 | `wb-integrate` 종료 코드 2 | 작업 트리가 깨끗하지 않거나 병합 중이거나 브랜치가 없다 | `git status` 로 확인한다 |
 | `wb-slot` 이 `부하가 높아 기다립니다` 를 반복 | 1분 부하가 `machine.load.max` 이상이다 | 다른 무거운 실행이 끝나기를 기다린다. `--timeout <초>` 를 주면 그 시간 뒤 종료 코드 75 로 끝난다 |
 | 디스패치가 `새 레인 보류 문턱 … 이상입니다` 로 막힘 | 1분 부하가 `machine.load.tiers.hold_new_lanes` 이상이다 | `wb-slot check` 로 부하와 고아 프로세스를 본다. 돌고 있는 레인이 끝나 부하가 내려간 뒤 다시 디스패치한다 |
+| 디스패치가 `가벼운 작업만 허용 문턱 … 이상입니다` 로 막힘 | 1분 부하가 `machine.load.tiers.light_only` 이상이고 작업 종류의 무게가 `light` 가 아니다 | 설계·검수·문서처럼 가벼운 레인을 먼저 띄우고, 무거운 레인은 부하가 내려간 뒤 디스패치한다. 작업 종류의 무게는 `routing.tasks.<종류>.weight` 다 |
+| 레인 커밋이 `지시가 있을 때만 허용합니다` 로 확인 요청 | `project.lanes.commit` 이 `on-instruction` 이고 지시서에 커밋 허용 표식이 없다 | 커밋하지 않고 보고한다. 커밋이 필요하면 메인 세션이 지시서 표지에 `commit=allowed` 를 넣어 다시 디스패치한다 |
+| DB 명령이 `보호 데이터(…)에 쓰는 명령입니다` 로 막힘 | 대상이 `project.protected_data` 의 파일·포트·컨테이너다 | 레인 전용 시험 DB(배정 포트·전용 컨테이너·시험용 파일)로 바꾼다. 읽기 질의는 `-c`·`-e` 뒤에 SELECT 문을 직접 적는다 |
 | 검수 레인의 무거운 실행이 `무거운 실행 중지 문턱 … 이상입니다` 로 막힘 | 1분 부하가 `machine.load.tiers.stop_heavy` 이상이고 레인 종류가 검수(`verifier`)다 | 부하가 내려간 뒤 다시 실행한다. 고아 프로세스는 `wb-slot reap --orphans` 로 보고 확인한 뒤 `--kill` 로 그 PID 만 종료한다 |
 | `wb-test-report` 가 `openpyxl 모듈이 없습니다` | Python 모듈이 없다 | Debian·Ubuntu 는 `sudo apt install python3-openpyxl` 을 실행한다. pip 설치가 막힌 환경(Homebrew·Debian 12 이상·Ubuntu 24.04)은 `python3 -m venv ~/.wb/venv` 후 `~/.wb/venv/bin/pip install openpyxl` 을 실행하고 `WB_PYTHON=$HOME/.wb/venv/bin/python3` 를 지정한다. 그 밖의 환경은 `python3 -m pip install openpyxl` 이면 된다. 설치하지 않아도 시험이 통과하면 게이트 통과 표식은 남는다(엑셀만 빠진다) |
 | `package.json 에 "gate" 스크립트가 없습니다` | `.wb/verify.config.json` 의 `gate.script` 이름이 `package.json` 의 `scripts` 에 없다 | 그 스크립트를 추가하거나 `gate.script` 를 있는 이름으로 바꾼다. 또는 `gate.steps` 에 `[{ "name": "test", "cmd": "npm test" }]` 처럼 명령을 직접 적는다 |

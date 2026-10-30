@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // UserPromptSubmit: look at the load every machine.load.check_every_min minutes
 // (0 = off) and add one line only when it has reached a tier
-// (hold_new_lanes or stop_heavy). Below the tiers it stays silent.
+// (light_only, hold_new_lanes or stop_heavy). Below the tiers it stays silent.
 // Not a safety hook: errors let the prompt through.
 import path from 'node:path'
 import { resolveConfig, projectRoot } from '../../../lib/config.mjs'
@@ -23,7 +23,7 @@ export function handle(input, env = process.env, deps = {}) {
   const tier = tierOf(load, ls.tiers)
   if (tier === 'ok') return null
   const t = translator(resolved.effective.language)
-  return ctxOutput(input.hook_event_name || 'UserPromptSubmit', `[wb] ${t(`load.notice.${tier}`, { load: load.toFixed(2), hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy })}`)
+  return ctxOutput(input.hook_event_name || 'UserPromptSubmit', `[wb] ${t(`load.notice.${tier}`, { load: load.toFixed(2), light: ls.tiers.light_only, hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy })}`)
 }
 
 hookMain(import.meta, handle)

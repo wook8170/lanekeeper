@@ -21,7 +21,7 @@ wb 의 설정은 파일 네 층으로 나뉜다. 팀이 함께 정할 값은 저
 | 키 종류 | 규칙 | 해당 키 |
 |---|---|---|
 | 일반 값 | 높은 층이 덮어쓴다. 개인 > 플러그인 설정 화면 > 머신 > 프로젝트 > 기본값 | 아래 두 줄을 뺀 모든 키 |
-| 보호 목록 | 모든 층의 합집합. 어느 층도 다른 층이 넣은 항목을 지울 수 없다 | `routing.denied`, `machine.ports.protected`, `project.git.protected_branches`, `project.protected_paths` |
+| 보호 목록 | 모든 층의 합집합. 어느 층도 다른 층이 넣은 항목을 지울 수 없다 | `routing.denied`, `machine.ports.protected`, `project.git.protected_branches`, `project.protected_paths`, `project.protected_data.paths`, `project.protected_data.ports`, `project.protected_data.containers` |
 | 상한 | 기본값을 뺀 층 중 가장 작은 값. 다른 층에 값이 없을 때만 기본값을 쓴다 | `machine.lanes.max`, `machine.slots.heavy.count`, `machine.slots.browser.count`, `machine.load.max` |
 
 상한 규칙에서 기본값을 빼는 이유는 개인 머신 파일이 기본값(레인 3개)보다 큰 값을 쓸 수 있게 하기 위해서다. 프로젝트는 그 값을 더 낮출 수만 있다.
@@ -57,10 +57,10 @@ wb-config validate
 | `routing.models` | 아래 설명 | 모델 이름별 Agent 도구 값(`agent_param`)과 등급(`rank`). 등급이 클수록 높다 | `{"opus":{"agent_param":"opus","rank":3}}` |
 | `routing.denied` | `[]` | 쓰지 않을 모델. 보호 목록 규칙으로 합친다 | `["fable"]` |
 | `routing.denied_note` | `{}` | 금지 이유 메모(스킬 참고) | `{"fable":"개인 결정"}` |
-| `routing.tasks` | 아래 설명 | 작업 종류별 `label`, `chain`(대체 순서), `floor`(최소 등급), `on_floor`(`wait-notify`), `differ_from`(`implementer`) | `{"review":{"chain":["opus"]}}` |
+| `routing.tasks` | 아래 설명 | 작업 종류별 `label`, `chain`(대체 순서), `floor`(최소 등급), `on_floor`(`wait-notify`), `differ_from`(`implementer`), `weight`(`light` · `heavy`, 없으면 `heavy`) | `{"review":{"chain":["opus"]}}` |
 | `routing.limits_state` | `"${CLAUDE_PLUGIN_DATA}/limits.json"` | 사용 한도에 걸린 모델 기록 파일 | 기본값 유지 |
 
-`routing.models` 의 기본값은 fable(등급 4), opus(3), sonnet(2), haiku(1)이다. `routing.tasks` 의 기본값 10종은 [기능 안내](02-features.md) 2절의 표와 같다. 작업 종류 하나만 바꿀 때는 그 항목의 바꿀 키만 적는다.
+`routing.models` 의 기본값은 fable(등급 4), opus(3), sonnet(2), haiku(1)이다. `routing.tasks` 의 기본값 11종은 [기능 안내](02-features.md) 2절의 표와 같다. 작업 종류 하나만 바꿀 때는 그 항목의 바꿀 키만 적는다.
 
 ```json
 {
@@ -82,6 +82,7 @@ wb-config validate
 | `machine.load.max` | `"auto"` | 이 1분 부하 이상이면 슬롯 실행을 기다린다. `auto` 는 논리 코어 수 × 2. 상한 규칙 | `16` |
 | `machine.load.auto_rule` | `"logical_cores * 2"` | `auto` 계산식 설명(예약) | 기본값 유지 |
 | `machine.load.sample` | `"1min"` | 비교할 부하 평균. `1min` · `5min` · `15min` | `"5min"` |
+| `machine.load.tiers.light_only` | `"auto"` | 이 1분 부하 이상이면 무거운 실행이 있는 작업 종류(`weight` 가 `light` 가 아닌 종류)의 새 레인을 막는다. 설계·검수·적대 검증·문서·시안처럼 가벼운 종류는 띄울 수 있다. `auto` 는 논리 코어 수 × 2. 새 레인 보류 문턱보다 크면 그 값으로 내린다(둘 다 `auto` 면 이 단계는 비어 있다) | `20` |
 | `machine.load.tiers.hold_new_lanes` | `"auto"` | 이 1분 부하 이상이면 새 레인(Agent 디스패치)을 막는다. 이미 있는 레인으로 보내는 디스패치는 막지 않는다. `auto` 는 논리 코어 수 × 2 | `20` |
 | `machine.load.tiers.stop_heavy` | `"auto"` | 이 1분 부하 이상이면 검수 레인의 무거운 실행을 바로 거부한다. 이미 잡힌 슬롯은 그대로 둔다. `auto` 는 논리 코어 수 × 2.8(반올림). 새 레인 보류 문턱보다 작으면 그 값으로 올린다 | `28` |
 | `machine.load.check_every_min` | `30` | 프롬프트를 보낼 때 부하를 보는 간격(분). 문턱을 넘었을 때만 한 줄을 알린다. `0` 은 끔 | `0` |
@@ -116,6 +117,7 @@ wb-config validate
 | `personal.auto_retry.permission_mode` | `"default"` | 재개 세션의 권한 모드. `default` · `acceptEdits` · `plan` · `bypassPermissions` | `"acceptEdits"` |
 | `personal.auto_retry.bypass_ack` | `false` | `bypassPermissions` 위험 확인 기록. `wb-retry mode bypassPermissions --i-understand` 가 쓴다 | 직접 쓰지 않음 |
 | `personal.handoff.enabled` | `true` | `progress.md` 인계 훅 | `false` |
+| `personal.handoff.inject` | `"summary"` | 세션 시작에 넣는 `progress.md` 분량. `summary` 는 첫 절(최대 40줄·2,500자)만 넣고 전체는 파일을 읽게 한다. `full` 은 현재 상태 전체 | `"full"` |
 | `personal.handoff.file` | `"progress.md"` | 인계 파일 경로(저장소 기준) | `"docs/progress.md"` |
 | `personal.handoff.throttle_min` | `20` | 같은 세션을 다시 막지 않는 시간(분) | `30` |
 | `personal.handoff.max_lines` | `300` | 인계 파일 기준 줄 수(20 이상) | `200` |
@@ -129,6 +131,11 @@ wb-config validate
 | `personal.token_guard.fresh_min` | `10` | 공식 사용량을 그대로 쓰는 시간(분). 이보다 오래되면 그 뒤 로컬 사용 추정을 더한다 | `5` |
 | `personal.token_guard.source` | `"auto"` | 사용량 출처. `auto` 는 공식 값과 추정, `official` 은 공식 값만, `local` 은 대체 예산 방식만 쓴다 | `"official"` |
 | `personal.terse` | `false` | 스위치가 없는 모든 저장소에서 간결 모드 | `true` |
+| `personal.global_hooks` | `"defer"` | Claude Code 설정(`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`)에 같은 종류의 훅(핸드오프·토큰 가드·자동 재개·간결 모드)이 이미 있으면 wb 의 그 훅을 끈다. `ignore` 면 그대로 켠다 | `"ignore"` |
+| `personal.search.rg_hint` | `true` | `grep -r` 류 재귀 검색에 `rg` 안내(세션당 한 번, 막지 않음) | `false` |
+| `personal.session_rules.language` | `true` | `personal.language` 가 `ko`·`en` 일 때 세션 시작에 출력 언어 규칙을 넣는다 | `false` |
+| `personal.session_rules.remote` | `true` | `personal.report.viewer` 가 `remote` 일 때 세션 시작에 원격 사용자 규칙(아티팩트·base64 이미지·2배율 캡처)을 넣는다 | `false` |
+| `personal.session_rules.conduct` | `true` | 세션 시작에 보고 정확성·소통·수정 원칙을 넣는다 | `false` |
 | `personal.design_plugin` | `""` | 큰 설계 요청에 안내할 별도 플러그인 이름 | `"my-design-plugin"` |
 
 ### 4.4 프로젝트(`project`)
@@ -258,6 +265,10 @@ wb-config validate
 | `project.worktree.setup` | `""` | 새 레인 워크트리에서 슬롯 안에 실행할 설치 명령. `WB_LANE`, `WB_PORT_<이름>` 을 받는다 | `"npm ci"` |
 | `project.worktree.hook` | `false` | Claude Code 의 워크트리 생성도 wb 방식으로 할지 | `true` |
 | `project.protected_paths` | `[]` | 에이전트가 쓰면 안 되는 경로(glob). 보호 목록 규칙 | `["db/prod/**"]` |
+| `project.protected_data.paths` | `[]` | 시험이 쓰면 안 되는 DB 파일·폴더(glob, 프로젝트 기준 또는 절대 경로, `~` 가능). 보호 목록 규칙 | `["data/owner.db"]` |
+| `project.protected_data.ports` | `[]` | 시험이 쓰면 안 되는 DB 서버 포트. psql·mysql 이 이 포트로 쓰기 SQL 을 보내면 레인은 막고 메인 세션은 확인을 받는다 | `[5432]` |
+| `project.protected_data.containers` | `[]` | 시험이 쓰면 안 되는 컨테이너 이름. `docker exec` 쓰기 명령과 `docker cp` 를 판정한다 | `["owner-pg"]` |
+| `project.lanes.commit` | `"allowed"` | 레인 커밋 정책. `allowed` 는 자기 브랜치 커밋 허용, `on-instruction` 은 지시서 표지에 `commit=allowed`(또는 「커밋 허용」 줄)가 있을 때만 허용하고 없으면 확인을 받는다. 체크포인트 커밋도 따른다 | `"on-instruction"` |
 | `project.dispatch.brief` | `"deny"` | 지시서 검사. `deny` 는 차단, `warn` 은 안내만, `off` 는 검사 안 함 | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | 지시서 검사를 건너뛸 에이전트 종류 | `["fork"]` |
 | `project.waves.stale_min` | `20` | 활동이 이 시간(분) 넘게 없는 진행 레인을 멈춤으로 봄 | `40` |

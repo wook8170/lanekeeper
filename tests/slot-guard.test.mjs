@@ -19,7 +19,7 @@ function sandbox(machine = {}, project = {}) {
   fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify(machine))
   fs.mkdirSync(path.join(base, '.wb'))
   fs.writeFileSync(path.join(base, '.wb', 'config.json'), JSON.stringify(project))
-  const env = { PATH: process.env.PATH, HOME: home, WB_HOME: path.join(home, '.wb'), WB_PROJECT_DIR: base, LANG: 'en_US.UTF-8' }
+  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), WB_PROJECT_DIR: base, LANG: 'en_US.UTF-8' }
   const judge = (command) => judgeSlots({ tool_name: 'Bash', tool_input: { command }, cwd: base }, env)
   return { base, env, judge, cleanup: () => fs.rmSync(base, { recursive: true, force: true }) }
 }
