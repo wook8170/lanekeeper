@@ -194,6 +194,7 @@ Placeholders are `{lane}`, `{date}`, `{slug}`, `{name}`, `{HHMM}`, `{stamp}` and
 | `project.quality.version_file` | `"VERSION"` | File whose first line is the version. Without it, the version in `package.json` | `"version.txt"` |
 | `project.quality.suites` | `{}` | Run settings per kind name. Fields in the table below | see the settings example |
 | `project.quality.ship.requires` | `[]` | Kinds that must pass before ship verification. Empty turns the precheck off | `["unit","e2e","gate"]` |
+| `project.quality.ship.advisory` | `["ux-adversarial"]` | Kinds checked the same way that only warn when they do not pass. A kind also in `requires` blocks | `[]` |
 | `project.quality.ship.enforce` | `"deny"` | What the gate hook does: `deny` (block) · `warn` (note only) · `off` | `"warn"` |
 | `project.quality.ship.agents` | `["readiness-auditor"]` | Subagent types that need the precheck (the name part of `plugin:name` also matches) | keep the default |
 | `project.quality.ship.skills` | `["verifying-production-readiness"]` | Skills that need the precheck. A subagent prompt that names one also needs it | keep the default |
@@ -202,7 +203,7 @@ Fields of each `quality.suites` entry:
 
 | Field | Meaning |
 |---|---|
-| `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ship`. The quality skills pick suites by category. Without it: the kind name when that is a category, otherwise `unit` |
+| `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ux-adversarial` · `ship`. The quality skills pick suites by category. Without it: the kind name when that is a category, otherwise `unit` |
 | `command` | Shell command to run. `{file}` becomes the result file, `{dir}` the raw folder, `{root}` the repository. Without it and without `steps`, the skill tests and records the kind with `wb-quality record` |
 | `steps` | `[{ "name": "docs", "cmd": "…" }]`. Each step runs on its own and counts as one test |
 | `parser` | Result format: `vitest` · `jest` · `playwright` · `pytest` (JUnit XML) · `vitest-log` (sum of the `Tests` lines in the log) · `json` (a file with `counts`) · `exit` (exit code only) · `steps`. Default `steps` when steps are set, otherwise `exit` |

@@ -1,6 +1,6 @@
 ---
 name: quality-report
-description: Build the quality report of a version from the archived results — the latest result per kind (unit, integration, gate, e2e, UI stability, usability, ship verification), missing kinds, known issues, excluded tests and the run history — as a workbook (quality-<version>.xlsx, one sheet per kind plus a summary) and a readable Markdown and HTML page. Use when the user runs /wb:quality-report, asks for a quality report or a release quality summary, or at the end of /wb:ship-verify.
+description: Build the quality report of a version from the archived results — the latest result per kind (unit, integration, gate, e2e, UI stability, usability, adversarial UX check, ship verification), missing kinds, known issues, excluded tests and the run history — as a workbook (quality-<version>.xlsx, one sheet per kind plus a summary) and a readable Markdown and HTML page. Use when the user runs /wb:quality-report, asks for a quality report or a release quality summary, or at the end of /wb:ship-verify.
 ---
 
 # wb quality-report

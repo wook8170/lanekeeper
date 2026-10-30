@@ -6,6 +6,8 @@
 // project.quality.ship.requires needs a passed result on the current commit that is not weaker than
 // the previous passed result. Otherwise the call is denied (enforce "deny") or noted ("warn"), with
 // the kinds and states and the command that runs and fixes them (/wb:ship-verify).
+// Kinds in project.quality.ship.advisory (default ux-adversarial) are checked the same way but only
+// add a warning: not run before shipping, or the newest result failed (an open blocker finding).
 // Not a safety hook: internal errors let the call through (fail-open) with a note.
 import { resolveConfig, projectRoot } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
@@ -22,8 +24,10 @@ export function evaluate(input, env = process.env, overrides = {}) {
   const res = precheck(root, S)
   const dirty = treeDirty(root, `${S.resultsRoot.replace(/\/+$/, '')}/`)
   const bad = res.rows.filter((r) => r.state !== 'ok')
-  if (!bad.length && !dirty) return null
-  return { level: S.ship.enforce === 'warn' ? 'warn' : 'deny', rows: bad, dirty, language: resolved.effective?.language || 'en' }
+  const advisory = (res.advisory || []).filter((r) => r.state !== 'ok')
+  if (!bad.length && !dirty && !advisory.length) return null
+  const level = bad.length || dirty ? (S.ship.enforce === 'warn' ? 'warn' : 'deny') : 'warn'
+  return { level, rows: bad, advisory, dirty, language: resolved.effective?.language || 'en' }
 }
 
 export function format(r) {
@@ -31,7 +35,10 @@ export function format(r) {
   const items = r.rows.map((x) => `${x.kind}=${t(`q.state.${x.state}`)}`)
   if (r.dirty) items.push(t('q.state.tree_dirty'))
   const head = r.level === 'deny' ? t('safety.blocked') : t('dispatch.warn')
-  return `[wb] ${head}: ${t('dispatch.ship_precheck.why', { items: items.join(', ') })}\n${t('safety.fix')}: ${t('dispatch.ship_precheck.fix')}`
+  const adv = (r.advisory || []).map((x) => `${x.kind}=${t(`q.state.${x.state}`)}`).join(', ')
+  const advLine = adv ? t('dispatch.ship_precheck.advisory', { items: adv }) : ''
+  if (!items.length) return `[wb] ${head}: ${advLine}`
+  return `[wb] ${head}: ${t('dispatch.ship_precheck.why', { items: items.join(', ') })}\n${t('safety.fix')}: ${t('dispatch.ship_precheck.fix')}${advLine ? `\n${advLine}` : ''}`
 }
 
 export function handle(input, env = process.env, overrides = {}) {
