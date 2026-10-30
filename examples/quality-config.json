@@ -51,10 +51,16 @@
         "category": "usability",
         "stale_paths": ["apps/**", "packages/tokens/**"],
         "note": "beginner stand-in agents; /wb:quality-usability records the result"
+      },
+      "ux-adversarial": {
+        "category": "ux-adversarial",
+        "stale_paths": ["apps/**", "packages/tokens/**"],
+        "note": "adversarial UX checker in a separate context; /wb:quality-ux-adversarial records the result"
       }
     },
     "ship": {
       "requires": ["unit", "pg", "gate", "e2e", "uistab", "usability"],
+      "advisory": ["ux-adversarial"],
       "enforce": "deny"
     }
   }

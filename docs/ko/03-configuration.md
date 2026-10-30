@@ -194,6 +194,7 @@ wb-config validate
 | `project.quality.version_file` | `"VERSION"` | 버전을 읽을 파일(첫 줄). 없으면 `package.json` 의 version | `"version.txt"` |
 | `project.quality.suites` | `{}` | 종류 이름별 실행 설정. 항목은 아래 표 | 아래 설정 예 |
 | `project.quality.ship.requires` | `[]` | 출하 검증 전에 통과해야 하는 종류. 비어 있으면 관문이 꺼진다 | `["unit","e2e","gate"]` |
+| `project.quality.ship.advisory` | `["ux-adversarial"]` | 같은 방식으로 확인하지만 통과하지 않아도 막지 않고 경고만 하는 종류. `requires` 에도 있으면 막는다 | `[]` |
 | `project.quality.ship.enforce` | `"deny"` | 관문 훅의 동작. `deny`(막음) · `warn`(알림만) · `off` | `"warn"` |
 | `project.quality.ship.agents` | `["readiness-auditor"]` | 관문을 거쳐야 하는 서브에이전트 종류(`플러그인:이름` 의 이름 부분도 맞춤) | 기본값 유지 |
 | `project.quality.ship.skills` | `["verifying-production-readiness"]` | 관문을 거쳐야 하는 스킬. 서브에이전트 지시문에 이 이름이 있어도 관문을 거친다 | 기본값 유지 |
@@ -202,7 +203,7 @@ wb-config validate
 
 | 항목 | 뜻 |
 |---|---|
-| `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ship`. 품질 스킬이 이 범주로 스위트를 고른다. 없으면 종류 이름이 범주 이름일 때 그 범주, 아니면 `unit` |
+| `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ux-adversarial` · `ship`. 품질 스킬이 이 범주로 스위트를 고른다. 없으면 종류 이름이 범주 이름일 때 그 범주, 아니면 `unit` |
 | `command` | 실행할 셸 명령. `{file}` 은 결과 파일, `{dir}` 은 원자료 폴더, `{root}` 는 저장소 경로로 바뀐다. 없고 `steps` 도 없으면 스킬이 시험한 뒤 `wb-quality record` 로 기록하는 종류다 |
 | `steps` | `[{ "name": "docs", "cmd": "…" }]`. 단계마다 따로 실행하고 단계 하나를 시험 하나로 센다 |
 | `parser` | 결과 형식. `vitest` · `jest` · `playwright` · `pytest`(JUnit XML) · `vitest-log`(로그의 `Tests` 줄 합계) · `json`(`counts` 를 담은 파일) · `exit`(종료 코드만) · `steps`. 기본값은 `steps` 가 있으면 `steps`, 없으면 `exit` |

@@ -2,7 +2,7 @@
 
 wb works in three ways. Hooks judge automatically before and after Claude Code runs a tool. The `wb-*` commands are run by you or by Claude. Skills (`/wb:<name>`) are task guides that make Claude run commands in a set order.
 
-This page explains when and how to use each feature, and ends with the 26 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+This page explains when and how to use each feature, and ends with the 27 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
 
 ## 1. Features at a glance
 
@@ -230,9 +230,11 @@ wb-cases check
 
 With a ledger, the ledger comparison sheet lists mismatches between the ledger and the run. Mismatches must be 0 before a ship decision.
 
-**Results per kind and the ship precheck.** `wb-quality` keeps a result per test kind (unit, integration, gate, e2e, UI stability, usability, ship verification). The commands are set per kind in the project setting `quality.suites` (command, result format `parser`, slot, threshold files, stale paths). A result is a common head JSON (kind, version, commit, branch, start, end, environment, verdict, total, passed, failed, skipped, fixme, flaky, raw file location) and a workbook with the same content, saved as `docs/test-results/<version>/<date>/<kind>-<HHMM>.json` and `.xlsx`. The version is read from `quality.version_file` (default `VERSION`). Raw files such as logs stay in `quality.raw_root` and are not committed. `index.json` and `INDEX.md` in the results folder are an index rebuilt from the result files. Older date folders (`docs/test-results/<date>/`) are not moved; the index lists them as the older layout.
+**Results per kind and the ship precheck.** `wb-quality` keeps a result per test kind (unit, integration, gate, e2e, UI stability, usability, adversarial UX check, ship verification). The commands are set per kind in the project setting `quality.suites` (command, result format `parser`, slot, threshold files, stale paths). A result is a common head JSON (kind, version, commit, branch, start, end, environment, verdict, total, passed, failed, skipped, fixme, flaky, raw file location) and a workbook with the same content, saved as `docs/test-results/<version>/<date>/<kind>-<HHMM>.json` and `.xlsx`. The version is read from `quality.version_file` (default `VERSION`). Raw files such as logs stay in `quality.raw_root` and are not committed. `index.json` and `INDEX.md` in the results folder are an index rebuilt from the result files. Older date folders (`docs/test-results/<date>/`) are not moved; the index lists them as the older layout.
 
 Before ship verification starts (`quality.ship.skills`, `quality.ship.agents`), the newest result of each kind in `quality.ship.requires` is checked. When there is none (missing), when it belongs to another commit or ran with uncommitted changes (stale), or when it did not pass (failed), the gate blocks and `wb-quality precheck --run` runs that kind again. When it has fewer tests, more skipped or fixme tests, or a changed or loosened threshold file compared with the previous passed result (weakened), running again does not help. When the change is intended, the repository owner accepts it with `wb-quality accept` in their own terminal. A commit that only changes files in the results folder counts as the same commit.
+
+Kinds in `quality.ship.advisory` (default `["ux-adversarial"]`) are checked the same way but only warn. When the adversarial UX check was not done before shipping (manual, missing), or its newest result has an open blocker finding (failed), a warning appears under the precheck table and in the hook note. Move the kind to `quality.ship.requires` to make it block, or set `[]` to drop the warning.
 
 ```
 wb-quality list                             configured kinds and commands
@@ -363,7 +365,7 @@ Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window start
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `wb-retry mode bypassPermissions --i-understand`.
 
-## 13. The 26 skills
+## 13. The 27 skills
 
 Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skill on its own when a request matches its description. `/wb:approve` is the exception: it works only when a person types it.
 
@@ -387,6 +389,7 @@ Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skil
 | `/wb:quality-e2e` | Runs the end-to-end tests headless and keeps the result |
 | `/wb:quality-uistab` | Runs the UI stability harness and keeps the result with its threshold files |
 | `/wb:quality-usability` | Runs a usability test with beginner stand-in agents and records it |
+| `/wb:quality-ux-adversarial` | A checker in a separate context checks the UX adversarially; fixes follow the owner's confirmation and are checked again |
 | `/wb:ship-verify` | Gets the precheck through, then runs ship verification |
 | `/wb:quality-report` | Builds the quality report of a version (workbook, Markdown, HTML) |
 | `/wb:docs-sync` | Brings documents and screenshots up to date with a change of screens or features |
@@ -571,6 +574,13 @@ Test results docs/test-results/2026-10-17/integration-2238.xlsx · verdict passe
 - When: you need a usability result from a first-time user's point of view.
 - How: the automated part runs as the suite command. For the agent part, send a beginner stand-in agent with a brief per scenario and collect goal reached, steps, wrong turns and blockers. A scenario passes when the goal was reached, nothing blocked and the steps stayed within 1.5 × the expected steps. The whole test passes when every P0 scenario passed and nothing blocked. Record it with `wb-quality record`.
 - Example: `wb-quality record usability --verdict passed --from usability.json`
+- Relation: it asks whether a beginner can finish the main tasks. Wrong data, getting lost, broken flow and inconsistent looks around journeys that work are `/wb:quality-ux-adversarial`. When both are due, run this one first.
+
+### /wb:quality-ux-adversarial
+
+- When: before shipping a product with screens, to find where a first-time user gets stuck, goes wrong or loses work; when the ship precheck warns about `ux-adversarial`.
+- How: send the checker agent `wb:ux-adversary` (Fable recommended, Opus otherwise), in a context separate from the implementing session, with a brief. The checker does not edit product code. It drives journeys and edge states (light and dark, wide and narrow width, keyboard only, no permission, empty state, long names, a lot of data, leaving before saving, back, reload and deep links) in a headless browser (2x captures, Playwright's default `--hide-scrollbars` dropped). Each finding has the user impact in one sentence, steps, evidence (a capture now, a check against the real data, measured computed style or pixels), a severity (blocker, high, medium, low), an axis (① data correctness ② location and way back ③ what to do on this screen ④ flow continuity ⑤ visual consistency), a fix proposal in the design system and a fix capture made by DOM or CSS injection. With another front-end implementation it checks parity too. The main session reports to the owner as an artifact with the now and fix captures side by side, fixes only the findings the owner confirms, and checks them again with a fresh checker. An open blocker finding makes the verdict failed.
+- Example: `wb-quality record ux-adversarial --verdict failed --from counts.json`
 
 ### /wb:ship-verify
 

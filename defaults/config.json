@@ -60,6 +60,7 @@
     "suites": {},
     "ship": {
       "requires": [],
+      "advisory": ["ux-adversarial"],
       "enforce": "deny",
       "agents": ["readiness-auditor"],
       "skills": ["verifying-production-readiness"]

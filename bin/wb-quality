@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// wb-quality — results per kind (unit · integration · gate · e2e · uistab · usability · ship), the
+// wb-quality — results per kind (unit · integration · gate · e2e · uistab · usability · ux-adversarial · ship), the
 // results index, the version quality report and the ship precheck.
 //
 //   wb-quality list [--json]                         configured suites (project.quality.suites)
@@ -13,6 +13,7 @@
 //   wb-quality status [--json]                       ship precheck table without running anything
 //   wb-quality precheck [--run] [--json]             ship precheck; --run runs every missing, stale or failed suite
 //                                                    first; exit 1 while any required kind is not ok
+//                                                    (quality.ship.advisory kinds only warn)
 //   wb-quality report [--version V] [--json] [--no-xlsx]
 //                                                    quality-<V>.{xlsx,md,html}: latest result per kind of the version
 //   wb-quality accept <kind> --reason "<text>"       owner only, from a terminal: accept a weakened result
@@ -178,13 +179,20 @@ async function runSuite(suite) {
   return head
 }
 
+function printRow(r) {
+  const e = r.entry
+  const last = e ? `${e.date} ${String(e.commit || '-').slice(0, 9)} ${e.verdict ? t(`q.verdict.${e.verdict}`) : '-'}` : '-'
+  const why = r.reasons.map((x) => t(`q.why.${x.code}`, x.vars)).join(' · ')
+  print(`  ${r.kind.padEnd(12)} ${t(`q.state.${r.state}`).padEnd(8)} ${last}${why && r.state !== 'ok' ? `  — ${why}` : ''}`)
+}
+
 function printTable(res) {
   print(t('q.pre.head', { head: (res.head || '-').slice(0, 9) }))
-  for (const r of res.rows) {
-    const e = r.entry
-    const last = e ? `${e.date} ${String(e.commit || '-').slice(0, 9)} ${e.verdict ? t(`q.verdict.${e.verdict}`) : '-'}` : '-'
-    const why = r.reasons.map((x) => t(`q.why.${x.code}`, x.vars)).join(' · ')
-    print(`  ${r.kind.padEnd(12)} ${t(`q.state.${r.state}`).padEnd(8)} ${last}${why && r.state !== 'ok' ? `  — ${why}` : ''}`)
+  for (const r of res.rows) printRow(r)
+  const adv = res.advisory || []
+  if (adv.length) {
+    print(t('q.pre.advisory_head'))
+    for (const r of adv) printRow(r)
   }
   if (res.treeDirty) print(t('q.pre.tree_dirty'))
   print(res.ok ? t('q.pre.ok') : t('q.pre.blocked', { n: res.rows.filter((r) => r.state !== 'ok').length + (res.treeDirty ? 1 : 0) }))
@@ -193,6 +201,8 @@ function printTable(res) {
     for (const r of res.rows.filter((x) => x.state === 'weakened')) print(`  ${t('q.pre.fix_weakened', { kind: r.kind })}`)
     for (const r of res.rows.filter((x) => x.state === 'manual')) print(`  ${t('q.pre.fix_manual', { kind: r.kind, category: S.suites[r.kind]?.category || r.kind })}`)
   }
+  const warned = adv.filter((r) => r.state !== 'ok')
+  if (warned.length) print(t('q.pre.advisory_warn', { items: warned.map((r) => `${r.kind}=${t(`q.state.${r.state}`)}`).join(', ') }))
 }
 
 function evaluate() {
@@ -256,7 +266,7 @@ const COMMANDS = {
     if (typeof args.report === 'string') detail.report = args.report
     if (kind === 'ship' || suite.category === 'ship') {
       const pre = evaluate()
-      detail.precheck = { ok: pre.ok, rows: pre.rows.map((r) => ({ kind: r.kind, state: r.state, commit: r.entry?.commit || null })) }
+      detail.precheck = { ok: pre.ok, rows: pre.rows.map((r) => ({ kind: r.kind, state: r.state, commit: r.entry?.commit || null })), advisory: (pre.advisory || []).map((r) => ({ kind: r.kind, state: r.state, commit: r.entry?.commit || null })) }
     }
     const head = Q.makeHead({
       kind, category: suite.category, version, commit, branch, dirty: Q.treeDirty(root, `${S.resultsRoot.replace(/\/+$/, '')}/`),

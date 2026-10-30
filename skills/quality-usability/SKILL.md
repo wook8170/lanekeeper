@@ -5,6 +5,8 @@ description: Run a usability test of the product with beginner stand-in agents (
 
 # wb quality-usability
 
+This skill asks whether a beginner can finish the main tasks. Where the product misleads, strands or loses a user around journeys that work, and whether it looks the same everywhere, is `/wb:quality-ux-adversarial` (an adversarial checker in a separate context, no product code changes, owner confirms fixes). Before a release with a user interface, run this one first, then that one.
+
 A usability result has two parts. The automated part (for example a script that drives the main journeys headless and counts the steps) is a suite command and runs like any other kind. The agent part needs a judgement, so this skill runs it and records the result with `wb-quality record`.
 
 ## Steps

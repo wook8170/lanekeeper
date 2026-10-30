@@ -261,6 +261,8 @@ wb-check test-results [--json] [--require-pass]
 
 **종류별 결과와 출하 검증 관문.** `wb-quality` 는 단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증 결과를 종류마다 따로 `docs/test-results/<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx` 로 남기고 색인(`index.json`·`INDEX.md`)을 갱신한다. 명령은 `.wb/config.json` 의 `quality.suites` 에 적는다(예: `examples/quality-config.json`). 품질 스킬(`/wb:quality-unit`·`/wb:quality-integration`·`/wb:quality-gate`·`/wb:quality-e2e`·`/wb:quality-uistab`·`/wb:quality-usability`)이 종류별로 돌리고, `/wb:quality-report` 가 버전 취합본(엑셀·Markdown·HTML)을 만든다. `quality.ship.requires` 를 설정하면 출하 검증 스킬·에이전트를 부르기 전에 훅이 각 종류의 최신 결과를 확인한다. 없거나 다른 커밋의 것이거나 실패했으면 막고, `/wb:ship-verify`(`wb-quality precheck --run`)가 다시 돌린다. 직전 통과 결과보다 시험 수가 줄거나 건너뜀·보류가 늘거나 임계값이 완화된 결과도 막는다.
 
+**UX 적대 점검.** `/wb:quality-ux-adversarial` 은 구현 세션과 분리된 점검 에이전트 `wb:ux-adversary`(권장 모델 Fable, 없으면 Opus)가 실제 화면을 헤드리스로 조작해, 처음 쓰는 사람이 막히거나 틀리거나 작업을 잃는 지점을 다섯 축(데이터 적절성·정합성, 위치·길 찾기, 현재 화면 할 일, 흐름 연속성, 모양 일관성)으로 찾는다. 발견마다 사용자가 겪는 일, 재현, 증거(2x 캡처·실제 데이터 대조·측정값), 심각도, 디자인 시스템 기준 수정안, DOM/CSS 주입 시안 캡처를 남기고 제품 코드는 고치지 않는다. 메인 세션은 전후 캡처를 나란히 놓은 아티팩트로 오너에게 보고하고, 오너가 확인한 것만 고친 뒤 다시 점검한다. 결과 종류는 `ux-adversarial` 이고, 기본값으로 `quality.ship.advisory` 에 들어 있어 출하 전에 하지 않았거나 해결하지 않은 차단 발견이 있으면 관문이 경고한다(막게 하려면 `quality.ship.requires` 로 옮긴다).
+
 **문서 현행화.** `wb-docs` 는 화면·기능 변경에서 고칠 문서를 찾는다. 화면 코드에서 사라진 문구가 남아 있는 문서 줄, 짝 파일의 다른 쪽, 묶음의 나머지, 규칙이 요구한 생성 문서는 필수로, 바뀐 화면 부분을 설명하는 문서와 재촬영 후보 그림은 검토로 보여 준다. `/wb:docs-sync` 가 자동 생성 → 수정 초안 → 재촬영 → 검사 → 관문(`wb-docs check`) 순서로 진행한다. 대상과 규칙은 `.wb/config.json` 의 `docs_sync` 에 적는다(예: `examples/docs-sync-config.json`). 설정하면 `wb-quality` 에 종류 `docs` 가 생겨 출하 검증 관문에 넣을 수 있다.
 
 ## 검수·취합·보고
