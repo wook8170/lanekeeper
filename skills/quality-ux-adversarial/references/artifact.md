@@ -4,7 +4,7 @@ The main session builds one HTML page from `findings.md` and publishes it as an 
 
 Order of the page:
 
-1. Lead line: version, commit, area, the verdict (open blockers or none), and what the owner is asked to decide.
+1. Lead line: version, commit, area, the verdict (open blocker and high findings, or none), and what the owner is asked to decide.
 2. Counts: by severity and by axis, parity findings, cells checked and not checked.
 3. One card per finding, blockers first, then high, medium, low:
    - number, screen, severity, axis, defect fix or design change;

@@ -310,12 +310,20 @@ Test results are saved as a workbook and committed. A report cannot be closed wi
 - Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 - If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
 
+### Design review reaches high 0 before implementation (`design-adversarial-review`)
+
+When a design document is ready, a reviewer from a different context than its author (a strong model, read-only) reviews it adversarially before implementation. The reviewer checks the code the design cites, sorts findings into high, medium and low with `path:line` evidence and a direction for the fix, and ends with the line "high N". The design is revised in numbered revisions (rev 2, rev 3 …); each marks its changed paragraphs and carries a reconciliation table (finding → accepted or not → where applied, with the reason when not), and is reviewed again. A revision that only fixes high findings may be re-reviewed on those findings plus its new risks. Implementation starts at high 0. Owner decisions are collected and confirmed separately. Screen designs and mockups are checked on the nine axes of the adversarial UX check. After implementation, one more adversarial review reads the code and checks the design's invariants.
+
+- Why: A design that reads well still causes rework when it disagrees with the code it cites. Its author rarely questions their own assumptions.
+- Enforced in: `skills/design-adversarial/SKILL.md`, `skills/work/SKILL.md`
+- If blocked: Run `/wb:design-adversarial`, fix the high findings in a new revision and review again. Write the reason for each finding not accepted in the reconciliation table.
+
 ### Required checks pass before ship verification (`ship-precheck`)
 
-Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass.
+Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass. For a product with screens, right before the ship verdict a checker from a different context than the implementer checks the screens the version changed: a persona's real tasks done end to end, headless in an isolated stack, with 2x captures, on all nine axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors, accessibility with narrow width and dark theme, design system visual comparison). An open blocker or high finding stops the ship; findings that change a screen are confirmed by the owner before they are fixed. Then the ship verdict (verifying-production-readiness) runs.
 
-- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision.
-- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision. Lane tests and the design lint baseline do not catch wording a first-time user misreads, a dead end, or visual violations such as touching spacing and tight line height.
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 - If blocked: Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal.
 
 ### Reserve numbers first (`number-reservation`)

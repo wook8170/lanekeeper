@@ -704,6 +704,8 @@
   "work.step.write": "문서 레인이 문체 규칙대로 쓴다 (`wb-style`)",
   "work.step.harness": "설계 트랙 확인: 큰 설계는 별도 설계 플러그인으로 진행할 수 있어요",
   "work.step.design": "설계 레인이 안을 만든다",
+  "work.step.design-review": "다른 맥락의 검증자가 설계를 인용 코드와 대조한다. 판을 고쳐 「높음 0건」이 될 때까지 다시 검증한다 (`/wb:design-adversarial`)",
+  "work.step.impl-review": "새 검증자가 끝난 코드를 정독해 설계 불변식을 확인한다. 「높음 0건」이어야 합친다 (`/wb:design-adversarial`)",
   "work.step.record": "`progress.md` 를 갱신하고 `/clear` 를 안내한다",
   "work.harness.installed": "설계 플러그인({name})이 설치되어 있어요. 그 트랙으로 진행할 수 있어요.",
   "work.harness.missing": "설계 플러그인({name})이 설치되어 있지 않아요. 설치할지 사용자에게 물어보세요. wb 는 이 플러그인에 의존하지 않아요.",

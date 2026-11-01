@@ -2,7 +2,7 @@
 
 wb works in three ways. Hooks judge automatically before and after Claude Code runs a tool. The `wb-*` commands are run by you or by Claude. Skills (`/wb:<name>`) are task guides that make Claude run commands in a set order.
 
-This page explains when and how to use each feature, and ends with the 27 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+This page explains when and how to use each feature, and ends with the 28 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
 
 **Where it acts.** The safety hooks run in every repository. The other workflow hooks act only in a repository with `.wb/config.json` (or a worktree of it). The environment variable `WB_ACTIVE=1` turns every repository on and `WB_ACTIVE=0` turns them all off. Handoff, token guard, automatic resume and terse mode turn off when the Claude Code settings already hook the same kind (`personal.global_hooks`). At session start only the first section of `progress.md` goes in by default (`personal.handoff.inject`).
 
@@ -372,7 +372,7 @@ Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window start
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `wb-retry mode bypassPermissions --i-understand`.
 
-## 13. The 27 skills
+## 13. The 28 skills
 
 Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skill on its own when a request matches its description. `/wb:approve` is the exception: it works only when a person types it.
 
@@ -583,16 +583,22 @@ Test results docs/test-results/2026-10-17/integration-2238.xlsx · verdict passe
 - Example: `wb-quality record usability --verdict passed --from usability.json`
 - Relation: it asks whether a beginner can finish the main tasks. Wrong data, getting lost, broken flow and inconsistent looks around journeys that work are `/wb:quality-ux-adversarial`. When both are due, run this one first.
 
+### /wb:design-adversarial
+
+- When: a design document is ready and implementation is about to start, a design was revised, or the implementation built from it is finished.
+- How: send the review agent `wb:design-adversary` (Fable recommended, Opus otherwise, read-only), in a context separate from the design's author, with a brief. The reviewer checks the code the design cites, not only its sentences. Findings are high, medium or low, each with `path:line` evidence and a direction for the fix, and the last line is `high N`. The design is revised as rev 2, rev 3 …; each revision marks its changed paragraphs and carries a reconciliation table (finding → accepted or not → where applied, with the reason when not), and is reviewed again. A revision that only fixed high findings may be re-reviewed on those findings plus its new risks. Implementation starts at `high 0`. Owner decisions are collected and confirmed with `/wb:decide`. Screen designs and mockups are checked on the nine axes of the adversarial UX check. After implementation, a fresh reviewer reads the code and checks the design's invariants.
+- Example: the last line of `review-rev2.md` is `high 0` → dispatch the implementation lanes
+
 ### /wb:quality-ux-adversarial
 
-- When: before shipping a product with screens, to find where a first-time user gets stuck, goes wrong or loses work; when the ship precheck warns about `ux-adversarial`.
-- How: send the checker agent `wb:ux-adversary` (Fable recommended, Opus otherwise), in a context separate from the implementing session, with a brief. The checker does not edit product code. It drives journeys and edge states (light and dark, wide and narrow width, keyboard only, no permission, empty state, long names, a lot of data, leaving before saving, back, reload and deep links) in a headless browser (2x captures, Playwright's default `--hide-scrollbars` dropped). Each finding has the user impact in one sentence, steps, evidence (a capture now, a check against the real data, measured computed style or pixels), a severity (blocker, high, medium, low), an axis (① data correctness ② location and way back ③ what to do on this screen ④ flow continuity ⑤ visual consistency), a fix proposal in the design system and a fix capture made by DOM or CSS injection. With another front-end implementation it checks parity too. The main session reports to the owner as an artifact with the now and fix captures side by side, fixes only the findings the owner confirms, and checks them again with a fresh checker. An open blocker finding makes the verdict failed.
+- When: right before shipping a product with screens, to check the screens the version changed next to the gate, database and e2e checks (`/wb:ship-verify` calls it); when the ship precheck warns about `ux-adversarial`.
+- How: send the checker agent `wb:ux-adversary` (Fable recommended, Opus otherwise), in a context separate from the implementing session, with a brief. The checker does not edit product code. It first chooses personas (a first-time business user, an administrator and so on) and does their real task scenarios from start to end in an isolated stack, writing on every screen what the persona understood and is about to do. It drives journeys and edge states (light and dark, wide and narrow width, keyboard only, no permission, empty state, long names, a lot of data, leaving before saving, back, reload and deep links) in a headless browser (2x captures, Playwright's default `--hide-scrollbars` dropped). Each finding has the user impact in one sentence, steps, evidence (a capture now, a check against the real data, measured computed style or pixels), a severity (blocker, high, medium, low), an axis out of nine required ones (① logic errors ② information consistency ③ user context ④ flow context ⑤ first-time user getting lost ⑥ the next action ⑦ a way out of errors and exceptions ⑧ accessibility, narrow width, dark theme ⑨ design system visual comparison, including visual violations the lint baseline does not catch: touching spacing, tight line height, mixed type size and weight, table row height, button and badge size), a fix proposal in the design system and a fix capture made by DOM or CSS injection. With another front-end implementation it checks parity too. The main session reports to the owner as an artifact with the now and fix captures side by side, fixes only the findings the owner confirms, and checks them again with a fresh checker. An open blocker or high finding makes the verdict failed and blocks the ship. Findings that change a screen are collected and confirmed by the owner before they are fixed.
 - Example: `wb-quality record ux-adversarial --verdict failed --from counts.json`
 
 ### /wb:ship-verify
 
 - When: deciding whether to ship, or when the ship gate hook blocked a readiness skill or agent.
-- How: commit everything and run `wb-quality precheck --run`. Give the cause of a failed kind to a lane (a brief is required), then run that kind again. Repeat until it passes. Revert a weakening or get the owner's acceptance. Once the precheck passes, run ship verification, record the verdict with `wb-quality record ship --verdict passed|failed --report <report>`, then roll up with `/wb:quality-report`.
+- How: commit everything and run `wb-quality precheck --run`. Give the cause of a failed kind to a lane (a brief is required), then run that kind again. Repeat until it passes. Revert a weakening or get the owner's acceptance. Once the precheck passes, check the screens the version changed with `/wb:quality-ux-adversarial` (an open blocker or high finding stops here), then run the ship verdict (verifying-production-readiness), record the verdict with `wb-quality record ship --verdict passed|failed --report <report>`, then roll up with `/wb:quality-report`.
 - Example:
 
 ```

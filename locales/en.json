@@ -704,6 +704,8 @@
   "work.step.write": "A docs lane writes by the style rules (`wb-style`)",
   "work.step.harness": "Design track check: a large design can run in the separate design plugin",
   "work.step.design": "A design lane drafts the proposal",
+  "work.step.design-review": "A reviewer from another context checks the design against the code it cites; revise and review again until high 0 (`/wb:design-adversarial`)",
+  "work.step.impl-review": "A fresh reviewer reads the finished code and checks the design's invariants; high 0 before integrating (`/wb:design-adversarial`)",
   "work.step.record": "Update `progress.md` and tell the user to `/clear`",
   "work.harness.installed": "The design plugin ({name}) is installed; you can use its track.",
   "work.harness.missing": "The design plugin ({name}) is not installed. Ask the user whether to install it; wb does not depend on it.",

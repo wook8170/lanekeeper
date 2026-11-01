@@ -189,6 +189,7 @@ The mockup-first rule works only when the screen files are named. Add them to `.
   "version": 1,
   "project_kind": "web-ui",
   "gate": { "command": "npm test", "verify_all": "", "append_checks": [] },
+  "quality": { "ship": { "requires": ["ux-adversarial"] } },
   "mockup": { "ui_globs": ["src/**/*.tsx"] }
 }
 ```
@@ -549,7 +550,7 @@ If only result files were committed after the stamp, it stays valid. Any other c
 
 ## What to read next
 
-- [Features](02-features.md): how to use each feature, and the 27 skills
+- [Features](02-features.md): how to use each feature, and the 28 skills
 - [Configuration](03-configuration.md): settings layers and every key
-- [Rules](04-rules.md): the 51 rules and how to fix the work when blocked
+- [Rules](04-rules.md): the 52 rules and how to fix the work when blocked
 - [Troubleshooting](05-troubleshooting.md): common messages and questions

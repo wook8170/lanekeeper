@@ -18,11 +18,11 @@ Request kinds and what they change:
 | Kind | Flow |
 |---|---|
 | bug | reproduce (research lane) → fix + regression test → review by another model → integrate → report |
-| feature | brief → build → review → integrate → report |
+| feature | brief (the design) → adversarial design review until high 0 (`/wb:design-adversarial`) → build → review → implementation adversarial review → integrate → report |
 | ui | mockup (current and proposed) → owner decision (`/wb:decide`) → build → review → integrate → report |
 | docs | brief → write by the style rules (`/wb:writing-style`) → review → report |
 | research | find and report; no file changes |
-| big-design | the plan says whether the design plugin named in `design_plugin` (personal settings) is installed; when none is named, follow the wb steps; ask before installing anything; wb does not depend on it |
+| big-design | the plan says whether the design plugin named in `design_plugin` (personal settings) is installed; when none is named, follow the wb steps; the design gets the adversarial design review (`/wb:design-adversarial`) before the owner decides; ask before installing anything; wb does not depend on it |
 
 ## 2. Run the lanes
 

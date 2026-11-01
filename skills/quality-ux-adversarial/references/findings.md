@@ -7,14 +7,15 @@ The checker writes `findings.md` in the report language (`personal.language`). H
 ```markdown
 # <area> — adversarial UX check · <version> · <commit>
 
-Counts: blocker <n> · high <n> · medium <n> · low <n> · axis ① <n> ② <n> ③ <n> ④ <n> ⑤ <n> · parity <n>
+Counts: blocker <n> · high <n> · medium <n> · low <n> · axis ① <n> ② <n> ③ <n> ④ <n> ⑤ <n> ⑥ <n> ⑦ <n> ⑧ <n> ⑨ <n> · parity <n>
+Personas: <persona (role, experience)> · <persona> — scenarios <n>
 Checked: <journeys> journeys × <edge states> edge states = <cells> cells, not checked <n> (listed at the end)
 
 ## Findings
 
 | No. | Screen | Severity | Axis | What the user goes through | Fix proposal | Kind | Status | Captures |
 |---|---|---|---|---|---|---|---|---|
-| F-01 | <screen or route> | blocker | ①④ | After saving, the list still shows the old count, so the user saves again and gets a duplicate. | Refresh the list from the save response; select the new row (<token or component>) | defect fix | open | caps/now-01.png · caps/fix-01.png |
+| F-01 | <screen or route> | blocker | ②④ | After saving, the list still shows the old count, so the user saves again and gets a duplicate. | Refresh the list from the save response; select the new row (<token or component>) | defect fix | open | caps/now-01.png · caps/fix-01.png |
 
 ## F-01 <short title>
 
@@ -23,7 +24,8 @@ Checked: <journeys> journeys × <edge states> edge states = <cells> cells, not c
 - Evidence:
   - capture now: caps/now-01.png (<theme>, <width>)
   - data check: screen shows <value>; <test database query or API call> returns <value>
-  - measurement (axis ⑤): <element> <property> = <measured> (expected <token or value>)
+  - persona and screen note: <persona> understood <…>, was about to <…>
+  - measurement (axis ⑨): <element> <property> = <measured> (expected <token or value>)
 - Cause (when known): <file or component, without editing it>
 - Fix proposal: <what changes, with the design system's token, class or component names>
 - Fix capture: caps/fix-01.png, injected code inject/01.js
@@ -32,8 +34,14 @@ Checked: <journeys> journeys × <edge states> edge states = <cells> cells, not c
 
 ## Journeys
 
-| Journey | Steps | Done | Edge states checked | Findings |
-|---|---|---|---|---|
+| Persona | Journey (task scenario) | Steps | Done | Edge states checked | Findings |
+|---|---|---|---|---|---|
+
+## Axes
+
+| Axis | Findings | Covered by |
+|---|---|---|
+| ① logic errors | F-03 · or "checked, no finding" | <scenarios> |
 
 ## Parity findings
 
@@ -43,7 +51,7 @@ Checked: <journeys> journeys × <edge states> edge states = <cells> cells, not c
 |---|---|
 ```
 
-Severity: blocker · high · medium · low (definitions in the skill). Axis: ① to ⑤, two when a finding sits on both. Status: `open` (found, owner has not decided) · `confirmed` (owner wants it fixed) · `fixed` (fix merged and checked again by a fresh checker) · `declined` (owner decided not to fix; keep the reason).
+Severity: blocker · high · medium · low (definitions in the skill). Axis: ① to ⑨ (① logic errors ② information consistency ③ user context ④ flow context ⑤ first-time user getting lost ⑥ the next action ⑦ way out of errors and exceptions ⑧ accessibility, narrow width, dark theme ⑨ design system visual comparison), more than one when a finding sits on several. Every axis has a line in the axes table, with "checked, no finding" when it has none. Status: `open` (found, owner has not decided) · `confirmed` (owner wants it fixed) · `fixed` (fix merged and checked again by a fresh checker) · `declined` (owner decided not to fix; keep the reason).
 
 ## counts.json (for `wb-quality record ux-adversarial --from`)
 
@@ -52,8 +60,8 @@ One test = one cell of the check matrix (journey × edge state, or screen × edg
 | Field | Meaning |
 |---|---|
 | `total` | cells planned |
-| `passed` | cells checked without an open blocker finding |
-| `failed` | cells with at least one open blocker finding (status `open` or `confirmed`) |
+| `passed` | cells checked without an open blocker or high finding |
+| `failed` | cells with at least one open blocker or high finding (status `open` or `confirmed`) |
 | `skipped` | cells planned but not checked (the "not checked" table) |
 | `fixme`, `flaky` | 0 |
 
@@ -69,9 +77,9 @@ The verdict is `failed` while `failed > 0`. The ship precheck compares each resu
     "base": "<commit>",
     "checker": { "agent": "wb:ux-adversary", "model": "<model>" },
     "bySeverity": { "blocker": 2, "high": 3, "medium": 5, "low": 4 },
-    "byAxis": { "1": 3, "2": 2, "3": 4, "4": 2, "5": 6 },
+    "byAxis": { "1": 1, "2": 2, "3": 1, "4": 2, "5": 2, "6": 1, "7": 1, "8": 1, "9": 3 },
     "findings": [
-      { "id": "F-01", "screen": "<screen>", "severity": "blocker", "axis": [1, 4], "kind": "defect fix", "status": "open", "parity": "same" }
+      { "id": "F-01", "screen": "<screen>", "severity": "blocker", "axis": [2, 4], "kind": "defect fix", "status": "open", "parity": "same" }
     ],
     "report": "<path of findings.md>"
   }

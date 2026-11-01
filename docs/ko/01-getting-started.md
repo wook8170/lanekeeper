@@ -189,6 +189,7 @@ git switch -c wb/search/int
   "version": 1,
   "project_kind": "web-ui",
   "gate": { "command": "npm test", "verify_all": "", "append_checks": [] },
+  "quality": { "ship": { "requires": ["ux-adversarial"] } },
   "mockup": { "ui_globs": ["src/**/*.tsx"] }
 }
 ```
@@ -549,7 +550,7 @@ wb-test-report gate-pass
 
 ## 다음에 읽을 문서
 
-- [기능 안내](02-features.md): 기능별 사용법과 스킬 27개
+- [기능 안내](02-features.md): 기능별 사용법과 스킬 28개
 - [설정](03-configuration.md): 설정 층과 키 전체
-- [규칙 안내](04-rules.md): 규칙 51개와 막혔을 때 고치는 법
+- [규칙 안내](04-rules.md): 규칙 52개와 막혔을 때 고치는 법
 - [문제 해결](05-troubleshooting.md): 자주 나오는 메시지와 질문

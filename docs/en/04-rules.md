@@ -1,6 +1,6 @@
 # Rules
 
-wb keeps the 51 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
+wb keeps the 52 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
 
 A hook gives one of three verdicts. Block: the command does not run. Ask: the user is asked whether to go on. Note: the command runs and the hook says what to do next.
 
@@ -51,20 +51,21 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 35 | Ask when unclear, answer repeats first | `communication` | Sessions and handoff |
 | 36 | Tests change with the feature | `tests-with-change` | Quality and documents |
 | 37 | Test results saved as a workbook | `test-results-workbook` | Quality and documents |
-| 38 | Required checks pass before ship verification | `ship-precheck` | Quality and documents |
-| 39 | Reserve numbers first | `number-reservation` | Quality and documents |
-| 40 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
-| 41 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
-| 42 | Writing style per file kind | `style-per-file` | Quality and documents |
-| 43 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
-| 44 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
-| 45 | Code flow through the code index | `codegraph-first` | Quality and documents |
-| 46 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
-| 47 | Text search with rg | `rg-search` | Quality and documents |
-| 48 | Fix the root cause, not the symptom | `root-cause-fix` | Quality and documents |
-| 49 | No emoji in the product UI | `no-emoji-ui` | Quality and documents |
-| 50 | Install the code index when missing and go on | `codegraph-install` | Quality and documents |
-| 51 | Screen words follow the glossary | `glossary-terms` | Planned |
+| 38 | Design review reaches high 0 before implementation | `design-adversarial-review` | Quality and documents |
+| 39 | Required checks pass before ship verification | `ship-precheck` | Quality and documents |
+| 40 | Reserve numbers first | `number-reservation` | Quality and documents |
+| 41 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
+| 42 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
+| 43 | Writing style per file kind | `style-per-file` | Quality and documents |
+| 44 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
+| 45 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
+| 46 | Code flow through the code index | `codegraph-first` | Quality and documents |
+| 47 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
+| 48 | Text search with rg | `rg-search` | Quality and documents |
+| 49 | Fix the root cause, not the symptom | `root-cause-fix` | Quality and documents |
+| 50 | No emoji in the product UI | `no-emoji-ui` | Quality and documents |
+| 51 | Install the code index when missing and go on | `codegraph-install` | Quality and documents |
+| 52 | Screen words follow the glossary | `glossary-terms` | Planned |
 
 ## Git and branches
 
@@ -391,15 +392,22 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
 - Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 
-### 38. Required checks pass before ship verification (`ship-precheck`)
+### 38. Design review reaches high 0 before implementation (`design-adversarial-review`)
 
-- Rule: Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass.
-- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision.
+- Rule: When a design document is ready, a reviewer from a different context than its author (a strong model, read-only) reviews it adversarially before implementation. The reviewer checks the code the design cites, sorts findings into high, medium and low with `path:line` evidence and a direction for the fix, and ends with the line "high N". The design is revised in numbered revisions (rev 2, rev 3 …); each marks its changed paragraphs and carries a reconciliation table (finding → accepted or not → where applied, with the reason when not), and is reviewed again. A revision that only fixes high findings may be re-reviewed on those findings plus its new risks. Implementation starts at high 0. Owner decisions are collected and confirmed separately. Screen designs and mockups are checked on the nine axes of the adversarial UX check. After implementation, one more adversarial review reads the code and checks the design's invariants.
+- Why: A design that reads well still causes rework when it disagrees with the code it cites. Its author rarely questions their own assumptions.
+- If blocked: Run `/wb:design-adversarial`, fix the high findings in a new revision and review again. Write the reason for each finding not accepted in the reconciliation table.
+- Enforced in: `skills/design-adversarial/SKILL.md`, `skills/work/SKILL.md`
+
+### 39. Required checks pass before ship verification (`ship-precheck`)
+
+- Rule: Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass. For a product with screens, right before the ship verdict a checker from a different context than the implementer checks the screens the version changed: a persona's real tasks done end to end, headless in an isolated stack, with 2x captures, on all nine axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors, accessibility with narrow width and dark theme, design system visual comparison). An open blocker or high finding stops the ship; findings that change a screen are confirmed by the owner before they are fixed. Then the ship verdict (verifying-production-readiness) runs.
+- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision. Lane tests and the design lint baseline do not catch wording a first-time user misreads, a dead end, or visual violations such as touching spacing and tight line height.
 - If blocked: Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal.
 - Message codes: `dispatch.ship_precheck`
-- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
-### 39. Reserve numbers first (`number-reservation`)
+### 40. Reserve numbers first (`number-reservation`)
 
 - Rule: Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.
 - Why: If parallel lanes use the same number, the merge conflicts and the numbers must be reassigned.
@@ -407,14 +415,14 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.numbers`
 - Enforced in: `bin/wb-number`, `lib/numbers.mjs`
 
-### 40. Remove finished lane worktrees (`worktree-cleanup`)
+### 41. Remove finished lane worktrees (`worktree-cleanup`)
 
 - Rule: A finished lane worktree is merged into its target branch and then removed. Before removal, the processes started in it are stopped by PID.
 - Why: Processes left in an old worktree keep using the CPU. If work continues in a leftover folder, the handoff record splits in two.
 - If blocked: See what to clean up with `wb-reap` and remove the worktree with `wb-worktree remove <lane>`.
 - Enforced in: `bin/wb-worktree`, `bin/wb-reap`, `skills/resume/SKILL.md`
 
-### 41. Owner decisions are written down (`owner-decisions-recorded`)
+### 42. Owner decisions are written down (`owner-decisions-recorded`)
 
 - Rule: What the owner decides is kept as a decision record (`docs/decisions/`).
 - Why: A decision made only in conversation is unknown to the next session, so the same question is asked again.
@@ -422,7 +430,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.paths.decisions`
 - Enforced in: `skills/decide/SKILL.md`, `bin/wb-decide`
 
-### 42. Writing style per file kind (`style-per-file`)
+### 43. Writing style per file kind (`style-per-file`)
 
 - Rule: Documents and screen text use the style set for each file kind (`style.map`). Report-style documents keep no trace of the writing, no hype or metaphors, no unsupported judgments and no developer slang, and pass the three final-check questions.
 - Why: Without separate styles for screen text and reports, the text in one product reads inconsistently.
@@ -430,7 +438,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.style.map`
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`
 
-### 43. Mockup before a screen structure change (`mockup-first`)
+### 44. Mockup before a screen structure change (`mockup-first`)
 
 - Rule: A change to the structure of a screen shows a mockup and gets a decision before it is implemented.
 - Why: If the structure is rejected after implementation, the work starts over.
@@ -439,7 +447,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.mockup`
 - Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`
 
-### 44. Finished work is reported as an artifact (`report-artifact`)
+### 45. Finished work is reported as an artifact (`report-artifact`)
 
 - Rule: A report made with `/wb:report` publishes its result as an artifact. A project that keeps test result workbooks also has its newest workbook checked.
 - Why: A report given only in words cannot be checked from elsewhere, and its evidence such as captures and figures is not kept.
@@ -448,7 +456,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.report.artifact_check`
 - Enforced in: `hooks/scripts/report/artifact-check.mjs`, `bin/wb-art`, `skills/report/SKILL.md`
 
-### 45. Code flow through the code index (`codegraph-first`)
+### 46. Code flow through the code index (`codegraph-first`)
 
 - Rule: Flow, callers and the impact of a change are checked with the code index (codegraph). Exact line numbers and strings are checked with text search.
 - Why: Following callers one text search at a time multiplies the searches. The index lacks line numbers and some call links, so text search is never blocked.
@@ -456,7 +464,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.codegraph.nudge`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`
 
-### 46. No repeat calls on paths without an index (`codegraph-index-first`)
+### 47. No repeat calls on paths without an index (`codegraph-index-first`)
 
 - Rule: codegraph is not called again for a path that has no index. Every new worktree is queued for indexing when it is created.
 - Why: Most index tool errors came from new worktrees that had no index yet. Calling the same path again only added cost.
@@ -465,7 +473,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.codegraph.auto_index`
 - Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`
 
-### 47. Text search with rg (`rg-search`)
+### 48. Text search with rg (`rg-search`)
 
 - Rule: Recursive text search uses `rg` instead of `grep -r`. Sources with many Korean comments are searched with `rg -a`. Nothing is blocked; a note is added.
 - Why: `grep -r` walks node_modules and build output too, so it is slow and the results are mixed. grep takes Korean sources for binary files and leaves out matches.
@@ -473,7 +481,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.search.rg_hint`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `lib/search.mjs`
 
-### 48. Fix the root cause, not the symptom (`root-cause-fix`)
+### 49. Fix the root cause, not the symptom (`root-cause-fix`)
 
 - Rule: A symptom is not hidden with a stopgap or a workaround; the root cause is fixed. When it cannot be fixed now, the report says so and why.
 - Why: A defect patched over comes back under other conditions, and by then the original cause is harder to find.
@@ -481,7 +489,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.session_rules.conduct`
 - Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 49. No emoji in the product UI (`no-emoji-ui`)
+### 50. No emoji in the product UI (`no-emoji-ui`)
 
 - Rule: The product UI uses no emoji. Where an icon is needed, an icon resource (SVG and the like) is used.
 - Why: Emoji look and size differently on each operating system and font, so the same screen looks different on each device.
@@ -489,7 +497,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.session_rules.conduct`
 - Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 50. Install the code index when missing and go on (`codegraph-install`)
+### 51. Install the code index when missing and go on (`codegraph-install`)
 
 - Rule: When codegraph is not installed, it is installed and initialised and the work goes on, without stopping to ask the user. Queries in a worktree pass that worktree's path as `projectPath`.
 - Why: Following call flow with text search alone multiplies the searches. Without `projectPath` a worktree query returns an empty result.
@@ -501,7 +509,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 Rules in the catalog with nothing that enforces them yet.
 
-### 51. Screen words follow the glossary (`glossary-terms`)
+### 52. Screen words follow the glossary (`glossary-terms`)
 
 - Rule: Words in screen text follow the project glossary.
 - Why: Calling one thing by different names on different screens confuses users.

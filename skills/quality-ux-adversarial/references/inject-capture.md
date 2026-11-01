@@ -32,7 +32,7 @@ await page.evaluate(() => {
 
 await page.screenshot({ path: `${OUT}/caps/fix-01.png`, fullPage: false })
 
-// Measurement for axis ⑤, kept as evidence.
+// Measurement for axis ⑨, kept as evidence.
 const m = await page.$$eval('[data-list="items"] > li', (rows) => rows.map((r) => getComputedStyle(r).paddingTop))
 console.log(JSON.stringify({ finding: 'F-01', paddingTop: m }))
 
