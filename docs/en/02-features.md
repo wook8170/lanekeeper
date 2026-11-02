@@ -2,7 +2,9 @@
 
 wb works in three ways. Hooks judge automatically before and after Claude Code runs a tool. The `wb-*` commands are run by you or by Claude. Skills (`/wb:<name>`) are task guides that make Claude run commands in a set order.
 
-This page explains when and how to use each feature, and ends with the 27 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+This page explains when and how to use each feature, and ends with the 28 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+
+**Where it acts.** The safety hooks run in every repository. The other workflow hooks act only in a repository with `.wb/config.json` (or a worktree of it). The environment variable `WB_ACTIVE=1` turns every repository on and `WB_ACTIVE=0` turns them all off. Handoff, token guard, automatic resume and terse mode turn off when the Claude Code settings already hook the same kind (`personal.global_hooks`). At session start only the first section of `progress.md` goes in by default (`personal.handoff.inject`).
 
 ## 1. Features at a glance
 
@@ -27,20 +29,21 @@ This page explains when and how to use each feature, and ends with the 27 skills
 
 `routing.json` gives each task type an order of models (the fallback order) and a minimum grade. Models you denied and models out of quota are removed from the order; the first model left is used if it is at or above the minimum grade. When only models below the minimum are left, nothing is sent and the work waits for the reset time.
 
-There are 10 default task types.
+There are 11 default task types. The weight (`weight`) decides whether a new lane may start in the light-only tier of the load tiers. `light` types have no heavy runs such as tests, builds or installs.
 
-| Task type | Use | Fallback order | Minimum grade |
-|---|---|---|---|
-| `design` | Design, analysis, planning | fable → opus | opus |
-| `review` | Review and verdicts | fable → opus | opus |
-| `security` | Security review | opus | opus |
-| `adversarial` | Review from the opposing side. The implementing model is left out | opus → fable | opus |
-| `impl-multi` | Implementation across several files | opus → sonnet | sonnet |
-| `impl-spec` | Implementation with a fixed spec | sonnet → opus | sonnet |
-| `mockup` | Mockups | opus → sonnet | sonnet |
-| `defect-history` | Defect history analysis | sonnet → opus | sonnet |
-| `mechanical` | Mechanical edits | haiku → sonnet | haiku |
-| `research` | Read-only research | haiku → sonnet | haiku |
+| Task type | Use | Fallback order | Minimum grade | Weight |
+|---|---|---|---|---|
+| `design` | Design, analysis, planning | fable → opus | opus | light |
+| `review` | Review and verdicts | fable → opus | opus | light |
+| `security` | Security review | opus | opus | light |
+| `adversarial` | Review from the opposing side. The implementing model is left out | fable → opus | opus | light |
+| `impl-multi` | Implementation across several files | opus → sonnet | sonnet | heavy |
+| `impl-spec` | Implementation with a fixed spec | sonnet → opus | sonnet | heavy |
+| `docs` | Writing and updating documents (brief template docs) | sonnet → opus | sonnet | light |
+| `mockup` | Mockups | opus → sonnet | sonnet | light |
+| `defect-history` | Defect history analysis | sonnet → opus | sonnet | heavy |
+| `mechanical` | Mechanical edits | haiku → sonnet | haiku | light |
+| `research` | Read-only research | haiku → sonnet | haiku | light |
 
 Commands that preview the result:
 
@@ -70,11 +73,12 @@ Bash, Write, Edit, MultiEdit, NotebookEdit and Skill calls are judged before the
 
 | Target | Main verdicts |
 |---|---|
-| git | Lanes commit only to their own branch. Push, merge and branch switches are blocked for lanes. Commits, merges and pushes on a protected branch need an owner grant. Nobody can force push. `reset --hard`, `clean -f`, `branch -D` and unnamed stash ask first |
+| git | Lanes commit only to their own branch. With `project.lanes.commit` set to `on-instruction` a lane commits only when its brief allows it (`commit=allowed`); otherwise it asks first. Push, merge and branch switches are blocked for lanes. Commits, merges and pushes on a protected branch need an owner grant. Nobody can force push. `reset --hard`, `clean -f`, `branch -D` and unnamed stash ask first |
 | Killing processes | Killing by name, such as `pkill` and `killall`, is blocked. `kill <PID>` is blocked when the target uses a protected port |
 | Deletion | `rm -r` of the home folder, system folders, the project root or `.git` is blocked. Outside the project it asks first |
 | Browsers | Chrome with a window, `--headed`, `playwright codegen` and `open` on a browser are blocked |
 | Paths | Writes to `project.protected_paths` and to wb state files are blocked. Edits to wb settings files ask first |
+| Protected data | Commands that write to a database file, database port or container in `project.protected_data` (psql, mysql or sqlite3 sending write SQL, `pg_restore`, a writing `docker exec`, `docker cp`, overwriting the file) are blocked for lanes and ask first in the main session. When the SQL cannot be read (`-f` file, input redirect, interactive) it asks; read-only queries pass |
 
 Commands are unpacked before judging: `;` `&&` `|`, subshells, `sh -c`, `eval`, aliases, `git -C` and `cd`. A command whose target cannot be known before it runs (for example a command name held in a variable) is blocked. While a settings file has an error, every risky command is blocked.
 
@@ -120,11 +124,12 @@ When Claude runs a heavy command without a slot, the default (`machine.slots.gua
 [wb] `npx playwright test` is a heavy run and should go through a slot (browser,heavy). Run it again wrapped like this: `wb-slot --kind browser,heavy -- sh -c 'npx playwright test'`
 ```
 
-**Load tiers.** The 1-minute load is compared with two thresholds (`machine.load.tiers`). The default `auto` follows the logical core count: hold new lanes at cores × 2, stop heavy runs at cores × 2.8 (rounded). Numbers can be set directly.
+**Load tiers.** The 1-minute load is compared with three thresholds (`machine.load.tiers`). The default `auto` follows the logical core count: light tasks only and hold new lanes at cores × 2, stop heavy runs at cores × 2.8 (rounded). With both on `auto` the light-only tier is empty. Numbers can be set directly (for example light only 20, hold new lanes 35, stop heavy runs 35).
 
 | Tier | When | What happens |
 |---|---|---|
-| Normal | below the hold-new-lanes threshold | no limit |
+| Normal | below the light-only threshold | no limit |
+| Light tasks only | at or above the light-only threshold, below the hold-new-lanes threshold | only task types with weight `light` start a new lane; heavy types are refused (`load_light_only`). A dispatch without a task type, such as `fork`, counts as heavy |
 | Hold new lanes | at or above the hold-new-lanes threshold | a new lane (Agent dispatch) is refused (`load_hold`). A dispatch to a lane already in lanes.json is not held |
 | Stop heavy runs | at or above the stop-heavy threshold | a verifier lane's heavy run is refused at once (`load_stop_heavy`). Executor lanes and the main session wait as before until the load drops below `machine.load.max`. Runs that already hold a slot are not stopped |
 
@@ -324,12 +329,13 @@ Nothing is blocked or waiting right now.
 
 ## 11. Code index (codegraph)
 
-codegraph is optional. Without it the related hooks and commands do nothing, and `wb-index` only shows how to install it. It is installed only after the user agrees in `/wb:init`.
+codegraph is optional. Without it, the session start adds guidance to install and initialise it and go on (`rules/codegraph-install.en.md`), and the other hooks and commands do nothing. `wb-index` only shows how to install it.
 
 - A new worktree is queued for indexing. When another worktree of the same repository has an index, it is copied and only changed files are read again.
 - Index jobs run one at a time, at low priority, inside a heavy slot.
 - In a checkout with an index, grepping for one identifier triggers a one-time hint per session to use codegraph. grep is never blocked.
 - Calling codegraph again on a path that already returned "no index" is blocked with a hint to go on with grep.
+- A recursive text search such as `grep -r` triggers a one-time hint per session to use `rg`. Korean sources are searched with `rg -a`. This hint does not depend on codegraph; set `personal.search.rg_hint` to `false` to turn it off.
 
 ```
 wb-index add .          queue this checkout
@@ -346,7 +352,8 @@ To turn off automatic queueing set `project.codegraph.auto_index` to `false`; to
 | Token guard | Reads the official five-hour and seven-day usage that Claude Code keeps, and estimates the use since then from local tokens. When the higher of the two reaches 90% it asks for smaller units of work, at 95% for a handoff after every wave, at 99% for a last handoff, a notification and a wait | `wb-token`, `/wb:token-guard` |
 | Automatic resume | When a usage limit ends a turn, the same session is resumed headless two minutes after the reset time. Scheduling uses launchd on macOS, a systemd user timer on Linux, and a background waiter elsewhere | `wb-retry`, `/wb:auto-retry` |
 | Terse mode | In a repository where it is on, rules that cut output and tool calls are added at session start | `wb-terse`, `/wb:terse` |
-| Checkpoint | At a limit, a subagent stop or a conversation compaction, changes to tracked files on a lane branch are committed as `wip(wb)`. Secret file patterns and untracked files are not committed | `personal.checkpoint.enabled` |
+| Checkpoint | At a limit, a subagent stop or a conversation compaction, changes to tracked files on a lane branch are committed as `wip(wb)`. Secret file patterns and untracked files are not committed. With `project.lanes.commit` set to `on-instruction` only lanes whose brief allows commits are committed | `personal.checkpoint.enabled` |
+| Session rules | Working rules no hook can check are added at session start, after `/clear` and after a compaction: output language (with `personal.language` set to `ko` or `en`), remote viewer (with `personal.report.viewer` set to `remote`: no local addresses, artifacts, base64 images, 2x captures), and reporting, communication and fixing rules (implemented vs deployed, ask when unclear, fix the root cause, no emoji in the product UI) | `personal.session_rules` |
 
 The token guard first uses the official usage Claude Code stores in `~/.claude.json` (five-hour and seven-day percentages, reset times, account). Only the usage entry and the account ID are read from that file. The official value changes only when Claude Code fetches it, so once it is older than `personal.token_guard.fresh_min` (default 10 minutes) the local token use since then is converted with a calibration ratio and added. The five-hour window starts five hours before its reset time; after the reset only the use since the reset counts. The higher of the five-hour and seven-day figures decides the stage.
 
@@ -365,7 +372,7 @@ Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window start
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `wb-retry mode bypassPermissions --i-understand`.
 
-## 13. The 27 skills
+## 13. The 28 skills
 
 Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skill on its own when a request matches its description. `/wb:approve` is the exception: it works only when a person types it.
 
@@ -576,16 +583,22 @@ Test results docs/test-results/2026-10-17/integration-2238.xlsx · verdict passe
 - Example: `wb-quality record usability --verdict passed --from usability.json`
 - Relation: it asks whether a beginner can finish the main tasks. Wrong data, getting lost, broken flow and inconsistent looks around journeys that work are `/wb:quality-ux-adversarial`. When both are due, run this one first.
 
+### /wb:design-adversarial
+
+- When: a design document is ready and implementation is about to start, a design was revised, or the implementation built from it is finished.
+- How: send the review agent `wb:design-adversary` (Fable recommended, Opus otherwise, read-only), in a context separate from the design's author, with a brief. The reviewer checks the code the design cites, not only its sentences. Findings are high, medium or low, each with `path:line` evidence and a direction for the fix, and the last line is `high N`. The design is revised as rev 2, rev 3 …; each revision marks its changed paragraphs and carries a reconciliation table (finding → accepted or not → where applied, with the reason when not), and is reviewed again. A revision that only fixed high findings may be re-reviewed on those findings plus its new risks. Implementation starts at `high 0`. Owner decisions are collected and confirmed with `/wb:decide`. Screen designs and mockups are checked on the nine axes of the adversarial UX check. After implementation, a fresh reviewer reads the code and checks the design's invariants.
+- Example: the last line of `review-rev2.md` is `high 0` → dispatch the implementation lanes
+
 ### /wb:quality-ux-adversarial
 
-- When: before shipping a product with screens, to find where a first-time user gets stuck, goes wrong or loses work; when the ship precheck warns about `ux-adversarial`.
-- How: send the checker agent `wb:ux-adversary` (Fable recommended, Opus otherwise), in a context separate from the implementing session, with a brief. The checker does not edit product code. It drives journeys and edge states (light and dark, wide and narrow width, keyboard only, no permission, empty state, long names, a lot of data, leaving before saving, back, reload and deep links) in a headless browser (2x captures, Playwright's default `--hide-scrollbars` dropped). Each finding has the user impact in one sentence, steps, evidence (a capture now, a check against the real data, measured computed style or pixels), a severity (blocker, high, medium, low), an axis (① data correctness ② location and way back ③ what to do on this screen ④ flow continuity ⑤ visual consistency), a fix proposal in the design system and a fix capture made by DOM or CSS injection. With another front-end implementation it checks parity too. The main session reports to the owner as an artifact with the now and fix captures side by side, fixes only the findings the owner confirms, and checks them again with a fresh checker. An open blocker finding makes the verdict failed.
+- When: right before shipping a product with screens, to check the screens the version changed next to the gate, database and e2e checks (`/wb:ship-verify` calls it); when the ship precheck warns about `ux-adversarial`.
+- How: send the checker agent `wb:ux-adversary` (Fable recommended, Opus otherwise), in a context separate from the implementing session, with a brief. The checker does not edit product code. It first chooses personas (a first-time business user, an administrator and so on) and does their real task scenarios from start to end in an isolated stack, writing on every screen what the persona understood and is about to do. It drives journeys and edge states (light and dark, wide and narrow width, keyboard only, no permission, empty state, long names, a lot of data, leaving before saving, back, reload and deep links) in a headless browser (2x captures, Playwright's default `--hide-scrollbars` dropped). Each finding has the user impact in one sentence, steps, evidence (a capture now, a check against the real data, measured computed style or pixels), a severity (blocker, high, medium, low), an axis out of nine required ones (① logic errors ② information consistency ③ user context ④ flow context ⑤ first-time user getting lost ⑥ the next action ⑦ a way out of errors and exceptions ⑧ accessibility, narrow width, dark theme ⑨ design system visual comparison, including visual violations the lint baseline does not catch: touching spacing, tight line height, mixed type size and weight, table row height, button and badge size), a fix proposal in the design system and a fix capture made by DOM or CSS injection. With another front-end implementation it checks parity too. The main session reports to the owner as an artifact with the now and fix captures side by side, fixes only the findings the owner confirms, and checks them again with a fresh checker. An open blocker or high finding makes the verdict failed and blocks the ship. Findings that change a screen are collected and confirmed by the owner before they are fixed.
 - Example: `wb-quality record ux-adversarial --verdict failed --from counts.json`
 
 ### /wb:ship-verify
 
 - When: deciding whether to ship, or when the ship gate hook blocked a readiness skill or agent.
-- How: commit everything and run `wb-quality precheck --run`. Give the cause of a failed kind to a lane (a brief is required), then run that kind again. Repeat until it passes. Revert a weakening or get the owner's acceptance. Once the precheck passes, run ship verification, record the verdict with `wb-quality record ship --verdict passed|failed --report <report>`, then roll up with `/wb:quality-report`.
+- How: commit everything and run `wb-quality precheck --run`. Give the cause of a failed kind to a lane (a brief is required), then run that kind again. Repeat until it passes. Revert a weakening or get the owner's acceptance. Once the precheck passes, check the screens the version changed with `/wb:quality-ux-adversarial` (an open blocker or high finding stops here), then run the ship verdict (verifying-production-readiness), record the verdict with `wb-quality record ship --verdict passed|failed --report <report>`, then roll up with `/wb:quality-report`.
 - Example:
 
 ```

@@ -139,7 +139,7 @@ test('wb-port CLI: get and list read machine settings', () => {
   fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
   fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify({ ports: { protected: [{ name: 'owner-api', port: 5555, project: '*' }] } }))
   execFileSync('git', ['init', '-q', path.join(dir, 'repo')])
-  const env = { PATH: process.env.PATH, HOME: home, WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
+  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
   const run = (...a) => execFileSync(process.execPath, [path.join(ROOT, 'bin', 'wb-port'), ...a], { cwd: path.join(dir, 'repo'), env, encoding: 'utf8' })
   assert.equal(run('get', 'owner-api').trim(), '5555')
   const list = JSON.parse(run('list', '--json'))

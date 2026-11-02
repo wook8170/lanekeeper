@@ -151,7 +151,7 @@ function cliEnv(dir, machine) {
   const home = path.join(dir, 'home')
   fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
   fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify(machine))
-  return { PATH: process.env.PATH, HOME: home, WB_HOME: path.join(home, '.wb'), WB_PROJECT_DIR: dir, LANG: 'en_US.UTF-8' }
+  return { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), WB_PROJECT_DIR: dir, LANG: 'en_US.UTF-8' }
 }
 
 test('CLI race: three wb-slot processes with two heavy slots never run more than two at once', async () => {

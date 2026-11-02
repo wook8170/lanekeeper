@@ -88,6 +88,13 @@ test('2 limits: "*" holds the whole chain and waits for that reset', () => {
   assert.equal(v[0].level, 'deny')
 })
 
+test('adversarial default chain: fable first, opus as the fallback', () => {
+  assert.deepEqual(routing().tasks.adversarial.chain, ['fable', 'opus'])
+  assert.equal(resolveRoute(routing({ denied: ['fable'] }), 'adversarial').model, 'opus')
+  // implementer on fable: the review goes to opus
+  assert.equal(resolveRoute(routing(), 'adversarial', { implementer: 'fable' }).model, 'opus')
+})
+
 test('3 differ_from: implementer model is excluded when another model at the floor remains', () => {
   const r = routing()
   const d = resolveRoute(r, 'adversarial', { implementer: 'opus' })
@@ -113,7 +120,7 @@ test('3 differ_from: no other model left -> same model in a fresh context, repor
 
 test('3 differ_from: unknown implementer is noted and skipped', () => {
   const d = resolveRoute(routing(), 'adversarial')
-  assert.equal(d.model, 'opus')
+  assert.equal(d.model, 'fable', 'adversarial review tries fable first (owner rule: adversarial review on fable, apart from the implementer)')
   assert.equal(d.steps[2].note, 'implementer-unknown')
   // implementer given as a full model id maps to its key
   assert.equal(modelKeyFor(routing(), 'claude-opus-4-8'), 'opus')

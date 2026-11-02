@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { resolveConfig, projectRoot, PLUGIN_ROOT } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { status, syncWorktreeHooks } from '../../../lib/worktree-hooks.mjs'
+import { active } from '../../../lib/runtime.mjs'
 
 export function run(input, env = process.env, pluginRoot = PLUGIN_ROOT) {
   const root = projectRoot(input.cwd || process.cwd(), env)
@@ -28,10 +29,12 @@ if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.rea
   let raw = ''
   process.stdin.setEncoding('utf8')
   process.stdin.on('data', (c) => (raw += c))
-  process.stdin.on('end', () => {
+  process.stdin.on('end', async () => {
     let out = ''
     try {
-      out = run(JSON.parse(raw || '{}'))
+      const input = JSON.parse(raw || '{}')
+      // workflow hook: silent outside a repository that opted in (lib/optin.mjs)
+      if (await active(input)) out = run(input)
     } catch {}
     if (out) process.stdout.write(`${out}\n`)
     process.exit(0)

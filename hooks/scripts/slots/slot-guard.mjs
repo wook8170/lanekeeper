@@ -20,6 +20,7 @@ import { rulesFor, unwrappedHeavy, suggestWrap, wrappedText, WRAPPER } from '../
 import { parse } from '../safety/shell.mjs'
 import { deny, formatReasons } from '../safety/common.mjs'
 import { readLoad, loadSettings, laneFor, laneRole, stopVerdict } from '../../../lib/load.mjs'
+import { active } from '../../../lib/runtime.mjs'
 
 export function judgeSlots(input, env = process.env) {
   if (input.tool_name !== 'Bash') return null
@@ -76,8 +77,13 @@ if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.rea
   let raw = ''
   process.stdin.setEncoding('utf8')
   process.stdin.on('data', (c) => (raw += c))
-  process.stdin.on('end', () => {
-    const out = runHook(raw)
+  process.stdin.on('end', async () => {
+    // workflow hook: silent outside a repository that opted in (lib/optin.mjs)
+    let on = false
+    try {
+      on = await active(JSON.parse(raw || '{}'))
+    } catch {}
+    const out = on ? runHook(raw) : ''
     if (out) process.stdout.write(`${out}\n`)
     process.exit(0)
   })

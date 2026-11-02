@@ -60,6 +60,14 @@ A lane does not merge pull requests.
 - Enforced in: `hooks/scripts/safety/pretool.mjs`
 - If blocked: Leave the merge to the controller and put the PR number and state in your report.
 
+### Lane commits follow the project policy (`lane-commit-policy`)
+
+With `project.lanes.commit` set to `on-instruction`, a lane commits only when its brief allows it (`commit=allowed` in the marker or a "commit allowed" line). Without that, a commit needs confirmation first. The default `allowed` keeps commits to the lane's own branch as they are.
+
+- Why: Some projects keep unreviewed changes in the working tree, uncommitted. When a lane commits without an instruction, the controller cannot tell reviewed and unreviewed states apart.
+- Enforced in: `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/checkpoint/checkpoint.mjs`, setting `project.lanes.commit`
+- If blocked: Do not commit; leave the changes in the working tree and report. When a commit is needed, the main session adds `commit=allowed` to the brief marker and dispatches again.
+
 ## Processes and environment
 
 ### Stop processes by PID only (`no-pattern-kill`)
@@ -130,11 +138,19 @@ Agents do not write protected paths, wb state files or wb settings files.
 
 ### Blocked when the check cannot decide (`safety-fails-closed`)
 
-When a safety check cannot decide, or a settings file has an error, the call is blocked.
+When a safety check cannot decide, or a settings file has an error, the call is blocked. When the safety hook, the dispatch guard or the ship gate hook itself fails to run or times out, Claude Code blocks the call (`onFailure: block`).
 
 - Why: Letting an unchecked command through switches the safety rules off exactly when they are needed.
-- Enforced in: `hooks/scripts/safety/pretool.mjs`, `hooks/scripts/safety/context.mjs`
+- Enforced in: `hooks/scripts/safety/pretool.mjs`, `hooks/scripts/safety/context.mjs`, `hooks/hooks.json`
 - If blocked: Run `/wb:doctor` to find the file and key with the error and fix it. Then check again with `wb-config validate`.
+
+### Test data stays off protected data (`protected-data`)
+
+Commands that write to a database file, database port or container listed in `project.protected_data` are blocked for lanes and need confirmation in the main session. When it cannot be told whether a command writes, it needs confirmation. Read-only queries pass.
+
+- Why: Rows or images made during a test that end up in the owner's or the production database are hard to undo, and real data can no longer be told apart from test data.
+- Enforced in: `hooks/scripts/safety/data-guard.mjs`, `hooks/scripts/safety/pretool.mjs`, setting `project.protected_data`
+- If blocked: Run against the lane's own test database (assigned port, own container or test file). A read-only query passes when the SELECT is written directly after `-c` or `-e`.
 
 ## Models and briefs
 
@@ -142,7 +158,7 @@ When a safety check cannot decide, or a settings file has an error, the call is 
 
 A subagent runs on the model set for its task type. Denied models, models outside the fallback order and models below the minimum level are not used.
 
-- Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later.
+- Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest level (fable) first by default and picks a model other than the implementer's.
 - Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-route`, setting `routing`
 - If blocked: Run again with the model that `wb-route resolve <task type>` names. If the usage limit leaves no allowed model, do not go below the minimum level; wait until the limit resets.
 
@@ -172,11 +188,11 @@ The number of lanes running at the same time stays within the cap (3 by default)
 
 ### Lanes follow the load tiers (`load-tiers`)
 
-At or above the hold-new-lanes threshold of the 1-minute load, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped.
+At or above the light-only threshold of the 1-minute load, no new lane starts for a task type with heavy runs (tests, builds, installs). At or above the hold-new-lanes threshold, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped.
 
-- Why: Starting more lanes on a loaded machine makes every lane's tests time out. Verification can wait for the executors without changing its result.
-- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`, setting `machine.load.tiers`
-- If blocked: Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. Dispatch again once the load drops.
+- Why: Starting more lanes on a loaded machine makes every lane's tests time out. Lanes without heavy runs, such as design, review and docs, add little load, so they can still start in the middle tier. Verification can wait for the executors without changing its result.
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`, setting `machine.load.tiers`, setting `routing.tasks.*.weight`
+- If blocked: Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. In the light-only tier start only light task types (`weight: light`) and dispatch the rest once the load drops.
 
 ### Lanes run only their own tests (`lane-test-scope`)
 
@@ -214,10 +230,10 @@ When a session starts, read `progress.md` from start to end. Rewrite the file wh
 
 ### Commit the record after each wave (`wave-checkpoint`)
 
-When a wave ends, commit the progress record and tell the user to clear the conversation with `/clear`.
+When a wave ends, commit the progress record and tell the user to clear the conversation with `/clear`. The work-in-progress commit on a lane branch (checkpoint) follows the lane commit policy (`project.lanes.commit`).
 
 - Why: A long conversation hits the usage limit and the session stops. A record written early lets a new session continue from any point.
-- Enforced in: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`
+- Enforced in: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`, setting `project.lanes.commit`
 - If blocked: Build the resume report with `/wb:resume` and clear the stale items first.
 
 ### Act at each usage stage (`token-stages`)
@@ -244,6 +260,38 @@ Terse mode reduces output and tool calls. It does not reduce verification eviden
 - Enforced in: `hooks/scripts/terse/session-start.mjs`, `skills/terse/SKILL.md`, `rules/terse.ko.md`
 - If blocked: Turn it off with `/wb:terse off`.
 
+### Output follows the language setting (`output-language`)
+
+With `personal.language` set to `ko` or `en`, every output the user sees is written in that language and every subagent brief states the report language. Code, paths and commands stay as they are.
+
+- Why: When a subagent reports in another language, the main session has to rewrite it, and figures and evidence drop out on the way.
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/language.ko.md`, setting `personal.session_rules.language`
+- If blocked: Rewrite output in the set language. To turn this guidance off, set `personal.session_rules.language` to `false`.
+
+### Artifacts for a remote viewer (`remote-viewer`)
+
+With `personal.report.viewer` set to `remote`, results are never pointed to with `localhost` addresses, local paths or local file attachments. Anything to show is published as an artifact, images are embedded as base64 `data:` URIs and captures are taken at 2x.
+
+- Why: A user on another device cannot open this machine's addresses or files. A 1x capture blurs the text, so screen differences cannot be checked by eye.
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/remote-viewer.ko.md`, `bin/wb-art`, setting `personal.report.viewer`, setting `personal.session_rules.remote`
+- If blocked: Build the HTML with the images inside using `wb-art report`, publish it as an artifact and give the link. Update it by publishing from the same file path.
+
+### Report implemented and deployed apart (`report-accuracy`)
+
+Reports keep "implemented" apart from "merged and deployed". After a merge, the affected servers are restarted or resynced before saying the change is live. Before fixing, the app and variant actually running are checked.
+
+- Why: When only the code changed and the server still runs the old code, the user sees the unfixed screen. Fixing a different variant spends the time and leaves the problem in place.
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, setting `personal.session_rules.conduct`
+- If blocked: State implementation, merge, deployment and restart separately in the report. Keep the servers in `machine.servers` and check their response after a restart.
+
+### Ask when unclear, answer repeats first (`communication`)
+
+A request that could mean a code or docs change or an operational action is asked about once. A repeated question is answered before any other work. Chat replies carry the evidence and figures themselves.
+
+- Why: Taking an operational request as a code change produces edits nobody asked for. A repeated question means the earlier answer did not get through.
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, setting `personal.report.chat_detail`, setting `personal.session_rules.conduct`
+- If blocked: When asking back, narrow it to two or three options. Answer a repeated question with a one-line conclusion first.
+
 ## Quality and documents
 
 ### Tests change with the feature (`tests-with-change`)
@@ -262,12 +310,20 @@ Test results are saved as a workbook and committed. A report cannot be closed wi
 - Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 - If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
 
+### Design review reaches high 0 before implementation (`design-adversarial-review`)
+
+When a design document is ready, a reviewer from a different context than its author (a strong model, read-only) reviews it adversarially before implementation. The reviewer checks the code the design cites, sorts findings into high, medium and low with `path:line` evidence and a direction for the fix, and ends with the line "high N". The design is revised in numbered revisions (rev 2, rev 3 …); each marks its changed paragraphs and carries a reconciliation table (finding → accepted or not → where applied, with the reason when not), and is reviewed again. A revision that only fixes high findings may be re-reviewed on those findings plus its new risks. Implementation starts at high 0. Owner decisions are collected and confirmed separately. Screen designs and mockups are checked on the nine axes of the adversarial UX check. After implementation, one more adversarial review reads the code and checks the design's invariants.
+
+- Why: A design that reads well still causes rework when it disagrees with the code it cites. Its author rarely questions their own assumptions.
+- Enforced in: `skills/design-adversarial/SKILL.md`, `skills/work/SKILL.md`
+- If blocked: Run `/wb:design-adversarial`, fix the high findings in a new revision and review again. Write the reason for each finding not accepted in the reconciliation table.
+
 ### Required checks pass before ship verification (`ship-precheck`)
 
-Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass.
+Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass. For a product with screens, right before the ship verdict a checker from a different context than the implementer checks the screens the version changed: a persona's real tasks done end to end, headless in an isolated stack, with 2x captures, on all nine axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors, accessibility with narrow width and dark theme, design system visual comparison). An open blocker or high finding stops the ship; findings that change a screen are confirmed by the owner before they are fixed. Then the ship verdict (verifying-production-readiness) runs.
 
-- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision.
-- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+- Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision. Lane tests and the design lint baseline do not catch wording a first-time user misreads, a dead end, or visual violations such as touching spacing and tight line height.
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 - If blocked: Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal.
 
 ### Reserve numbers first (`number-reservation`)
@@ -296,7 +352,7 @@ What the owner decides is kept as a decision record (`docs/decisions/`).
 
 ### Writing style per file kind (`style-per-file`)
 
-Documents and screen text use the style set for each file kind (`style.map`).
+Documents and screen text use the style set for each file kind (`style.map`). Report-style documents keep no trace of the writing, no hype or metaphors, no unsupported judgments and no developer slang, and pass the three final-check questions.
 
 - Why: Without separate styles for screen text and reports, the text in one product reads inconsistently.
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`, setting `project.style.map`
@@ -333,6 +389,38 @@ codegraph is not called again for a path that has no index. Every new worktree i
 - Why: Most index tool errors came from new worktrees that had no index yet. Calling the same path again only added cost.
 - Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, setting `project.codegraph.auto_index`
 - If blocked: Continue with grep and Read. See the indexing progress with `wb-index status`; once the index exists, calls work again in the same session. Queue a path yourself with `wb-index add <path>`.
+
+### Text search with rg (`rg-search`)
+
+Recursive text search uses `rg` instead of `grep -r`. Sources with many Korean comments are searched with `rg -a`. Nothing is blocked; a note is added.
+
+- Why: `grep -r` walks node_modules and build output too, so it is slow and the results are mixed. grep takes Korean sources for binary files and leaves out matches.
+- Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `lib/search.mjs`, setting `personal.search.rg_hint`
+- If blocked: Run the same search with `rg`. Install it with `brew install ripgrep` when it is missing. To turn the note off, set `personal.search.rg_hint` to `false`.
+
+### Fix the root cause, not the symptom (`root-cause-fix`)
+
+A symptom is not hidden with a stopgap or a workaround; the root cause is fixed. When it cannot be fixed now, the report says so and why.
+
+- Why: A defect patched over comes back under other conditions, and by then the original cause is harder to find.
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, setting `personal.session_rules.conduct`
+- If blocked: Write a test that reproduces the cause first, then fix until it passes. A defect that cannot be fixed now goes into the defect register (`wb-defects`).
+
+### No emoji in the product UI (`no-emoji-ui`)
+
+The product UI uses no emoji. Where an icon is needed, an icon resource (SVG and the like) is used.
+
+- Why: Emoji look and size differently on each operating system and font, so the same screen looks different on each device.
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, setting `personal.session_rules.conduct`
+- If blocked: Replace the emoji with the project's icon resource. When the screen structure changes too, start with a mockup.
+
+### Install the code index when missing and go on (`codegraph-install`)
+
+When codegraph is not installed, it is installed and initialised and the work goes on, without stopping to ask the user. Queries in a worktree pass that worktree's path as `projectPath`.
+
+- Why: Following call flow with text search alone multiplies the searches. Without `projectPath` a worktree query returns an empty result.
+- Enforced in: `hooks/scripts/codegraph/session-start.mjs`, `rules/codegraph-install.ko.md`, setting `project.codegraph.nudge`
+- If blocked: Install with `brew install codegraph` and run `codegraph init .` inside `wb-slot`. Where it cannot be installed, go on with grep and Read and report why.
 
 ## Planned
 

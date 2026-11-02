@@ -41,4 +41,4 @@ export function handle(input, env = process.env, now = Date.now()) {
   return { decision: 'block', reason: reason.join('\n') }
 }
 
-hookMain(import.meta, (i, e) => handle(i, e))
+hookMain(import.meta, (i, e) => handle(i, e), { defer: 'handoff' })

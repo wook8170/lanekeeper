@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // PreToolUse safety hook (Bash · Write · Edit · MultiEdit · NotebookEdit · Skill).
+// Guards: git, kill, rm, browser, protected paths, protected data (data-guard).
 //
 // Runs every guard on the tool call and answers with the strictest verdict:
 //   deny  -> permissionDecision "deny" with a three-part message
@@ -19,6 +20,7 @@ import { judgeKill } from './kill-guard.mjs'
 import { judgeRm } from './destructive.mjs'
 import { judgeBrowser } from './browser-guard.mjs'
 import { judgeBashPaths, judgeFileTool } from './paths.mjs'
+import { judgeData, judgeDataFile } from './data-guard.mjs'
 import { consumeGrant } from './grant.mjs'
 import { realGit, realListenPorts, realPr } from './context.mjs'
 
@@ -45,6 +47,8 @@ export function buildContext(input, env = process.env, overrides = {}) {
     listenPorts: realListenPorts,
     pr: realPr,
     pendingAliases: new Map(),
+    // worktree top -> branch after a checkout/switch earlier in the same command line
+    pendingBranches: new Map(),
     ...overrides,
   }
 }
@@ -59,7 +63,7 @@ export function judgeCommand(command, ctx) {
       const text = cmd.words.map((w) => w.text).join(' ')
       if (GUARDED_WORDS.test(text)) vs.push(deny('shell.unresolved', { cmd: text.slice(0, 120) }))
     }
-    vs.push(judgeGit(cmd, ctx), judgeKill(cmd, ctx), judgeRm(cmd, ctx), judgeBrowser(cmd), judgeBashPaths(cmd, ctx))
+    vs.push(judgeGit(cmd, ctx), judgeKill(cmd, ctx), judgeRm(cmd, ctx), judgeBrowser(cmd), judgeBashPaths(cmd, ctx), judgeData(cmd, ctx))
     const flat = vs.flat(Infinity).filter(Boolean)
     if (ctx.configErrors?.length && flat.length) {
       verdicts.push(deny('config.broken', { file: ctx.configErrors[0].file, key: ctx.configErrors[0].path, msg: ctx.configErrors[0].msg }))
@@ -81,8 +85,9 @@ export function judgeTool(input, ctx) {
   if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) {
     const file = ti.file_path || ti.notebook_path
     const v = judgeFileTool(file, ctx)
-    if (ctx.configErrors?.length && v && v.code !== 'paths.config') return combine([deny('config.broken', { file: ctx.configErrors[0].file, key: ctx.configErrors[0].path, msg: ctx.configErrors[0].msg })])
-    return combine([v])
+    const d = judgeDataFile(file, ctx)
+    if (ctx.configErrors?.length && ((v && v.code !== 'paths.config') || d)) return combine([deny('config.broken', { file: ctx.configErrors[0].file, key: ctx.configErrors[0].path, msg: ctx.configErrors[0].msg })])
+    return combine([v, d])
   }
   return combine([])
 }

@@ -11,4 +11,4 @@ export function handle(input, env = process.env) {
   return ctxOutput('SessionStart', terseRules(resolved.effective.language))
 }
 
-hookMain(import.meta, handle)
+hookMain(import.meta, handle, { defer: 'terse' })

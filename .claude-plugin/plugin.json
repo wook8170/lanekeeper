@@ -1,7 +1,7 @@
 {
   "name": "wb",
   "displayName": "Agent Workbench",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Workbench for running parallel Claude Code agent lanes: model routing, lane and slot limits, git safety guards, handoff and review.",
   "author": { "name": "윤결파파", "email": "wook81701@gmail.com" },
   "license": "MIT",

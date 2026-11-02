@@ -40,7 +40,7 @@ function fixture({ machine = {}, project = {} } = {}) {
   fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify({ load: { max: 100000 }, slots: { lease_dir: path.join(base, 'slots') }, ...machine }))
   fs.mkdirSync(path.join(repo, '.wb'))
   fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify(project))
-  const env = { PATH: process.env.PATH, HOME: home, WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', WB_CODEGRAPH: 'off' }
+  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', WB_CODEGRAPH: 'off' }
   const ctx = (extra = {}) => {
     const resolved = resolveConfig({ projectDir: repo, env })
     assert.deepEqual(resolved.errors, [])

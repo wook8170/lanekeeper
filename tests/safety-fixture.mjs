@@ -41,7 +41,7 @@ export function makeFixture() {
   const home = path.join(base, 'home')
   const wbHome = path.join(home, '.wb')
   fs.mkdirSync(wbHome, { recursive: true })
-  const env = { HOME: home, WB_HOME: wbHome, LANG: 'en_US.UTF-8', PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }
+  const env = { HOME: home, WB_ACTIVE: '1', WB_HOME: wbHome, LANG: 'en_US.UTF-8', PATH: process.env.PATH, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' }
   const sha = (ref, cwd = repo) => git(cwd, 'rev-parse', ref)
   const f = {
     base,

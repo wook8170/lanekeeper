@@ -161,7 +161,7 @@ switch (cmd) {
       const from = e.from ? e.from.split('+').map((l) => t(`layer.${l}`)).join(' + ') : '-'
       print(`  ${e.key} = ${fmt(e.value)}  [${from}]`)
     }
-    print(`  (effective) language = ${d.effective.language}, load.max = ${d.effective.load_max}, load.tiers = hold_new_lanes ${d.effective.load_tiers.hold_new_lanes} / stop_heavy ${d.effective.load_tiers.stop_heavy}`)
+    print(`  (effective) language = ${d.effective.language}, load.max = ${d.effective.load_max}, load.tiers = light_only ${d.effective.load_tiers.light_only} / hold_new_lanes ${d.effective.load_tiers.hold_new_lanes} / stop_heavy ${d.effective.load_tiers.stop_heavy}`)
     if (d.checks.some((c) => c.status === 'fail')) process.exit(1)
     break
   }

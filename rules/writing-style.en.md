@@ -14,15 +14,50 @@ For: screen text, in-app manual, help, notices. (The name is the Korean polite-f
 - The text must not sound machine-written. Avoid "easy and fast", "powerful" and the like.
 
 ## report
-For: developer documents, reports, certification papers, release documents.
+For: developer documents, reports, certification papers, release documents. The reader is an executive, a business owner, a customer or a project manager, not a developer.
 
 - Plain declarative business tone.
-- Current state or problem first, then the approach, the main content, then the impact.
-- One fact per sentence.
-- Do not narrate the work. No "Let us analyze" or "We have fixed".
-- Replace unsupported judgments (efficient, stable, fast) with figures or facts, or drop them.
-- Replace developer slang with business terms. No hype or metaphors (brain, engine, powerful).
+- Current state or problem first, then the approach, the main content, then the impact and points to consider.
+- One fact per sentence. Split a long sentence into two or three, and unpack strings of nouns.
 - Mark what was not confirmed as "unconfirmed". Do not fill gaps with guesses.
+- Use tables and lists only for comparisons, conditions and procedures. Drop empty headings and 1.1.1-style nesting.
+- Do not restate the same content in other words in the overview, summary and conclusion. Keep it in one place.
+- Leave out implementation detail that does not bear on a decision, or move it to an appendix.
+
+### Leave no trace of the writing
+- Sentences that narrate the work ("Let us analyze", "On review", "Next we look at", "We have fixed")
+- Mentions of the commands, prompts, agents, scripts or tools used
+- Repeated "This document", "In summary", "In conclusion"; empty emphasis such as "The key point is"
+- Self-assessment of the document, work logs, TODOs, internal notes, draft leftovers
+
+### No hype or metaphors
+brain, blood vessel, heart, neural network, like Lego blocks, like a puzzle, engine, hub, game changer, powerful, groundbreaking, innovative, seamless, robust, scalable. The only exception is a real technical term.
+
+### Turn unsupported judgments into facts
+"efficient", "optimal", "stable", "high performance", "highly scalable", "cuts cost", "raises productivity" are used only with a figure or evidence. Otherwise state the actual structure or effect (for example "highly scalable" becomes "features are added as modules, so changes to existing features stay small").
+
+### Business terms instead of developer slang
+
+| Developer term | Use instead |
+|---|---|
+| pipeline | processing steps, processing flow |
+| orchestration | coordinated management of the work |
+| glue | integration function |
+| source of truth | reference data |
+| bootstrap | initial setup |
+| plug it in | set up so the function can be added |
+| loose coupling | keep dependencies between systems small |
+| fail fast | find errors early |
+| graceful degradation | keep the remaining functions running during a partial failure |
+| single pane of glass | one management screen |
+
+Common industry terms such as API, DB, AI, ERP and WAS stay as they are. Explain a needed technical term briefly the first time it appears.
+
+### Final check
+Ask three questions of every sentence. Fix or delete it when any answer is no.
+1. Would a company employee write this in a report?
+2. Does a reader who is not a developer understand it at once?
+3. Would the meaning change if the sentence were gone? (If not, delete it.)
 
 ## plain
 For: files that match neither of the above.

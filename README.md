@@ -21,6 +21,8 @@ claude plugin marketplace add <저장소 주소>
 claude plugin install wb@wb-plugin
 ```
 
+Claude Code 2.1.295 이상이 필요하다(안전 훅의 `onFailure: block`). 설치만 하면 안전 훅만 동작한다. 디스패치 가드·출하 관문·핸드오프·체크포인트·부하·슬롯·세션 규칙 같은 작업 훅은 `.wb/config.json` 이 있는 저장소에서만 동작하고, 그 밖의 저장소에서는 아무것도 하지 않는다. 핸드오프·토큰 가드·자동 재개·간결 모드는 Claude Code 설정(`~/.claude/settings.json` 등)에 같은 종류의 훅이 이미 있으면 꺼진다(`personal.global_hooks`).
+
 설치한 뒤 프로젝트 폴더에서 `/wb:init` 을 실행한다. 네 가지를 묻는다.
 
 1. 프로젝트 종류(`web-ui` · `service` · `library` · `other`)
@@ -108,7 +110,7 @@ wb-route check review --model sonnet            모델 선택 판정(차단이�
 
 | 동작 | 레인 · 자기 브랜치 | 레인 · 그 밖 | 메인 · 통합·기능 브랜치 | 메인 · 보호 브랜치 |
 |---|---|---|---|---|
-| commit · cherry-pick · revert · am | 허용 | 차단 | 허용 | 차단. `commit-main` 허가가 있으면 1회 |
+| commit · cherry-pick · revert · am | 허용(`lanes.commit: on-instruction` 이면 지시서 허용 표식이 없을 때 확인 요청) | 차단 | 허용 | 차단. `commit-main` 허가가 있으면 1회 |
 | merge · rebase · pull | 통합 브랜치를 받는 것만 허용 | 차단 | 허용(게이트 잠금 중 차단) | 차단. `merge-main` 허가와 게이트 표식. 자기 upstream 동기화는 허용 |
 | push | 차단 | 차단 | `git.feature_push` 값(ask·allow·deny) | 차단. `push-main` 허가와 게이트 표식 |
 | 강제 push · `--all` · `--mirror` | 차단 | 차단 | 차단 | 차단 |
@@ -126,10 +128,11 @@ wb-route check review --model sonnet            모델 선택 판정(차단이�
 - 삭제: `/`·홈·시스템 폴더·프로젝트 루트·`.git` 를 지우는 `rm -r` 는 차단한다. 프로젝트 밖은 확인 요청, 프로젝트 안과 임시 폴더는 허용한다.
 - 브라우저: 헤드리스가 아닌 Chrome 실행, `--headed`, `PWDEBUG`, `playwright codegen`·`--ui`, 브라우저로 여는 `open` 은 차단한다.
 - 경로: `project.protected_paths` 에 쓰는 것은 차단한다. wb 상태 파일(허가·게이트 표식·레인 대장) 쓰기도 차단한다. wb 설정 파일 수정은 확인 요청이다.
+- 보호 데이터: `project.protected_data` 의 DB 파일·DB 포트·컨테이너에 쓰는 명령(쓰기 SQL 을 보내는 psql·mysql·sqlite3, `pg_restore`, 쓰기 `docker exec`, `docker cp`, 파일 덮어쓰기)은 레인에서 차단하고 메인 세션에서는 확인 요청이다. 쓰기인지 판정할 수 없으면 확인 요청이고, 읽기 질의는 허용한다.
 
 **실패 시 차단.** 설정에 오류가 있으면 git 반영·프로세스 종료·삭제·브라우저 실행을 차단하고 설정 오류 위치를 알려 준다. 훅 내부 오류도 차단으로 처리한다.
 
-**보호 목록은 줄일 수 없다.** `protected_branches`·`protected_paths`·`ports.protected`·`denied` 는 모든 층의 합집합이다. 어느 층도 다른 층이 넣은 항목을 지우지 못한다.
+**보호 목록은 줄일 수 없다.** `protected_branches`·`protected_paths`·`protected_data`·`ports.protected`·`denied` 는 모든 층의 합집합이다. 어느 층도 다른 층이 넣은 항목을 지우지 못한다.
 
 ## 세션 보조 훅
 
@@ -139,7 +142,8 @@ wb-route check review --model sonnet            모델 선택 판정(차단이�
 | 자동 재개 | 사용량 한도로 턴이 끝나면 리셋 시각 2분 뒤에 같은 세션을 헤드리스로 재개한다. 예약은 macOS 는 launchd, Linux 는 systemd 사용자 타이머, 그 밖에는 백그라운드 대기 프로세스로 한다. 한도에 걸린 모델은 `limits.json` 에 기록한다 | `personal.auto_retry.{enabled, permission_mode, bypass_ack}`, `routing.limits_state` | `wb-retry`, `/wb:auto-retry` |
 | 토큰 가드 | Claude Code 가 남기는 공식 5시간·7일 사용량에 그 뒤 로컬 사용 추정을 더해 판정하고, 단계가 오를 때만 지침을 넣는다. 90%는 작업 단위 축소, 95%는 웨이브마다 핸드오프, 99%는 마지막 핸드오프와 알림 후 대기다 | `personal.token_guard.{enabled, stages, budget, window_hours, fresh_min, source}` | `wb-token`, `/wb:token-guard` |
 | 간결 모드 | 켠 저장소에서 세션 시작 때 출력·도구 호출을 줄이는 규칙을 넣는다 | `personal.terse`, 저장소 스위치 | `wb-terse`, `/wb:terse` |
-| 체크포인트 | 한도, 서브에이전트 종료, 컨텍스트 압축 시점에 레인 브랜치에서 추적 중인 파일의 변경만 `wip(wb)` 커밋으로 남긴다. 추적 안 된 새 파일과 비밀 파일 패턴(`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`)은 커밋하지 않고 `.git/wb/checkpoint.json` 과 알림으로 알린다. 프로젝트 훅(pre-commit)이 실패하면 체크포인트를 건너뛰고 사유를 기록한다. 보호 브랜치와 레인이 아닌 브랜치는 건드리지 않고 push 하지 않는다 | `personal.checkpoint.enabled` | |
+| 세션 규칙 | 훅으로 판정할 수 없는 작업 규칙을 세션 시작·`/clear`·압축 뒤에 넣는다. 출력 언어(`personal.language` 가 `ko`·`en`), 원격 사용자(`personal.report.viewer: remote`: 로컬 주소 금지, 아티팩트, base64 이미지, 2배율 캡처), 보고 정확성·소통·수정 원칙(구현과 반영 구분, 모호하면 되묻기, 근본 원인 수정, 제품 화면 이모지 금지) | `personal.session_rules.{language, remote, conduct}` | |
+| 체크포인트 | 한도, 서브에이전트 종료, 컨텍스트 압축 시점에 레인 브랜치에서 추적 중인 파일의 변경만 `wip(wb)` 커밋으로 남긴다. `project.lanes.commit` 이 `on-instruction` 이면 지시서가 커밋을 허용한 레인만 커밋한다. 추적 안 된 새 파일과 비밀 파일 패턴(`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`)은 커밋하지 않고 `.git/wb/checkpoint.json` 과 알림으로 알린다. 프로젝트 훅(pre-commit)이 실패하면 체크포인트를 건너뛰고 사유를 기록한다. 보호 브랜치와 레인이 아닌 브랜치는 건드리지 않고 push 하지 않는다 | `personal.checkpoint.enabled` | |
 
 자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로, 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `wb-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜지고, 확인 기록(`bypass_ack`)이 없으면 `default` 로 재개한다.
 
@@ -261,7 +265,9 @@ wb-check test-results [--json] [--require-pass]
 
 **종류별 결과와 출하 검증 관문.** `wb-quality` 는 단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증 결과를 종류마다 따로 `docs/test-results/<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx` 로 남기고 색인(`index.json`·`INDEX.md`)을 갱신한다. 명령은 `.wb/config.json` 의 `quality.suites` 에 적는다(예: `examples/quality-config.json`). 품질 스킬(`/wb:quality-unit`·`/wb:quality-integration`·`/wb:quality-gate`·`/wb:quality-e2e`·`/wb:quality-uistab`·`/wb:quality-usability`)이 종류별로 돌리고, `/wb:quality-report` 가 버전 취합본(엑셀·Markdown·HTML)을 만든다. `quality.ship.requires` 를 설정하면 출하 검증 스킬·에이전트를 부르기 전에 훅이 각 종류의 최신 결과를 확인한다. 없거나 다른 커밋의 것이거나 실패했으면 막고, `/wb:ship-verify`(`wb-quality precheck --run`)가 다시 돌린다. 직전 통과 결과보다 시험 수가 줄거나 건너뜀·보류가 늘거나 임계값이 완화된 결과도 막는다.
 
-**UX 적대 점검.** `/wb:quality-ux-adversarial` 은 구현 세션과 분리된 점검 에이전트 `wb:ux-adversary`(권장 모델 Fable, 없으면 Opus)가 실제 화면을 헤드리스로 조작해, 처음 쓰는 사람이 막히거나 틀리거나 작업을 잃는 지점을 다섯 축(데이터 적절성·정합성, 위치·길 찾기, 현재 화면 할 일, 흐름 연속성, 모양 일관성)으로 찾는다. 발견마다 사용자가 겪는 일, 재현, 증거(2x 캡처·실제 데이터 대조·측정값), 심각도, 디자인 시스템 기준 수정안, DOM/CSS 주입 시안 캡처를 남기고 제품 코드는 고치지 않는다. 메인 세션은 전후 캡처를 나란히 놓은 아티팩트로 오너에게 보고하고, 오너가 확인한 것만 고친 뒤 다시 점검한다. 결과 종류는 `ux-adversarial` 이고, 기본값으로 `quality.ship.advisory` 에 들어 있어 출하 전에 하지 않았거나 해결하지 않은 차단 발견이 있으면 관문이 경고한다(막게 하려면 `quality.ship.requires` 로 옮긴다).
+**UX 적대 점검.** `/wb:quality-ux-adversarial` 은 구현 세션과 분리된 점검 에이전트 `wb:ux-adversary`(권장 모델 Fable, 없으면 Opus)가 실제 화면을 헤드리스로 조작해, 페르소나의 실제 과업을 격리 스택에서 끝까지 수행하며 처음 쓰는 사람이 막히거나 틀리거나 작업을 잃는 지점을 필수 아홉 축(논리적 오류, 정보 표기의 정합성, 사용자 맥락, 흐름 맥락, 초보 기준 길 잃음, 다음 할 일 인지, 오류·예외에서 빠져나갈 길, 접근성·좁은 폭·어두운 테마, 디자인 시스템 시각 대조)으로 찾는다. 발견마다 사용자가 겪는 일, 재현, 증거(2x 캡처·실제 데이터 대조·측정값), 심각도, 디자인 시스템 기준 수정안, DOM/CSS 주입 시안 캡처를 남기고 제품 코드는 고치지 않는다. 메인 세션은 전후 캡처를 나란히 놓은 아티팩트로 오너에게 보고하고, 오너가 확인한 것만 고친 뒤 다시 점검한다. 결과 종류는 `ux-adversarial` 이고, 기본값으로 `quality.ship.advisory` 에 들어 있어 출하 전에 하지 않았거나 해결하지 않은 차단·높음 발견이 있으면 관문이 경고한다(막게 하려면 `quality.ship.requires` 로 옮긴다. `web-ui` 프로젝트는 `/wb:init` 이 넣어 둔다). `/wb:ship-verify` 는 출하 판정 직전에 그 판에서 바뀐 화면을 이 방식으로 점검하고, 차단·높음 지적이 남으면 멈춘다.
+
+**설계 적대 검증.** `/wb:design-adversarial` 은 설계를 쓴 쪽과 다른 맥락의 검증 에이전트 `wb:design-adversary` 가 설계를 인용 코드와 직접 대조해 높음·중간·낮음 지적(근거 `파일:줄`, 고칠 방향)과 「높음 N건」을 낸다. 설계는 판으로 고치고 판마다 반영 대조표를 두며, 「높음 0건」이어야 구현에 들어간다. 구현이 끝나면 코드 정독으로 설계 불변식을 한 번 더 확인한다.
 
 **문서 현행화.** `wb-docs` 는 화면·기능 변경에서 고칠 문서를 찾는다. 화면 코드에서 사라진 문구가 남아 있는 문서 줄, 짝 파일의 다른 쪽, 묶음의 나머지, 규칙이 요구한 생성 문서는 필수로, 바뀐 화면 부분을 설명하는 문서와 재촬영 후보 그림은 검토로 보여 준다. `/wb:docs-sync` 가 자동 생성 → 수정 초안 → 재촬영 → 검사 → 관문(`wb-docs check`) 순서로 진행한다. 대상과 규칙은 `.wb/config.json` 의 `docs_sync` 에 적는다(예: `examples/docs-sync-config.json`). 설정하면 `wb-quality` 에 종류 `docs` 가 생겨 출하 검증 관문에 넣을 수 있다.
 
@@ -339,7 +345,7 @@ PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 �
 
 ## 코드 색인(codegraph)
 
-codegraph 는 선택 도구다. 설치돼 있지 않으면 아래 훅과 명령은 아무것도 하지 않고, `wb-index` 는 설치 방법만 알려 준다. 설치는 `/wb:init` 에서 사용자 동의를 받은 뒤에만 한다. `WB_CODEGRAPH=off` 로 이 기능 전체를 끌 수 있고, `WB_CODEGRAPH=<경로>` 로 실행 파일을 지정할 수 있다.
+codegraph 는 선택 도구다. 설치돼 있지 않으면 세션 시작 때 설치·초기화하고 계속하라는 안내를 넣고(`project.codegraph.nudge: off` 로 끔), 아래 다른 훅과 명령은 아무것도 하지 않는다. `wb-index` 는 설치 방법만 알려 준다. `grep -r` 같은 재귀 텍스트 검색에는 세션에 한 번 `rg`(한글 소스는 `rg -a`)를 안내한다(`personal.search.rg_hint`). `WB_CODEGRAPH=off` 로 이 기능 전체를 끌 수 있고, `WB_CODEGRAPH=<경로>` 로 실행 파일을 지정할 수 있다.
 
 **색인 대기열.** 색인은 새 워크트리를 만들 때 함께 만든다. 작업이 몰려도 한 번에 하나씩, 낮은 우선순위(`nice`)로, 무거운 실행 슬롯 안에서 돌린다. 따라서 1분 부하가 `machine.load.max` 이상이면 기다린다.
 

@@ -32,7 +32,11 @@ test('ux-adversarial skill: frontmatter, the owner rules and every reference it 
     /No product code changes/i,
     /what the user goes through, in one sentence/i, /computed style/i, /injecting DOM or CSS/i,
     /blocker/, /high/, /medium/, /low/,
-    /① Data correctness/, /② Location/, /③ What to do/, /④ Flow continuity/, /⑤ Visual consistency/, /same weight/i,
+    /① Logic errors/, /② Information consistency/, /③ User context/, /④ Flow context/, /⑤ First-time user getting lost/,
+    /⑥ The next action/, /⑦ A way out of errors/, /⑧ Accessibility, narrow width, dark theme/, /⑨ Design system visual comparison/, /same weight/i,
+    /personas?/i, /real task scenarios/i, /understood so far and what they are about to do/i,
+    /touching with no gap/i, /line height too tight/i, /table row heights/i, /buttons or badges of different sizes/i, /lint baseline/i,
+    /Before a ship: the changed screens/, /blocker or high finding is open/,
     /artifact/i, /owner confirms/i, /checks? (them |those findings )?again/i,
     /headless/i, /2x/, /--hide-scrollbars/,
     /dark/i, /narrow/i, /keyboard only/i, /no permission/i, /empty state/i, /long names/i, /leaving before saving/i, /deep link/i,
@@ -95,4 +99,85 @@ test('ux-adversarial references: counts format matches what wb-quality record re
   assert.match(inject, /ignoreDefaultArgs: \['--hide-scrollbars'\]/)
   assert.match(inject, /deviceScaleFactor: 2/)
   assert.match(inject, /headless: true/)
+})
+
+test('ship-verify: changed-screen adversarial UX check before the readiness verdict, high blocks, remote report', () => {
+  const text = read('skills/ship-verify/SKILL.md')
+  assert.match(text, /Changed screens/)
+  assert.match(text, /\/wb:quality-ux-adversarial/)
+  assert.match(text, /blocker or high finding stops here/i)
+  assert.match(text, /owner before any fix/i)
+  assert.match(text, /verifying-production-readiness/)
+  assert.ok(text.indexOf('Changed screens') < text.indexOf('Start the readiness verification'), 'UX check runs before the verdict')
+  assert.match(text, /artifact/i)
+})
+
+test('ux-adversarial counts: a high finding fails a cell like a blocker', () => {
+  assert.match(read(`${SKILL}/references/findings.md`), /`failed` \| cells with at least one open blocker or high finding/)
+  for (const lang of ['ko', 'en']) assert.match(read(`${SKILL}/references/brief.${lang}.md`), /⑨/)
+})
+
+// ---- adversarial design review -----------------------------------------
+const DSKILL = 'skills/design-adversarial'
+
+test('design-adversarial skill: code check, severities, revisions, high 0 gate, owner decisions, UX axes, implementation review', () => {
+  const text = read(`${DSKILL}/SKILL.md`)
+  const fm = frontmatter(text)
+  assert.equal(fm.name, 'design-adversarial')
+  assert.match(fm.description, /\/wb:design-adversarial/)
+  for (const must of [
+    /wb:design-adversary/, /fable/i, /opus/i, /Read-only/i,
+    /Check the code, not only the sentences/i, /path:line/, /`high N`/,
+    /high/, /medium/, /low/,
+    /rev 2, rev 3/, /reconciliation table/i, /not accepted/i, /reviewed again/i,
+    /only fixes high findings/i, /new risk/i,
+    /Implementation starts only when the newest revision has `high 0`/,
+    /Owner decisions/i, /\/wb:decide/,
+    /nine axes of `\/wb:quality-ux-adversarial`/,
+    /invariant/i, /\/wb:ship-verify/,
+  ]) assert.match(text, must)
+  for (const m of text.matchAll(/\]\((references\/[^)]+)\)/g)) assert.ok(fs.existsSync(path.join(ROOT, DSKILL, m[1])), m[1])
+  const review = read(`${DSKILL}/references/review.md`)
+  assert.match(review, /^high <N>$/m)
+  assert.match(review, /## Reconciliation rev <N>/)
+  assert.match(review, /\[rev <N>\]/)
+})
+
+test('design-adversary agent: read-only, no edit tool, routes as adversarial', () => {
+  const text = read('agents/design-adversary.md')
+  const fm = frontmatter(text)
+  assert.equal(fm.name, 'design-adversary')
+  const tools = fm.tools.split(',').map((s) => s.trim())
+  assert.ok(!tools.includes('Edit') && !tools.includes('NotebookEdit') && !tools.includes('Agent'), fm.tools)
+  assert.match(text, /read-only/i)
+  assert.match(text, /do not commit/i)
+  assert.match(text, /path:line/)
+  assert.equal(classify({ routing, subagentType: 'wb:design-adversary' }).type, 'adversarial')
+})
+
+test('design-adversarial briefs: pass the dispatch brief check once filled, same outline ko/en', () => {
+  const outline = []
+  for (const lang of ['ko', 'en']) {
+    const text = read(`${DSKILL}/references/brief.${lang}.md`)
+    const m = parseMarker(text)
+    assert.equal(m.attrs.type, 'adversarial')
+    assert.equal(m.attrs.role, 'verifier')
+    assert.equal(checkBrief(text).ok, false, 'an unfilled brief is refused')
+    const r = checkBrief(fill(text))
+    assert.deepEqual(r.missing, [], `${lang}: ${r.missing.join(', ')}`)
+    assert.equal(r.ok, true)
+    assert.match(text, /⑨/)
+    outline.push([...text.matchAll(/^#{1,3} /gm)].length)
+  }
+  assert.equal(outline[0], outline[1])
+})
+
+test('work plan: a feature gets the design review before build and an implementation review after it', async () => {
+  const { FLOWS } = await import('../lib/work.mjs')
+  const ids = FLOWS.feature.map((s) => s.id)
+  assert.ok(ids.indexOf('design-review') < ids.indexOf('build'))
+  assert.ok(ids.indexOf('impl-review') > ids.indexOf('build') && ids.indexOf('impl-review') < ids.indexOf('integrate'))
+  assert.equal(FLOWS.feature.find((s) => s.id === 'design-review').task, 'adversarial')
+  const big = FLOWS['big-design'].map((s) => s.id)
+  assert.ok(big.indexOf('design-review') > big.indexOf('design') && big.indexOf('design-review') < big.indexOf('decide'))
 })

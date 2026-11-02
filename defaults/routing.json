@@ -9,16 +9,17 @@
   "denied": [],
   "denied_note": {},
   "tasks": {
-    "design":         { "label": "design-analysis",   "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify" },
-    "review":         { "label": "review-verdict",    "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify" },
-    "security":       { "label": "security-review",   "chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify" },
-    "adversarial":    { "label": "adversarial-review","chain": ["opus", "fable"],   "floor": "opus",   "on_floor": "wait-notify", "differ_from": "implementer" },
-    "impl-multi":     { "label": "multi-file-impl",   "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify" },
-    "impl-spec":      { "label": "spec-impl",         "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify" },
-    "mockup":         { "label": "mockup",            "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify" },
-    "defect-history": { "label": "defect-history",    "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify" },
-    "mechanical":     { "label": "mechanical-edit",   "chain": ["haiku", "sonnet"], "floor": "haiku",  "on_floor": "wait-notify" },
-    "research":       { "label": "read-only-research","chain": ["haiku", "sonnet"], "floor": "haiku",  "on_floor": "wait-notify" }
+    "design":         { "label": "design-analysis",   "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
+    "review":         { "label": "review-verdict",    "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
+    "security":       { "label": "security-review",   "chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
+    "adversarial":    { "label": "adversarial-review","chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify", "differ_from": "implementer", "weight": "light" },
+    "impl-multi":     { "label": "multi-file-impl",   "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "heavy" },
+    "impl-spec":      { "label": "spec-impl",         "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "heavy" },
+    "docs":           { "label": "docs",              "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "light" },
+    "mockup":         { "label": "mockup",            "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "light" },
+    "defect-history": { "label": "defect-history",    "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "heavy" },
+    "mechanical":     { "label": "mechanical-edit",   "chain": ["haiku", "sonnet"], "floor": "haiku",  "on_floor": "wait-notify", "weight": "light" },
+    "research":       { "label": "read-only-research","chain": ["haiku", "sonnet"], "floor": "haiku",  "on_floor": "wait-notify", "weight": "light" }
   },
   "limits_state": "${CLAUDE_PLUGIN_DATA}/limits.json"
 }

@@ -13,7 +13,7 @@ function repoFixture(projectCfg) {
   const repo = path.join(dir, 'sample')
   fs.mkdirSync(repo)
   execFileSync('git', ['init', '-q', repo])
-  const env = { HOME: dir, WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8', WB_CODEGRAPH: 'off' }
+  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8', WB_CODEGRAPH: 'off' }
   if (projectCfg) {
     fs.mkdirSync(path.join(repo, '.wb'))
     fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify(projectCfg))

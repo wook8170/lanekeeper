@@ -16,7 +16,7 @@ function sandbox({ personal, routing, machine, project } = {}) {
   w(path.join(home, 'routing.json'), routing)
   w(path.join(home, 'machine.json'), machine)
   w(path.join(repo, '.wb', 'config.json'), project)
-  const env = { HOME: dir, WB_HOME: home, PATH: process.env.PATH }
+  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: home, PATH: process.env.PATH }
   return { dir, home, repo, env, resolve: () => resolveConfig({ projectDir: repo, env }) }
 }
 

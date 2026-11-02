@@ -60,6 +60,14 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 어디서 지키나: `hooks/scripts/safety/pretool.mjs`
 - 막혔을 때: 병합은 취합 담당에게 맡기고, 보고에 PR 번호와 상태를 적는다.
 
+### 레인 커밋은 프로젝트 정책대로 (`lane-commit-policy`)
+
+`project.lanes.commit` 이 `on-instruction` 이면 레인은 지시서에 커밋 허용 표식(`commit=allowed` 또는 「커밋 허용」 줄)이 있을 때만 커밋한다. 표식이 없으면 커밋 전에 확인을 받는다. 기본값 `allowed` 는 지금처럼 자기 브랜치 커밋을 허용한다.
+
+- 왜: 검수 전 변경을 커밋하지 않고 작업 트리에 두게 하는 프로젝트가 있다. 레인이 지시 없이 커밋하면 취합 담당이 검수 전 상태와 검수 후 상태를 구분하기 어렵다.
+- 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/checkpoint/checkpoint.mjs`, 설정 `project.lanes.commit`
+- 막혔을 때: 커밋하지 말고 변경을 작업 트리에 둔 채 보고한다. 커밋이 필요하면 메인 세션이 지시서 표지에 `commit=allowed` 를 넣어 다시 디스패치한다.
+
 ## 프로세스와 실행 환경
 
 ### 프로세스는 번호(PID)로만 종료 (`no-pattern-kill`)
@@ -130,11 +138,19 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 ### 판정할 수 없으면 차단 (`safety-fails-closed`)
 
-안전 검사가 판정하지 못하거나 설정 파일에 오류가 있으면 실행을 막는다.
+안전 검사가 판정하지 못하거나 설정 파일에 오류가 있으면 실행을 막는다. 안전 훅·디스패치 가드·출하 관문 훅 자체가 실행되지 않거나 시간이 초과되면 Claude Code 가 그 호출을 막는다(`onFailure: block`).
 
 - 왜: 판정하지 못한 명령을 통과시키면 안전 규칙이 가장 필요한 때에 동작하지 않는다.
-- 어디서 지키나: `hooks/scripts/safety/pretool.mjs`, `hooks/scripts/safety/context.mjs`
+- 어디서 지키나: `hooks/scripts/safety/pretool.mjs`, `hooks/scripts/safety/context.mjs`, `hooks/hooks.json`
 - 막혔을 때: `/wb:doctor` 로 오류가 난 파일과 키를 확인해 고친다. 고친 뒤 `wb-config validate` 로 다시 확인한다.
+
+### 시험 데이터는 보호 데이터에 쓰지 않음 (`protected-data`)
+
+`project.protected_data` 에 등록한 DB 파일·DB 포트·컨테이너에 쓰는 명령은 레인에서 막고, 메인 세션에서는 확인을 받는다. 쓰기인지 판정할 수 없으면 확인을 받는다. 읽기 질의는 통과한다.
+
+- 왜: 시험 중 만든 행이나 이미지가 소유자·운영 DB 에 섞이면 되돌리기 어렵고, 실제 데이터와 시험 데이터를 구분할 수 없게 된다.
+- 어디서 지키나: `hooks/scripts/safety/data-guard.mjs`, `hooks/scripts/safety/pretool.mjs`, 설정 `project.protected_data`
+- 막혔을 때: 레인 전용 시험 DB(배정 포트·전용 컨테이너·시험용 파일)로 바꿔 실행한다. 읽기만 하는 질의는 `-c`·`-e` 뒤에 SELECT 문을 직접 적으면 통과한다.
 
 ## 모델과 지시서
 
@@ -142,7 +158,7 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 서브에이전트는 작업 종류별로 정한 모델로 실행한다. 금지 모델, 대체 순서에 없는 모델, 최소 등급보다 낮은 모델은 쓰지 않는다.
 
-- 왜: 작업마다 필요한 판단 수준이 다르다. 설계나 검수를 낮은 등급 모델에 맡기면 결함을 놓쳐 나중에 고치는 비용이 커진다.
+- 왜: 작업마다 필요한 판단 수준이 다르다. 설계나 검수를 낮은 등급 모델에 맡기면 결함을 놓쳐 나중에 고치는 비용이 커진다. 적대 검증은 기본값으로 가장 높은 등급(fable)을 먼저 쓰고 구현 모델과 다르게 고른다.
 - 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-route`, 설정 `routing`
 - 막혔을 때: `wb-route resolve <작업 종류>` 가 알려 주는 모델로 다시 실행한다. 사용 한도가 소진돼 쓸 모델이 없으면 낮은 등급으로 내리지 않고 한도가 풀릴 때까지 기다린다.
 
@@ -172,11 +188,11 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 ### 부하 단계에 따른 레인 조정 (`load-tiers`)
 
-1분 부하가 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.
+1분 부하가 가벼운 작업만 허용 문턱 이상이면 무거운 실행(시험·빌드·설치)이 있는 작업 종류의 새 레인을 띄우지 않는다. 새 레인 보류 문턱 이상이면 새 레인을 띄우지 않는다. 무거운 실행 중지 문턱 이상이면 검수 레인의 무거운 실행부터 멈춘다. 이미 잡힌 슬롯의 실행은 멈추지 않는다.
 
-- 왜: 부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.
-- 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`, 설정 `machine.load.tiers`
-- 막혔을 때: `wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 부하가 내려가면 다시 디스패치한다.
+- 왜: 부하가 쌓인 상태에서 레인을 더 띄우면 모든 레인의 시험이 시간 초과로 실패한다. 설계·검수·문서처럼 무거운 실행이 없는 레인은 부하를 거의 늘리지 않으므로 중간 단계에서도 계속 띄울 수 있다. 검수는 실행보다 뒤로 미뤄도 결과가 바뀌지 않는다.
+- 어디서 지키나: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`, 설정 `machine.load.tiers`, 설정 `routing.tasks.*.weight`
+- 막혔을 때: `wb-slot check` 로 부하와 고아 프로세스를 확인한다. 지워진 레인 폴더에 남은 프로세스는 `wb-slot reap --orphans` 로 보고, 확인한 뒤 `--kill` 로 그 PID 만 종료한다. 가벼운 작업만 허용 단계에서는 가벼운 종류(`weight: light`)만 먼저 띄우고, 부하가 내려가면 나머지를 디스패치한다.
 
 ### 레인은 자기 시험만 실행 (`lane-test-scope`)
 
@@ -214,10 +230,10 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 ### 작업 단위마다 기록 커밋 (`wave-checkpoint`)
 
-웨이브가 끝나면 진행 기록을 커밋하고, 사용자에게 `/clear` 로 대화를 비우라고 안내한다.
+웨이브가 끝나면 진행 기록을 커밋하고, 사용자에게 `/clear` 로 대화를 비우라고 안내한다. 레인 브랜치의 작업 중 커밋(체크포인트)은 레인 커밋 정책(`project.lanes.commit`)을 따른다.
 
 - 왜: 대화가 길어지면 사용 한도에 걸려 세션이 멈춘다. 기록을 일찍 남겨 두면 새 세션이 어느 시점에서든 이어받을 수 있다.
-- 어디서 지키나: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`
+- 어디서 지키나: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`, 설정 `project.lanes.commit`
 - 막혔을 때: `/wb:resume` 으로 재개 보고를 만들고, 오래된 항목부터 정리한다.
 
 ### 사용량 단계별 대응 (`token-stages`)
@@ -244,6 +260,38 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 어디서 지키나: `hooks/scripts/terse/session-start.mjs`, `skills/terse/SKILL.md`, `rules/terse.ko.md`
 - 막혔을 때: `/wb:terse off` 로 끈다.
 
+### 출력 언어는 설정대로 (`output-language`)
+
+`personal.language` 가 `ko` 나 `en` 이면 사용자에게 보이는 모든 출력을 그 언어로 쓰고, 서브에이전트 지시문에도 보고 언어를 적는다. 코드·경로·명령은 원문 그대로 둔다.
+
+- 왜: 서브에이전트가 다른 언어로 보고하면 메인 세션이 다시 옮겨 써야 하고, 옮기는 과정에서 수치와 근거가 빠진다.
+- 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/language.ko.md`, 설정 `personal.session_rules.language`
+- 막혔을 때: 다른 언어로 쓴 출력은 설정 언어로 다시 쓴다. 이 안내를 끄려면 `personal.session_rules.language` 를 `false` 로 둔다.
+
+### 원격 사용자에게는 아티팩트로 (`remote-viewer`)
+
+`personal.report.viewer` 가 `remote` 이면 `localhost` 주소·로컬 경로·로컬 파일 첨부로 안내하지 않는다. 보여 줄 것은 아티팩트로 올리고, 이미지는 base64 `data:` URI 로 넣으며, 캡처는 2배율로 찍는다.
+
+- 왜: 다른 기기에서 접속한 사용자는 이 머신의 주소와 파일을 열 수 없다. 1배율 캡처는 글자가 뭉개져 화면 차이를 눈으로 확인할 수 없다.
+- 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/remote-viewer.ko.md`, `bin/wb-art`, 설정 `personal.report.viewer`, 설정 `personal.session_rules.remote`
+- 막혔을 때: `wb-art report` 로 이미지를 넣은 HTML 을 만들어 아티팩트로 올리고 링크를 준다. 갱신은 같은 파일 경로로 다시 올린다.
+
+### 구현과 반영을 구분해 보고 (`report-accuracy`)
+
+「기능 구현됨」과 「병합·배포 완료」를 구분해서 보고한다. 병합 뒤에는 영향받는 서버를 재기동·재동기화한 다음에 「반영됐다」고 말한다. 수정 전에는 실제로 돌고 있는 앱과 변형을 확인한다.
+
+- 왜: 코드만 바뀌고 서버가 예전 코드를 돌리고 있으면 사용자는 고쳐지지 않은 화면을 보게 된다. 다른 변형을 고치면 시간을 쓰고도 문제가 그대로 남는다.
+- 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, 설정 `personal.session_rules.conduct`
+- 막혔을 때: 보고에 구현·병합·배포·재기동 상태를 따로 적는다. 서버 목록은 `machine.servers` 에 두고 재기동 뒤 응답을 확인한다.
+
+### 모호하면 되묻고 반복 질문에 먼저 답함 (`communication`)
+
+코드·문서 변경인지 운영 조치인지 모호한 요청은 한 번 되묻는다. 같은 질문이 반복되면 다른 작업보다 먼저 그 질문에 답한다. 채팅 응답에도 근거와 수치를 직접 적는다.
+
+- 왜: 운영 조치를 코드 변경으로 받아들이면 필요 없는 수정이 생긴다. 같은 질문이 반복된다는 것은 앞선 답이 전달되지 않았다는 뜻이다.
+- 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, 설정 `personal.report.chat_detail`, 설정 `personal.session_rules.conduct`
+- 막혔을 때: 되물을 때는 선택지를 두세 개로 좁혀 묻는다. 반복된 질문에는 한 줄 결론부터 답한다.
+
 ## 품질과 문서
 
 ### 기능과 시험은 함께 변경 (`tests-with-change`)
@@ -262,12 +310,20 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 어디서 지키나: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
 - 막혔을 때: `/wb:test-report` 로 결과 파일을 만들고 `wb-check test-results` 로 확인한다.
 
+### 설계는 적대 검증 「높음 0건」 뒤에 구현 (`design-adversarial-review`)
+
+설계 문서가 나오면 구현 전에 설계를 쓴 쪽과 다른 맥락의 검증자(강한 모델, 읽기 전용)가 적대적으로 검증한다. 검증자는 설계가 인용한 코드 지점을 직접 대조하고, 지적을 높음·중간·낮음으로 나눠 근거 `파일:줄` 과 고칠 방향을 붙이며 마지막 줄에 「높음 N건」을 적는다. 설계는 판(2판·3판…)으로 고치고 판마다 바뀐 문단에 판 표식과 반영 대조표(지적 → 수용·불수용 → 반영 위치, 불수용은 근거)를 두며, 고칠 때마다 다시 검증한다. 높음만 고친 판은 해당 지적과 그 판의 새 위험만 짧게 재검증해도 된다. 「높음 0건」이 되어야 구현에 들어간다. 오너 결정이 필요한 항목은 따로 모아 확인받는다. 화면 설계·시안은 UX 적대 점검의 아홉 축으로 본다. 구현이 끝나면 코드 정독으로 설계 불변식이 지켜졌는지 한 번 더 적대 검증한다.
+
+- 왜: 문장으로는 맞아 보이는 설계도 인용한 코드와 어긋나면 구현 단계에서 되돌림이 생긴다. 설계를 쓴 쪽은 자기 가정을 다시 의심하기 어렵다.
+- 어디서 지키나: `skills/design-adversarial/SKILL.md`, `skills/work/SKILL.md`
+- 막혔을 때: `/wb:design-adversarial` 로 검증자를 띄우고, 높음 지적을 판으로 고친 뒤 다시 검증한다. 불수용은 반영 대조표에 근거를 적는다.
+
 ### 출하 검증 전에 선행 검증 통과 (`ship-precheck`)
 
-출하 검증은 단위·통합·게이트·e2e·UI 안정성·사용성 등 필수 검증이 모두 현재 커밋에서 통과한 뒤에만 시작한다. 결과가 없거나, 다른 커밋의 것이거나, 실패했으면 먼저 다시 돌려 통과시킨다. 직전 통과 결과보다 시험 수가 줄거나, 건너뜀·보류가 늘거나, 임계값이 완화된 결과는 통과로 보지 않는다.
+출하 검증은 단위·통합·게이트·e2e·UI 안정성·사용성 등 필수 검증이 모두 현재 커밋에서 통과한 뒤에만 시작한다. 결과가 없거나, 다른 커밋의 것이거나, 실패했으면 먼저 다시 돌려 통과시킨다. 직전 통과 결과보다 시험 수가 줄거나, 건너뜀·보류가 늘거나, 임계값이 완화된 결과는 통과로 보지 않는다. 화면이 있는 제품은 출하 판정 직전에 그 판에서 바뀐 화면을 구현과 다른 맥락의 검증자가 적대적으로 점검한다. 격리 스택에서 페르소나의 실제 과업을 헤드리스로 끝까지 수행하고 2x 캡처를 남기며, 아홉 축(논리적 오류·정보 표기 정합성·사용자 맥락·흐름 맥락·초보 길 잃음·다음 할 일·오류에서 빠져나갈 길·접근성과 좁은 폭·어두운 테마·디자인 시스템 시각 대조)을 모두 본다. 「차단」·「높음」 지적이 남아 있으면 출하하지 않고, 화면을 바꾸는 지적은 모아 오너 확인을 받은 뒤 고친다. 그다음 출하 판정(verifying-production-readiness)을 한다.
 
-- 왜: 출하 판정은 그 커밋의 실제 시험 결과에 기대야 한다. 오래된 결과나 시험을 줄여 얻은 통과는 판정의 근거가 되지 못한다.
-- 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`
+- 왜: 출하 판정은 그 커밋의 실제 시험 결과에 기대야 한다. 오래된 결과나 시험을 줄여 얻은 통과는 판정의 근거가 되지 못한다. 레인별 시험과 디자인 린트 기준선은 처음 쓰는 사람이 헷갈리는 문구, 막다른 화면, 붙은 간격·좁은 줄간격 같은 시각 위반을 걸러 내지 못한다.
+- 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 - 막혔을 때: `/wb:ship-verify` 를 실행한다. `wb-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 저장소 소유자가 자기 터미널에서 `wb-quality accept` 로 승인한다.
 
 ### 번호는 먼저 예약 (`number-reservation`)
@@ -296,7 +352,7 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 ### 파일 종류별 문체 (`style-per-file`)
 
-문서와 화면 문구는 파일 종류마다 정한 문체(`style.map`)로 쓴다.
+문서와 화면 문구는 파일 종류마다 정한 문체(`style.map`)로 쓴다. 보고서체 문서에는 작성 흔적, 과장·비유, 근거 없는 판단, 개발자 용어를 남기지 않고 마지막 점검 세 질문으로 확인한다.
 
 - 왜: 화면 문구와 보고서의 문체를 구분하지 않으면 같은 제품 안에서 문구의 인상이 제각각이 된다.
 - 어디서 지키나: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`, 설정 `project.style.map`
@@ -333,6 +389,38 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 왜: 색인 도구 오류는 대부분 새로 만든 작업 폴더에 색인이 없어서 생겼다. 같은 경로로 다시 호출해도 비용만 늘었다.
 - 어디서 지키나: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`, 설정 `project.codegraph.auto_index`
 - 막혔을 때: grep 과 Read 로 계속 진행한다. 색인 진행은 `wb-index status` 로 보고, 색인이 생기면 같은 세션에서도 다시 호출할 수 있다. 직접 넣으려면 `wb-index add <경로>` 를 쓴다.
+
+### 텍스트 검색은 rg (`rg-search`)
+
+재귀 텍스트 검색은 `grep -r` 대신 `rg` 로 한다. 한글 주석이 많은 소스는 `rg -a` 로 찾는다. 막지는 않고 안내만 한다.
+
+- 왜: `grep -r` 은 node_modules 와 빌드 결과까지 훑어 느리고 결과가 섞인다. 한글 소스는 grep 이 바이너리로 오인해 결과를 빠뜨린다.
+- 어디서 지키나: `hooks/scripts/codegraph/nudge.mjs`, `lib/search.mjs`, 설정 `personal.search.rg_hint`
+- 막혔을 때: 같은 검색을 `rg` 로 다시 한다. rg 가 없으면 `brew install ripgrep` 으로 설치한다. 안내를 끄려면 `personal.search.rg_hint` 를 `false` 로 둔다.
+
+### 임시방편 대신 근본 원인 수정 (`root-cause-fix`)
+
+임시방편이나 우회로 증상만 가리지 않고 근본 원인을 고친다. 지금 고칠 수 없으면 그 사실과 이유를 보고한다.
+
+- 왜: 우회로 막은 결함은 다른 조건에서 다시 나타나고, 그때는 원래 원인을 찾기가 더 어렵다.
+- 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, 설정 `personal.session_rules.conduct`
+- 막혔을 때: 원인을 재현하는 시험을 먼저 쓰고, 그 시험이 통과하도록 고친다. 고치지 못한 결함은 결함 원장에 남긴다(`wb-defects`).
+
+### 제품 화면에 이모지 금지 (`no-emoji-ui`)
+
+제품 화면에는 이모지를 쓰지 않는다. 아이콘이 필요하면 아이콘 리소스(SVG 등)를 쓴다.
+
+- 왜: 이모지는 운영체제와 글꼴마다 모양과 크기가 달라 같은 화면이 기기마다 다르게 보인다.
+- 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`, 설정 `personal.session_rules.conduct`
+- 막혔을 때: 이모지를 프로젝트의 아이콘 리소스로 바꾼다. 화면 구조까지 바뀌면 시안부터 만든다.
+
+### 색인 도구가 없으면 설치하고 계속 (`codegraph-install`)
+
+codegraph 가 설치되어 있지 않으면 사용자에게 묻고 멈추지 않고 설치·초기화한 뒤 계속한다. 워크트리에서 질의할 때는 `projectPath` 에 그 워크트리 경로를 넘긴다.
+
+- 왜: 색인 없이 텍스트 검색만으로 호출 흐름을 따라가면 검색 횟수가 크게 늘어난다. `projectPath` 를 빼면 워크트리 질의가 빈 결과를 돌려준다.
+- 어디서 지키나: `hooks/scripts/codegraph/session-start.mjs`, `rules/codegraph-install.ko.md`, 설정 `project.codegraph.nudge`
+- 막혔을 때: `brew install codegraph` 로 설치하고 `wb-slot` 안에서 `codegraph init .` 를 실행한다. 설치할 수 없는 환경이면 grep 과 Read 로 진행하고 이유를 보고한다.
 
 ## 추가 예정
 

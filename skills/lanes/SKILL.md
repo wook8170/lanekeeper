@@ -13,7 +13,7 @@ The lane ledger is `<git-common-dir>/wb/waves.json`; every worktree sees the sam
 2. Columns: status, model, task, runs/returns, to-dos done/total, checks pass/fail, tokens, idle time. `*` after the status means an agent is running now.
 3. For token and model totals per lane run `wb-waves metrics`.
 4. A lane in `review` has a finished agent and waits for the controller. A lane in `running` with a growing idle time and no `*` has probably stopped: tell the user and suggest `/wb:resume`.
-5. Run `wb-slot check` and show its lines below the board: the 1-minute load, the tier (normal · new lanes held · heavy runs stopped), the thresholds (`machine.load.tiers`), the lanes with their role, slot use and orphan process candidates.
+5. Run `wb-slot check` and show its lines below the board: the 1-minute load, the tier (normal · light tasks only · new lanes held · heavy runs stopped), the thresholds (`machine.load.tiers`), the lanes with their role, slot use and orphan process candidates.
    - Tier "new lanes held": do not dispatch a new lane; messages to existing lanes are fine.
    - Tier "heavy runs stopped": verifier lanes' heavy runs are refused; executors wait for a slot.
    - Orphan candidates: suggest `wb-slot reap --orphans` to review them and, after the user agrees, `wb-slot reap --orphans --kill` (it stops exactly the listed PIDs, never by pattern).

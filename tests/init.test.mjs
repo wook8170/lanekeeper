@@ -15,7 +15,7 @@ function emptyRepo() {
   const repo = path.join(dir, 'sample')
   fs.mkdirSync(repo)
   execFileSync('git', ['init', '-q', repo])
-  const env = { HOME: dir, WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8' }
+  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8' }
   return { dir, repo, env }
 }
 
@@ -25,6 +25,7 @@ test('init: three answers create project and personal settings in an empty sampl
   const cfg = JSON.parse(fs.readFileSync(path.join(repo, '.wb', 'config.json'), 'utf8'))
   assert.equal(cfg.project_kind, 'web-ui')
   assert.equal(cfg.gate.command, 'npm test')
+  assert.deepEqual(cfg.quality.ship.requires, ['ux-adversarial'], 'a web-ui project requires the adversarial UX check before shipping')
   const personal = JSON.parse(fs.readFileSync(path.join(env.WB_HOME, 'personal.json'), 'utf8'))
   assert.equal(personal.language, 'ko')
   const exclude = fs.readFileSync(path.join(repo, '.git', 'info', 'exclude'), 'utf8')
@@ -40,6 +41,7 @@ test('init: second run keeps existing files and does not duplicate the exclude l
   assert.deepEqual(again.map((a) => a.type), ['kept', 'kept'])
   const cfg = JSON.parse(fs.readFileSync(path.join(repo, '.wb', 'config.json'), 'utf8'))
   assert.equal(cfg.project_kind, 'library')
+  assert.equal(cfg.quality, undefined, 'only web-ui gets the ship requirement')
   const lines = fs.readFileSync(path.join(repo, '.git', 'info', 'exclude'), 'utf8').split('\n')
   assert.equal(lines.filter((l) => l === '.wb/briefs/').length, 1)
 })
@@ -64,7 +66,7 @@ test('init: rejects unknown answers', () => {
 
 test('init: outside git it writes settings and reports notGit', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-nogit-'))
-  const env = { HOME: dir, WB_HOME: path.join(dir, '.wb'), PATH: process.env.PATH, GIT_CEILING_DIRECTORIES: path.dirname(dir) }
+  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: path.join(dir, '.wb'), PATH: process.env.PATH, GIT_CEILING_DIRECTORIES: path.dirname(dir) }
   const actions = initProject(dir, { kind: 'other', language: 'en' }, env)
   assert.ok(actions.some((a) => a.type === 'notGit'))
   assert.ok(fs.existsSync(path.join(dir, '.wb', 'config.json')))

@@ -7,7 +7,8 @@
 //   - model: missing, unknown, denied, out of quota, below the task floor, outside the
 //     task chain, same as the implementer for differ_from tasks, not the first choice
 //   - lanes: a new lane while lanes.json already holds machine.lanes.max lanes
-//   - load: a new lane while the load is at or above machine.load.tiers.hold_new_lanes
+//   - load: a new lane while the load is at or above machine.load.tiers.hold_new_lanes,
+//     or a heavy task type (routing weight) between light_only and hold_new_lanes
 //     (a dispatch to a lane already in lanes.json is not held)
 //   - nothing left above the floor: block, notify, wait until the reset time
 // Not a safety hook: internal errors let the call through (fail-open) with a note.
@@ -19,7 +20,7 @@ import { hookMain, notify, readJson, limitsFile } from '../../../lib/runtime.mjs
 import { classify, resolveRoute, checkModel, modelKeyFor, limitsMap } from '../../../lib/route.mjs'
 import { checkBrief, collectBrief } from '../../../lib/brief.mjs'
 import { recordDispatch } from '../../../lib/waves.mjs'
-import { readLoad, loadSettings, holdVerdict } from '../../../lib/load.mjs'
+import { readLoad, loadSettings, holdVerdict, lightOnlyVerdict, taskWeight } from '../../../lib/load.mjs'
 
 const RANK = { info: 0, warn: 1, deny: 2 }
 
@@ -85,11 +86,13 @@ export function evaluate(input, env = process.env, overrides = {}) {
     }
   }
 
-  // Load: hold new lanes at or above hold_new_lanes
+  // Load: hold new lanes at or above hold_new_lanes; light task types only
+  // between light_only and hold_new_lanes (exempt helper agents count as light)
   if (!known) {
     const ls = loadSettings(resolved)
     const load = overrides.loadavg ? overrides.loadavg(ls.sample) : readLoad(ls.sample, env)
-    const v = holdVerdict(load, ls.tiers)
+    const weight = !cls.type && exempt ? 'light' : taskWeight(routing, cls.type)
+    const v = holdVerdict(load, ls.tiers) || lightOnlyVerdict(load, ls.tiers, weight, cls.type)
     if (v) verdicts.push({ level: 'deny', ...v })
   }
 
