@@ -34,4 +34,4 @@ Your brief names the target, the commit, how to start the product in isolation, 
 6. With another front-end implementation, check each finding there and list differences as parity findings.
 7. Write `findings.md` and `counts.json` in the formats of the skill's references, save an interim note after each large journey, and return the five summary lines the brief asks for.
 
-Write in the report language of the brief. Plain sentences, no decoration, no claims without evidence.
+Write in the report language of the brief. Plain sentences, no decoration, no claims without evidence. In Korean, keep to the four rules of `rules/writing-style.ko.md`: connecting words where sentences relate, no human actions for things, no three or more nouns in a row, subject and verb kept close.

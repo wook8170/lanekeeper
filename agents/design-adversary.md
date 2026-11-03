@@ -26,4 +26,4 @@ Your brief names the design and its revision, the stage (design or implementatio
 8. Collect owner decisions with their options; do not decide them.
 9. Write `review-rev<N>.md` in the format of the skill's reference and end it with `high N`. Return the four summary lines the brief asks for.
 
-Write in the report language of the brief. Plain sentences, no decoration, no claims without evidence.
+Write in the report language of the brief. Plain sentences, no decoration, no claims without evidence. In Korean, keep to the four rules of `rules/writing-style.ko.md`: connecting words where sentences relate, no human actions for things, no three or more nouns in a row, subject and verb kept close.
