@@ -33,10 +33,10 @@ wb 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Code 가 �
 
 | 작업 종류 | 용도 | 대체 순서 | 최소 등급 | 무게 |
 |---|---|---|---|---|
-| `design` | 설계·분석·계획 | fable → opus | opus | light |
-| `review` | 검수·판정 | fable → opus | opus | light |
+| `design` | 설계·분석·계획 | opus | opus | light |
+| `review` | 검수·판정 | opus | opus | light |
 | `security` | 보안 검토 | opus | opus | light |
-| `adversarial` | 반대 입장 검토. 구현 모델은 뺀다 | fable → opus | opus | light |
+| `adversarial` | 반대 입장 검토. 구현 모델은 뺀다 | opus | opus | light |
 | `impl-multi` | 여러 파일 구현 | opus → sonnet | sonnet | heavy |
 | `impl-spec` | 명세가 확정된 구현 | sonnet → opus | sonnet | heavy |
 | `docs` | 문서 작성·현행화(지시서 틀 docs) | sonnet → opus | sonnet | light |
@@ -55,12 +55,12 @@ wb-route check review --model sonnet            모델 선택 판정. 차단이�
 ```
 
 ```
-작업 종류 review · 사슬 fable > opus · 바닥선 opus
+작업 종류 review · 사슬 opus · 바닥선 opus
   1 금지: -
   2 한도 소진: -
   3 구현 모델 제외: -
   4 바닥선 미만: -
-결과: fable (model: "fable")
+결과: opus (model: "opus")
 ```
 
 **디스패치 검사.** Claude 가 Agent 도구로 서브에이전트를 보낼 때 훅이 다음을 확인한다. 지시서 첫 줄 표지(`<!-- wb-brief v1 type=<작업 종류> lane=<레인> template=<틀> -->`), 필수 절(목표·범위·금지·시험 규칙·보고 위치·커밋 규칙), 채우지 않은 `{{…}}` 자리, `model` 지정, 금지·한도 소진 모델, 최소 등급, 동시 레인 수다. 하나라도 어긋나면 막고 라우팅 결과를 알려 준다. `fork`·`claude-code-guide`·`statusline-setup` 에이전트는 지시서 검사를 건너뛴다(`project.dispatch.exempt_agents`).
@@ -124,7 +124,7 @@ Claude 가 무거운 명령을 슬롯 없이 실행하면 기본(`machine.slots.
 [wb] `npx playwright test` 은(는) 무거운 실행이라 슬롯(browser,heavy) 안에서 돌려야 합니다. 다음처럼 감싸서 다시 실행하세요: `wb-slot --kind browser,heavy -- sh -c 'npx playwright test'`
 ```
 
-**부하 단계.** 1분 부하를 세 문턱(`machine.load.tiers`)과 비교한다. 기본값 `auto` 는 논리 코어 수 기준으로, 가벼운 작업만 허용과 새 레인 보류는 코어 수 × 2, 무거운 실행 중지는 코어 수 × 2.8(반올림)이다. 둘 다 `auto` 면 가벼운 작업만 구간은 비어 있다. 숫자로 직접 정할 수도 있다(예: 가벼운 작업만 20, 새 레인 보류 35, 무거운 실행 중지 35).
+**부하 단계.** 1분 부하를 세 문턱(`machine.load.tiers`)과 비교한다. 기본값 `auto` 는 논리 코어 수를 따른다. 가벼운 작업만 허용은 코어 수 × 1.5, 새 레인 보류는 코어 수 × 2, 무거운 실행 중지는 코어 수 × 2.8 이다(반올림). 코어가 10개면 15, 20, 28 이다. 숫자로 직접 정할 수도 있다(예: 가벼운 작업만 20, 새 레인 보류 35, 무거운 실행 중지 35).
 
 | 단계 | 조건 | 동작 |
 |---|---|---|

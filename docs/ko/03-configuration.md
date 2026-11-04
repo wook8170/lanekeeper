@@ -55,19 +55,25 @@ wb-config validate
 |---|---|---|---|
 | `routing.version` | `1` | 파일 형식 판 | `1` |
 | `routing.models` | 아래 설명 | 모델 이름별 Agent 도구 값(`agent_param`)과 등급(`rank`). 등급이 클수록 높다 | `{"opus":{"agent_param":"opus","rank":3}}` |
-| `routing.denied` | `[]` | 쓰지 않을 모델. 보호 목록 규칙으로 합친다 | `["fable"]` |
-| `routing.denied_note` | `{}` | 금지 이유 메모(스킬 참고) | `{"fable":"개인 결정"}` |
+| `routing.denied` | `[]` | 쓰지 않을 모델. 보호 목록 규칙으로 합친다 | `["haiku"]` |
+| `routing.denied_note` | `{}` | 금지 이유 메모(스킬 참고) | `{"haiku":"개인 결정"}` |
 | `routing.tasks` | 아래 설명 | 작업 종류별 `label`, `chain`(대체 순서), `floor`(최소 등급), `on_floor`(`wait-notify`), `differ_from`(`implementer`), `weight`(`light` · `heavy`, 없으면 `heavy`) | `{"review":{"chain":["opus"]}}` |
 | `routing.limits_state` | `"${CLAUDE_PLUGIN_DATA}/limits.json"` | 사용 한도에 걸린 모델 기록 파일 | 기본값 유지 |
 
-`routing.models` 의 기본값은 fable(등급 4), opus(3), sonnet(2), haiku(1)이다. `routing.tasks` 의 기본값 11종은 [기능 안내](02-features.md) 2절의 표와 같다. 작업 종류 하나만 바꿀 때는 그 항목의 바꿀 키만 적는다.
+`routing.models` 의 기본값은 opus(등급 3), sonnet(2), haiku(1)이다. 이 세 모델은 모든 Claude Code 계정에서 쓸 수 있다. `routing.tasks` 의 기본값 11종은 [기능 안내](02-features.md) 2절의 표와 같다. 작업 종류 하나만 바꿀 때는 그 항목의 바꿀 키만 적는다.
+
+모델을 하나 더 쓰려면 `routing.models` 에 그 모델을 넣고, 먼저 써 볼 작업 종류의 사슬 맨 앞에 둔다. 사슬 배열은 기본값을 통째로 바꾸므로 순서 전체를 적는다. 새 모델이 금지되거나 한도에 걸리면 사슬의 다음 모델을 쓴다. 아래 예는 설계와 검수에 opus 보다 높은 등급의 모델을 먼저 쓰고, haiku 는 쓰지 않는 설정이다.
 
 ```json
 {
   "version": 1,
-  "denied": ["fable"],
-  "denied_note": { "fable": "개인 결정. 지우면 다시 쓴다" },
-  "tasks": { "review": { "chain": ["opus"] } }
+  "models": { "fable": { "agent_param": "fable", "rank": 4 } },
+  "tasks": {
+    "design": { "chain": ["fable", "opus"] },
+    "review": { "chain": ["fable", "opus"] }
+  },
+  "denied": ["haiku"],
+  "denied_note": { "haiku": "개인 결정. 지우면 다시 쓴다" }
 }
 ```
 
@@ -82,7 +88,7 @@ wb-config validate
 | `machine.load.max` | `"auto"` | 이 1분 부하 이상이면 슬롯 실행을 기다린다. `auto` 는 논리 코어 수 × 2. 상한 규칙 | `16` |
 | `machine.load.auto_rule` | `"logical_cores * 2"` | `auto` 계산식 설명(예약) | 기본값 유지 |
 | `machine.load.sample` | `"1min"` | 비교할 부하 평균. `1min` · `5min` · `15min` | `"5min"` |
-| `machine.load.tiers.light_only` | `"auto"` | 이 1분 부하 이상이면 무거운 실행이 있는 작업 종류(`weight` 가 `light` 가 아닌 종류)의 새 레인을 막는다. 설계·검수·적대 검증·문서·시안처럼 가벼운 종류는 띄울 수 있다. `auto` 는 논리 코어 수 × 2. 새 레인 보류 문턱보다 크면 그 값으로 내린다(둘 다 `auto` 면 이 단계는 비어 있다) | `20` |
+| `machine.load.tiers.light_only` | `"auto"` | 이 1분 부하 이상이면 무거운 실행이 있는 작업 종류(`weight` 가 `light` 가 아닌 종류)의 새 레인을 막는다. 설계·검수·적대 검증·문서·시안처럼 가벼운 종류는 띄울 수 있다. `auto` 는 논리 코어 수 × 1.5(반올림). 새 레인 보류 문턱보다 크면 그 값으로 내린다 | `15` |
 | `machine.load.tiers.hold_new_lanes` | `"auto"` | 이 1분 부하 이상이면 새 레인(Agent 디스패치)을 막는다. 이미 있는 레인으로 보내는 디스패치는 막지 않는다. `auto` 는 논리 코어 수 × 2 | `20` |
 | `machine.load.tiers.stop_heavy` | `"auto"` | 이 1분 부하 이상이면 검수 레인의 무거운 실행을 바로 거부한다. 이미 잡힌 슬롯은 그대로 둔다. `auto` 는 논리 코어 수 × 2.8(반올림). 새 레인 보류 문턱보다 작으면 그 값으로 올린다 | `28` |
 | `machine.load.check_every_min` | `30` | 프롬프트를 보낼 때 부하를 보는 간격(분). 문턱을 넘었을 때만 한 줄을 알린다. `0` 은 끔 | `0` |

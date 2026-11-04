@@ -101,8 +101,15 @@ const FORBIDDEN_RE = [
 // files and only as this exact string; anything else still trips the guard.
 const PUBLIC_CONTACT = ['wook8', '1701', '@gm', 'ail.com'].join('')
 const PUBLIC_CONTACT_FILES = new Set([
-  'SECURITY.md', 'SECURITY.en.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
+  'SECURITY.md', 'SECURITY.ko.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
 ])
+
+// Public GitHub install names (owner decision 2026-11-05): the plugin
+// repository, the combined marketplace repository and its marketplace name.
+// Allowed only in the READMEs and only as these exact strings.
+const PUBLIC_OWNER = ['wook', '8170'].join('')
+const PUBLIC_INSTALL = [`${PUBLIC_OWNER}/wb-plugin`, `${PUBLIC_OWNER}/claude-plugins`, `wb@${PUBLIC_OWNER}-plugins`]
+const PUBLIC_INSTALL_FILES = new Set(['README.md', 'README.ko.md'])
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -118,7 +125,9 @@ test('no project-specific, personal or machine-specific strings in the repositor
   const hits = []
   for (const f of walk(ROOT)) {
     let body = fs.readFileSync(f, 'utf8')
-    if (PUBLIC_CONTACT_FILES.has(path.relative(ROOT, f).split(path.sep).join('/'))) body = body.split(PUBLIC_CONTACT).join('')
+    const rel = path.relative(ROOT, f).split(path.sep).join('/')
+    if (PUBLIC_CONTACT_FILES.has(rel)) body = body.split(PUBLIC_CONTACT).join('')
+    if (PUBLIC_INSTALL_FILES.has(rel)) for (const s of PUBLIC_INSTALL) body = body.split(s).join('')
     for (const s of FORBIDDEN) if (body.toLowerCase().includes(s.toLowerCase())) hits.push(`${path.relative(ROOT, f)}: ${s}`)
     for (const [re, name] of FORBIDDEN_RE) {
       const m = re.exec(body)
@@ -129,10 +138,39 @@ test('no project-specific, personal or machine-specific strings in the repositor
 })
 
 test('copyright holder and contact are filled in (no placeholder left)', () => {
-  const files = ['LICENSE', 'SECURITY.md', 'SECURITY.en.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']
+  const files = ['LICENSE', 'SECURITY.md', 'SECURITY.ko.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']
   for (const f of files) assert.doesNotMatch(read(f), /[A-Z_]+_PLACEHOLDER/, f)
   assert.match(read('LICENSE'), /^Copyright \(c\) 2026 윤결파파$/m)
   assert.equal(json('.claude-plugin/plugin.json').author.name, '윤결파파')
   assert.equal(json('.claude-plugin/marketplace.json').owner.name, '윤결파파')
-  for (const f of ['SECURITY.md', 'SECURITY.en.md']) assert.ok(read(f).includes(PUBLIC_CONTACT), f)
+  for (const f of ['SECURITY.md', 'SECURITY.ko.md']) assert.ok(read(f).includes(PUBLIC_CONTACT), f)
+})
+
+test('README and SECURITY: English first with a language switch, Korean in *.ko.md', () => {
+  for (const base of ['README', 'SECURITY']) {
+    const en = read(`${base}.md`)
+    const ko = read(`${base}.ko.md`)
+    assert.ok(!fs.existsSync(path.join(ROOT, `${base}.en.md`)), `${base}.en.md is gone`)
+    assert.match(en.split('\n')[1], new RegExp(`^\\*\\*English\\*\\* · \\[한국어\\]\\(${base}\\.ko\\.md\\)$`), `${base}.md switch line`)
+    assert.match(ko.split('\n')[1], new RegExp(`^\\[English\\]\\(${base}\\.md\\) · \\*\\*한국어\\*\\*$`), `${base}.ko.md switch line`)
+  }
+  // install commands and requirements sit on the first screen of both READMEs
+  for (const f of ['README.md', 'README.ko.md']) {
+    const head = read(f).split('\n').slice(0, 25).join('\n')
+    assert.match(head, /claude plugin marketplace add \S+\/claude-plugins/, f)
+    assert.match(head, /claude plugin marketplace add \S+\/wb-plugin/, f)
+    assert.match(head, /Node\.js 18\.19/, f)
+    assert.match(head, /Claude Code 2\.1\.295/, f)
+  }
+})
+
+test('plugin icon: square PNG 512-2048 px under 2 MB, baked from the committed SVG', () => {
+  const png = fs.readFileSync(path.join(ROOT, '.claude-plugin', 'icon.png'))
+  assert.equal(png.subarray(1, 4).toString('latin1'), 'PNG')
+  const w = png.readUInt32BE(16)
+  const h = png.readUInt32BE(20)
+  assert.equal(w, h)
+  assert.ok(w >= 512 && w <= 2048, String(w))
+  assert.ok(png.length < 2 * 1024 * 1024)
+  assert.match(read('.claude-plugin/icon.svg'), /<svg[^>]*viewBox="0 0 512 512"/)
 })

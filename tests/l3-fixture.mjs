@@ -12,6 +12,14 @@ process.env.GIT_CONFIG_NOSYSTEM = '1'
 // in-process git commits (checkpoint) need an identity even where git cannot guess one (containers)
 Object.assign(process.env, { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com' })
 
+// A personal routing layer that adds a fourth model (fable) above opus for
+// design, review and adversarial review. The defaults ship without it; the
+// routing tests use it to cover chains with more than one model at the floor.
+export const FABLE_ROUTING = {
+  models: { fable: { agent_param: 'fable', rank: 4 } },
+  tasks: { design: { chain: ['fable', 'opus'] }, review: { chain: ['fable', 'opus'] }, adversarial: { chain: ['fable', 'opus'] } },
+}
+
 export const git = (cwd, ...args) =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 

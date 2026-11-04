@@ -1,5 +1,5 @@
 <!-- wb-brief v1 type=adversarial lane={{lane}} template=ux-adversarial implementer={{implementer}} role=verifier -->
-<!-- 표지: type=adversarial 은 구현 모델과 다른 모델로 라우팅한다(권장 fable, 없으면 opus). role=verifier 는 부하가 높을 때 무거운 실행을 먼저 멈추는 검수 레인 표식. {{…}} 자리를 모두 채워야 디스패치된다. -->
+<!-- 표지: type=adversarial 은 구현 모델과 다른 모델로 라우팅한다(기본은 opus. 라우팅에 더 높은 모델을 넣었으면 그 모델을 먼저 쓴다). role=verifier 는 부하가 높을 때 무거운 실행을 먼저 멈추는 검수 레인 표식. {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}} UX 적대 점검
 
 당신은 이 제품 개발에 참여하지 않은 적대적 UX 점검자다. 처음 쓰는 업무 담당자가 막히거나, 틀리거나, 잃어버리는 지점을 실제 화면을 조작해 찾는다. 칭찬과 요약은 쓰지 않는다.

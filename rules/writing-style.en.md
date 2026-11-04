@@ -18,7 +18,6 @@ For: screen text, in-app manual, help, notices. (The name is the Korean polite-f
 - Do not give things and features human actions (swallow, chase its tail, wake up, kill). Write what actually happens: "the function catches the error and logs nothing".
 - Do not string three or more nouns together without particles or prepositions. Unpack them. Fixed names such as product names are exempt.
 - Do not put a long gap between subject and verb, or between a modifier and what it modifies. Split the sentence when a long phrase sits between them.
-- The Korean source is `~/.claude/rules/REPORT_WRITING_RULES.md` section 15.
 
 ## report
 For: developer documents, reports, certification papers, release documents. The reader is an executive, a business owner, a customer or a project manager, not a developer.
@@ -71,7 +70,6 @@ Ask three questions of every sentence. Fix or delete it when any answer is no.
 - Do not give things and features human actions (swallow, chase its tail, wake up, kill). Write what actually happens: "the function catches the error and logs nothing".
 - Do not string three or more nouns together without particles or prepositions. Unpack them. Fixed names such as product names are exempt.
 - Do not put a long gap between subject and verb, or between a modifier and what it modifies. Split the sentence when a long phrase sits between them.
-- The Korean source is `~/.claude/rules/REPORT_WRITING_RULES.md` section 15.
 
 ## plain
 For: files that match neither of the above.
@@ -84,4 +82,3 @@ For: files that match neither of the above.
 - Do not give things and features human actions (swallow, chase its tail, wake up, kill). Write what actually happens: "the function catches the error and logs nothing".
 - Do not string three or more nouns together without particles or prepositions. Unpack them. Fixed names such as product names are exempt.
 - Do not put a long gap between subject and verb, or between a modifier and what it modifies. Split the sentence when a long phrase sits between them.
-- The Korean source is `~/.claude/rules/REPORT_WRITING_RULES.md` section 15.

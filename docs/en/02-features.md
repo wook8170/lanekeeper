@@ -33,10 +33,10 @@ There are 11 default task types. The weight (`weight`) decides whether a new lan
 
 | Task type | Use | Fallback order | Minimum grade | Weight |
 |---|---|---|---|---|
-| `design` | Design, analysis, planning | fable → opus | opus | light |
-| `review` | Review and verdicts | fable → opus | opus | light |
+| `design` | Design, analysis, planning | opus | opus | light |
+| `review` | Review and verdicts | opus | opus | light |
 | `security` | Security review | opus | opus | light |
-| `adversarial` | Review from the opposing side. The implementing model is left out | fable → opus | opus | light |
+| `adversarial` | Review from the opposing side. The implementing model is left out | opus | opus | light |
 | `impl-multi` | Implementation across several files | opus → sonnet | sonnet | heavy |
 | `impl-spec` | Implementation with a fixed spec | sonnet → opus | sonnet | heavy |
 | `docs` | Writing and updating documents (brief template docs) | sonnet → opus | sonnet | light |
@@ -55,12 +55,12 @@ wb-route check review --model sonnet            judge a model choice; exit code 
 ```
 
 ```
-Task review · chain fable > opus · floor opus
+Task review · chain opus · floor opus
   1 denied: -
   2 out of quota: -
   3 implementer excluded: -
   4 below floor: -
-Result: fable (model: "fable")
+Result: opus (model: "opus")
 ```
 
 **Dispatch check.** When Claude sends a subagent with the Agent tool, a hook checks the brief marker on the first line (`<!-- wb-brief v1 type=<task type> lane=<lane> template=<template> -->`), the required sections (goal, scope, forbidden, test rules, report location, commit rules), unfilled `{{…}}` placeholders, the `model` value, denied and out-of-quota models, the minimum grade, and the number of live lanes. Any mismatch blocks the call and shows the routing result. The `fork`, `claude-code-guide` and `statusline-setup` agents skip the brief check (`project.dispatch.exempt_agents`).
@@ -124,7 +124,7 @@ When Claude runs a heavy command without a slot, the default (`machine.slots.gua
 [wb] `npx playwright test` is a heavy run and should go through a slot (browser,heavy). Run it again wrapped like this: `wb-slot --kind browser,heavy -- sh -c 'npx playwright test'`
 ```
 
-**Load tiers.** The 1-minute load is compared with three thresholds (`machine.load.tiers`). The default `auto` follows the logical core count: light tasks only and hold new lanes at cores × 2, stop heavy runs at cores × 2.8 (rounded). With both on `auto` the light-only tier is empty. Numbers can be set directly (for example light only 20, hold new lanes 35, stop heavy runs 35).
+**Load tiers.** The 1-minute load is compared with three thresholds (`machine.load.tiers`). The default `auto` follows the logical core count: light tasks only at cores × 1.5, hold new lanes at cores × 2 and stop heavy runs at cores × 2.8 (rounded). On 10 cores that is 15, 20 and 28. Numbers can be set directly (for example light only 20, hold new lanes 35, stop heavy runs 35).
 
 | Tier | When | What happens |
 |---|---|---|

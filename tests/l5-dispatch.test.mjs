@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { handle, evaluate } from '../hooks/scripts/dispatch/dispatch-guard.mjs'
 import { recordLimit } from '../lib/limits.mjs'
-import { ROOT, makeEnv, runScript } from './l3-fixture.mjs'
+import { ROOT, makeEnv, runScript, FABLE_ROUTING } from './l3-fixture.mjs'
 
 const tpl = (kind, lang = 'ko') => fs.readFileSync(path.join(ROOT, 'templates', 'briefs', lang, `${kind}.md`), 'utf8')
 const fill = (text, lane = 'l9') =>
@@ -18,7 +18,7 @@ const FUTURE_S = Math.floor(Date.now() / 1000) + 7200
 
 function setup({ denied = [], project = null } = {}) {
   const fx = makeEnv()
-  fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, denied }))
+  fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied }))
   if (project) {
     fs.mkdirSync(path.join(fx.repo, '.wb'), { recursive: true })
     fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, ...project }))

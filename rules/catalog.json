@@ -628,8 +628,8 @@
         "en": "A subagent runs on the model set for its task type. Denied models, models outside the fallback order and models below the minimum level are not used."
       },
       "why": {
-        "ko": "작업마다 필요한 판단 수준이 다르다. 설계나 검수를 낮은 등급 모델에 맡기면 결함을 놓쳐 나중에 고치는 비용이 커진다. 적대 검증은 기본값으로 가장 높은 등급(fable)을 먼저 쓰고 구현 모델과 다르게 고른다.",
-        "en": "Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest level (fable) first by default and picks a model other than the implementer's."
+        "ko": "작업마다 필요한 판단 수준이 다르다. 설계나 검수를 낮은 등급 모델에 맡기면 결함을 놓쳐 나중에 고치는 비용이 커진다. 적대 검증은 사슬에서 가장 높은 등급(기본값은 opus)을 먼저 쓰고, 구현 모델과 다른 모델이 있으면 그 모델을 고른다.",
+        "en": "Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest grade in its chain first (opus by default) and picks a model other than the implementer's when one is left."
       },
       "enforced": [
         {

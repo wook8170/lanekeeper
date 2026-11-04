@@ -234,7 +234,7 @@ Checks the model and the brief when a subagent is sent. The dispatch hook judges
 ### 19. The model fits the task type (`model-routing`)
 
 - Rule: A subagent runs on the model set for its task type. Denied models, models outside the fallback order and models below the minimum level are not used.
-- Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest level (fable) first by default and picks a model other than the implementer's.
+- Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest grade in its chain first (opus by default) and picks a model other than the implementer's when one is left.
 - If blocked: Run again with the model that `wb-route resolve <task type>` names. If the usage limit leaves no allowed model, do not go below the minimum level; wait until the limit resets.
 - Message codes: `dispatch.model_*`, `dispatch.below_floor`, `dispatch.off_chain`, `dispatch.no_model`, `dispatch.type_*`, `dispatch.wait`
 - Related settings: `routing`

@@ -1,100 +1,101 @@
-# 보안 정책
+<!-- LANG-SWITCH -->
+**English** · [한국어](SECURITY.ko.md)
 
-[English](SECURITY.en.md)
+# Security policy
 
-## 취약점 신고
+## Reporting a vulnerability
 
-취약점은 공개 이슈로 올리지 말고 `wook81701@gmail.com` 로 알려 주기 바란다. 받은 날부터 7일 안에 접수 여부를 회신하고, 수정 일정은 영향 범위를 확인한 뒤 정한다. 지원 대상은 가장 최근 0.x 판이다.
+Do not open a public issue for a vulnerability. Write to `wook81701@gmail.com` instead. You get an acknowledgement within 7 days of receipt; the fix schedule is set once the impact is known. The latest 0.x release is supported.
 
-## 보호 범위
+## What wb protects against
 
-wb 의 안전 훅은 에이전트가 실수로 위험한 명령을 실행하는 것을 막는 장치다. 같은 머신에서 악의적으로 동작하는 프로그램을 막는 보안 경계가 아니다.
+The wb safety hooks stop an agent from running dangerous commands by mistake. They are not a security boundary against a malicious program on the same machine.
 
-- 안전 훅은 Bash 명령 문자열과 Write·Edit 대상 경로를 판정한다. 스크립트 파일 안의 명령, python·node 에서 실행하는 git·kill 호출, `find -delete`, `git checkout -- .` 같은 일괄 되돌리기는 판정하지 않는다.
-- 소유자 허가(`/wb:approve`)는 사람이 프롬프트에 입력할 때만 만들어진다. 허가 파일은 `<git 공용 폴더>/wb/owner-grant.json` 에 있고 정해진 시간(기본 15분) 안에 한 번, 지정한 커밋에만 쓸 수 있다. 같은 머신의 다른 프로세스가 이 파일을 직접 쓰는 경우는 막지 못한다. 에이전트의 Write·Edit 와 Bash 명령에서 이 경로를 언급하는 경우는 막지만, 경로를 조립해 쓰는 스크립트까지 막지는 못한다.
-- 안전 훅(`safety/pretool`)·디스패치 가드·출하 관문 훅에는 `"onFailure": "block"` 을 지정했다. 훅이 실행되지 않거나(node 미설치) 시간 초과(20초)·비정상 종료하면 Claude Code 2.1.295 이상은 그 도구 호출을 막는다. 그보다 낮은 판은 이 필드를 모르므로 차단하지 않는 오류로 처리하고, 이때는 안전 훅도 동작하지 않는다. `/wb:doctor` 가 node 설치를 확인한다.
-- 안전 훅(`safety/pretool`, `safety/approve`)은 모든 저장소에서 돈다. 그 밖의 작업 훅은 `.wb/config.json` 이 있는 저장소에서만 동작한다(`WB_ACTIVE=1` 이면 모든 저장소).
+- The safety hooks judge Bash command strings and the target paths of Write and Edit. They do not judge commands inside script files, git or kill calls made from python or node, `find -delete`, or bulk reverts such as `git checkout -- .`.
+- An owner grant (`/wb:approve`) is created only when a person types it in the prompt. The grant file is `<git common dir>/wb/owner-grant.json`; it can be used once, within a time limit (15 minutes by default), and only for the commit it names. Another process on the same machine writing this file directly is not prevented. An agent's Write or Edit of the path, and Bash commands that mention it, are blocked, but a script that assembles the path is not.
+- The safety hook (`safety/pretool`), the dispatch guard and the ship gate hook carry `"onFailure": "block"`. When such a hook does not run (node missing), times out (20 seconds) or exits abnormally, Claude Code 2.1.295 or later blocks the tool call. Older versions do not know the field and treat it as a non-blocking error; the safety hooks do not act in that case. `/wb:doctor` checks that node is installed.
+- The safety hooks (`safety/pretool`, `safety/approve`) run in every repository. The other workflow hooks act only in a repository with `.wb/config.json` (every repository with `WB_ACTIVE=1`).
 
-## 훅이 실패할 때
+## When a hook fails
 
-안전 훅은 판정하지 못하면 막고, 나머지 훅은 오류가 나도 작업을 막지 않는다. `tests/l14-security.test.mjs` 가 모든 훅에 깨진 입력과 깨진 설정을 넣어 이 동작을 확인한다.
+Safety hooks block when they cannot decide; every other hook lets the work continue on an error. `tests/l14-security.test.mjs` feeds every hook broken input and a broken settings file to confirm this.
 
-| 훅 | 이벤트 | 오류·설정 오류 때 |
+| Hook | Event | On an error or a settings error |
 |---|---|---|
-| `safety/pretool` | PreToolUse(Bash·Write·Edit·MultiEdit·NotebookEdit·Skill) | 도구 호출을 거부한다. 설정 파일 오류는 판정 대상 명령을 모두 막는다 |
-| `safety/approve` | UserPromptExpansion(`/wb:approve`) | 허가를 만들지 않고 입력을 막는다 |
-| `dispatch/dispatch-guard` | PreToolUse(Agent·Task) | 통과시키고 안내만 남긴다 |
-| `slots/slot-guard`, `mockup/mockup-first`, `codegraph/nudge`, `codegraph/deadpath` | PreToolUse | 통과시킨다 |
-| `handoff/session-start`, `auto-retry/session-start`, `terse/session-start`, `worktree/session-sync`, `codegraph/session-start` | SessionStart | 아무것도 넣지 않는다 |
-| `token-guard/check`, `codegraph/record` | UserPromptSubmit · PostToolUse | 아무것도 하지 않는다 |
-| `handoff/stop-guard`, `auto-retry/detect`, `report/artifact-check` | Stop · StopFailure | 세션 종료를 막지 않는다 |
-| `checkpoint/checkpoint`, `ledger/subagent` | SubagentStart · SubagentStop · StopFailure · PreCompact | 커밋·기록을 건너뛴다 |
+| `safety/pretool` | PreToolUse (Bash, Write, Edit, MultiEdit, NotebookEdit, Skill) | Denies the tool call. A broken settings file blocks every command it would judge |
+| `safety/approve` | UserPromptExpansion (`/wb:approve`) | Blocks the prompt without creating a grant |
+| `dispatch/dispatch-guard` | PreToolUse (Agent, Task) | Lets the call through with a note |
+| `slots/slot-guard`, `mockup/mockup-first`, `codegraph/nudge`, `codegraph/deadpath` | PreToolUse | Lets the call through |
+| `handoff/session-start`, `auto-retry/session-start`, `terse/session-start`, `worktree/session-sync`, `codegraph/session-start` | SessionStart | Adds nothing |
+| `token-guard/check`, `codegraph/record` | UserPromptSubmit, PostToolUse | Does nothing |
+| `handoff/stop-guard`, `auto-retry/detect`, `report/artifact-check` | Stop, StopFailure | Does not keep the session from ending |
+| `checkpoint/checkpoint`, `ledger/subagent` | SubagentStart, SubagentStop, StopFailure, PreCompact | Skips the commit or the record |
 
-## 외부 명령 실행
+## External commands
 
-훅과 `wb-*` 명령은 셸을 거치지 않고 인자 목록으로 외부 프로그램을 실행한다. 실행하는 프로그램은 `git`, `gh`(PR 대상 확인), `lsof`, `ps`, `codegraph`, `sqlite3`, `nice`, `osascript`·`notify-send`(알림), `launchctl`·`systemd-run`·`systemctl`(자동 재개 예약), `claude`(자동 재개), `python3`(엑셀 생성), `cwebp`(이미지 변환)다.
+Hooks and `wb-*` commands run external programs with an argument list, not through a shell. The programs are `git`, `gh` (PR target lookup), `lsof`, `ps`, `codegraph`, `sqlite3`, `nice`, `osascript` and `notify-send` (notifications), `launchctl`, `systemd-run` and `systemctl` (scheduled resume), `claude` (automatic resume), `python3` (workbooks) and `cwebp` (image conversion).
 
-셸(`sh -c`)로 실행하는 곳은 아래 네 곳뿐이다. 모두 사용자나 프로젝트 설정이 적은 명령이므로, 그 명령을 직접 실행하는 것과 같은 권한으로 돈다. 다른 사람의 저장소를 열 때는 `.wb/config.json` 과 `.wb/verify.config.json` 의 명령을 먼저 확인한다.
+Only four places run a command through a shell (`sh -c`). Each runs a command written by the user or the project settings, with the same rights as running it by hand. When you open someone else's repository, read the commands in `.wb/config.json` and `.wb/verify.config.json` first.
 
-| 위치 | 실행하는 명령 |
+| Place | Command it runs |
 |---|---|
-| `bin/wb-slot` | 사용자가 `wb-slot -- <명령>` 으로 감싼 명령 |
+| `bin/wb-slot` | The command the user wraps with `wb-slot -- <command>` |
 | `lib/review.mjs` | `project.review.guards` |
 | `lib/worktree.mjs` | `project.worktree.setup` |
-| `templates/test-results/project/run-gate.mjs` | `.wb/verify.config.json` 의 게이트 단계 |
+| `templates/test-results/project/run-gate.mjs` | Gate steps in `.wb/verify.config.json` |
 
-새 셸 실행 지점이 생기면 `tests/l14-security.test.mjs` 의 허용 목록 시험이 실패한다. 추가하려면 보안 검토를 거쳐 목록을 고친다.
+A new shell call site makes the allow-list test in `tests/l14-security.test.mjs` fail. Adding one needs a security review and an update of that list.
 
-## 입력 검사
+## Input checks
 
-| 입력 | 검사 |
+| Input | Check |
 |---|---|
-| 아티팩트 슬러그(`wb-art --slug`) | 글자·숫자·한글·`.`·`_`·`-` 만 허용, `..` 금지 |
-| 레인 이름(`wb-check lane`, 되돌림 지시서) | 영문·숫자·`.`·`_`·`-` 64자 이하 |
-| 결정 문서 이름(`wb-decide`) | 글자·숫자·한글·`_`·`-` 61자 이하 |
-| 세션 ID(파일 이름에 쓰일 때) | 영문·숫자·`_`·`-` 이외 문자는 `_` 로 바꾼다 |
-| 화면 확인 주소(`wb-check lane --serve-url`) | `localhost`·`127.0.0.0/8`·`[::1]` 만 허용 |
-| 색인 복사 경로(`sqlite3 .backup`) | 따옴표·제어 문자가 있으면 `sqlite3` 대신 파일 복사 |
+| Artifact slug (`wb-art --slug`) | Letters, digits, Hangul, `.`, `_`, `-` only; no `..` |
+| Lane id (`wb-check lane`, return briefs) | ASCII letters, digits, `.`, `_`, `-`, up to 64 characters |
+| Decision name (`wb-decide`) | Letters, digits, Hangul, `_`, `-`, up to 61 characters |
+| Session id (when used in a file name) | Characters other than ASCII letters, digits, `_` and `-` become `_` |
+| Serving check address (`wb-check lane --serve-url`) | `localhost`, `127.0.0.0/8` and `[::1]` only |
+| Index copy path (`sqlite3 .backup`) | A quote or control character switches to a plain file copy |
 
-## 네트워크
+## Network
 
-훅과 명령은 외부로 데이터를 보내지 않는다. 사용 지표와 기록은 로컬 파일에만 둔다. 예외는 두 가지다.
+Hooks and commands send no data off the machine. Metrics and records stay in local files. There are two exceptions.
 
-- 안전 훅은 `gh pr merge` 를 판정할 때 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다(8초 제한). `gh` 가 설정된 GitHub 계정으로 조회하며, 확인하지 못하면 병합을 막는다.
-- 검수 9항목의 화면 확인은 로컬 개발 서버 주소 하나를 읽는다. 이 머신 밖의 주소는 거부한다.
+- Before judging `gh pr merge`, the safety hook runs `gh pr view` to learn the target branch (8-second limit). `gh` queries with the GitHub account it is set up with. If the lookup fails, the merge is blocked.
+- The serving check of the lane review reads one local development server address. Addresses outside the machine are refused.
 
-## 읽는 파일과 남기는 파일
+## Files read and written
 
-| 기능 | 읽는 것 | 남기는 것 |
+| Feature | Reads | Writes |
 |---|---|---|
-| 토큰 가드 | `~/.claude.json` 의 공식 사용량 항목(`cachedUsageUtilization`)과 계정 ID(`oauthAccount.accountUuid`). 다른 항목과 인증 정보는 읽지 않는다. `~/.claude/projects` 아래에서 최근 구간에 바뀐 대화 기록의 토큰 사용량 필드와 사용 한도 거절 기록. 훅은 공식 사용량도 예산(`token_guard.budget`)도 없으면 대화 기록을 읽지 않는다. 사람이 `wb-token status`·`wb-token calibrate` 를 실행하면 예산과 관계없이 사용량을 보여 주려고 읽는다 | `${CLAUDE_PLUGIN_DATA}/token-guard/` 에 합계 수치, 공식·수동 사용량 기록(`official-history.jsonl`: 시각·계정 ID·비율·리셋 시각), 계정별 보정 계수(`calib-<계정>.json`) |
-| 자동 재개 | 현재 세션 기록의 끝부분(한도 문구·모델 이름) | `${CLAUDE_PLUGIN_DATA}` 에 예약 상태, 재개한 세션의 출력 로그(본인만 읽기 권한) |
-| 레인 원장 | 서브에이전트 기록의 모델 이름과 토큰 사용량 | `<git 공용 폴더>/wb/` 에 레인별 횟수·모델·토큰·지시서 해시 |
-| 보고 확인 | 현재 세션 기록의 도구 호출 이름 | 세션별 차단 표시 한 줄 |
-| codegraph 기록 | codegraph 응답의 성공·실패 구분 | `.wb/metrics/codegraph.jsonl` 에 분류와 시각 |
-| 체크포인트 | git 상태 | 레인 브랜치의 임시 커밋. 추적 중인 파일만 넣고 `.env*`·`*.pem`·`*.key`·`id_*`·`*credentials*`·`*.p12` 는 빼고 알린다 |
+| Token guard | The official usage entry (`cachedUsageUtilization`) and the account ID (`oauthAccount.accountUuid`) of `~/.claude.json`; no other entry and no credentials are read. Token usage fields and usage-limit rejections of conversation logs under `~/.claude/projects` changed in the recent window. With neither an official value nor a budget (`token_guard.budget`) the hook reads no conversation logs. Running `wb-token status` or `wb-token calibrate` by hand reads them to show the usage, with or without a budget | Totals in `${CLAUDE_PLUGIN_DATA}/token-guard/`, a record of official and manual usage (`official-history.jsonl`: time, account ID, percentages, reset times), per-account calibration ratios (`calib-<account>.json`) |
+| Automatic resume | The tail of the current session log (limit text, model name) | Schedule state in `${CLAUDE_PLUGIN_DATA}`, and the output log of the resumed session (readable by the user only) |
+| Lane ledger | Model names and token usage in subagent logs | Per-lane counts, models, tokens and brief hashes in `<git common dir>/wb/` |
+| Report check | Tool call names in the current session log | One block marker per session |
+| codegraph record | Success or failure of codegraph responses | Category and time in `.wb/metrics/codegraph.jsonl` |
+| Checkpoint | git status | A temporary commit on the lane branch. Only tracked files go in; `.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*` and `*.p12` are left out and reported |
 
-대화 본문은 저장하지 않는다. 비밀값과 환경 변수는 로그에 쓰지 않는다(`tests/l14-security.test.mjs` 가 환경 변수 출력 코드를 검사한다).
+Conversation text is not stored. Secrets and environment variables are not written to logs (`tests/l14-security.test.mjs` checks for code that prints the environment).
 
-## 무인 재개 권한
+## Permissions of an unattended resume
 
-자동 재개는 기본 권한 모드(`default`)로 실행한다. `bypassPermissions` 는 `wb-retry mode bypassPermissions --i-understand` 로 위험을 확인한 기록이 있을 때만 쓰이고, 기록이 없으면 `default` 로 내려 실행한다. 자격 증명은 저장하지 않는다.
+Automatic resume runs in the default permission mode (`default`). `bypassPermissions` is used only after the risk was accepted with `wb-retry mode bypassPermissions --i-understand`; without that record the resume falls back to `default`. No credentials are stored.
 
-## 함께 쓰는 도구의 라이선스
+## Licenses of companion tools
 
-wb 는 아래 도구를 포함하지 않고 설치 방법만 안내한다.
+wb bundles none of these tools; it only explains how to install them.
 
-| 도구 | 쓰는 곳 | 라이선스 |
+| Tool | Used for | License |
 |---|---|---|
-| codegraph(`@colbymchenry/codegraph`) | 코드 색인 | MIT(npm 패키지 정보 기준) |
-| openpyxl | 시험 결과 엑셀 | MIT |
-| Pillow | PNG → WebP 변환(선택) | MIT-CMU |
-| cwebp(libwebp) | PNG → WebP 변환(선택) | BSD-3-Clause |
-| Playwright | 화면 시험(프로젝트가 설치) | Apache-2.0 |
+| codegraph (`@colbymchenry/codegraph`) | Code index | MIT (per the npm package metadata) |
+| openpyxl | Test result workbooks | MIT |
+| Pillow | PNG to WebP (optional) | MIT-CMU |
+| cwebp (libwebp) | PNG to WebP (optional) | BSD-3-Clause |
+| Playwright | Screen tests (installed by the project) | Apache-2.0 |
 
-codegraph 는 `/wb:init` 에서 사용자가 동의한 경우에만 설치한다.
+codegraph is installed by `/wb:init` only when the user agrees.
 
-## 공개 전 점검
+## Checks before publishing
 
-- 비밀값 검사: `gitleaks git .` 와 `gitleaks dir .`
-- 내부 정보 검사: `npm test` 의 저장소 검사(사설 IP·메일 주소·홈 폴더·프로젝트 고유 문자열). 고객명 목록은 공개 저장소에 두지 않고 관리자 머신에서 따로 검사한다.
+- Secrets: `gitleaks git .` and `gitleaks dir .`
+- Internal information: the repository check in `npm test` (private IPs, mail addresses, home folders, project-specific strings). The list of customer names is not kept in the public repository; the maintainer runs that check on their own machine.

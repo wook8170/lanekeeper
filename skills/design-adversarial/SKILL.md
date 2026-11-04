@@ -14,7 +14,7 @@ A design that reads well can still be wrong about the code it changes. This revi
 
 ## Rules
 
-1. Separate context. The reviewer did not write the design: agent `wb:design-adversary` (routing task `adversarial`; pass `model: "fable"`, or `"opus"` when Fable is not available or wrote the design). The session that wrote the design does not review it.
+1. Separate context. The reviewer did not write the design: agent `wb:design-adversary` (routing task `adversarial`; pass the model that `wb-route resolve adversarial --implementer <model>` prints. That is `"opus"` by default. When your routing adds a higher model such as `"fable"`, it comes first unless it wrote the design). The session that wrote the design does not review it.
 2. Read-only. The reviewer writes its review into its result folder and nothing else. It does not edit the design, the code or the tests, and does not commit.
 3. Check the code, not only the sentences. Every place the design cites (file, function, table, route, setting) is opened and compared with what the design says about it. A claim the reviewer could not check against the code is written as such.
 4. Every finding has: severity (high, medium, low) → what is wrong, in one sentence → evidence as `path:line` (the design paragraph and the code it contradicts) → the direction of the fix. The last line of the review is `high N` (N = open high findings).

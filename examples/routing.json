@@ -1,8 +1,11 @@
 {
   "version": 1,
-  "denied": ["fable"],
-  "denied_note": { "fable": "personal decision; delete this line to lift it" },
+  "models": { "fable": { "agent_param": "fable", "rank": 4 } },
   "tasks": {
-    "review": { "chain": ["opus"] }
-  }
+    "design": { "chain": ["fable", "opus"] },
+    "review": { "chain": ["fable", "opus"] },
+    "adversarial": { "chain": ["fable", "opus"] }
+  },
+  "denied": ["haiku"],
+  "denied_note": { "haiku": "personal decision; delete this line to lift it" }
 }

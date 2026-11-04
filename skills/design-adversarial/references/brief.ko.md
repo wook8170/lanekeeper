@@ -1,5 +1,5 @@
 <!-- wb-brief v1 type=adversarial lane={{lane}} template=design-adversarial implementer={{implementer}} role=verifier -->
-<!-- 표지: type=adversarial 은 설계를 쓴 모델과 다른 모델로 라우팅한다(권장 fable, 없으면 opus). role=verifier 는 검수 레인 표식. {{…}} 자리를 모두 채워야 디스패치된다. -->
+<!-- 표지: type=adversarial 은 설계를 쓴 모델과 다른 모델로 라우팅한다(기본은 opus. 라우팅에 더 높은 모델을 넣었으면 그 모델을 먼저 쓴다). role=verifier 는 검수 레인 표식. {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}} {{revision}}판 {{stage}} 적대 검증
 
 당신은 이 설계를 쓰지 않은 적대적 검증자다. 설계가 코드와 어긋나는 곳, 빠진 곳, 모호한 곳, 위험한 곳을 찾고 지적마다 코드로 증명한다. 칭찬과 요약은 쓰지 않는다.

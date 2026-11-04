@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-05
+
+### Changed
+- 기본 라우팅에서 `fable` 모델을 뺐다. 기본 모델은 모든 Claude Code 계정에서 쓸 수 있는 opus·sonnet·haiku 세 개다. `design`·`review`·`adversarial` 의 사슬은 `fable → opus` 에서 `opus` 로 바뀌었고, 최소 등급(opus)과 나머지 작업 종류의 사슬은 그대로다. 더 높은 모델을 쓰려면 개인 설정 `~/.wb/routing.json` 의 `routing.models` 에 그 모델을 넣고 사슬 맨 앞에 둔다(예: `examples/routing.json`). 적대 검증 스킬·에이전트·지시서 틀의 모델 안내도 같은 기준으로 고쳤다
+- 부하 문턱 `auto` 비율: 가벼운 작업만 허용(`light_only`)을 논리 코어 × 2 에서 × 1.5 로 내렸다. 새 레인 보류(× 2)와 무거운 실행 중지(× 2.8)는 그대로다. 전에는 기본값에서 가벼운 작업만 허용과 새 레인 보류가 같은 값이라 「가벼운 작업만」 단계가 생기지 않았다. 숫자로 정한 `machine.load.tiers` 는 영향을 받지 않는다
+- 문체 규칙 `rules/writing-style.{ko,en}.md` 에서 저자 개인 파일(`~/.claude/rules/…`)을 가리키던 줄을 뺐다. 규칙 본문은 그대로다
+- `README.md`·`SECURITY.md` 를 영어판으로 바꾸고, 한국어판은 `README.ko.md`·`SECURITY.ko.md` 로 옮겼다. 두 판의 첫 줄에 언어 전환 줄을 두었다. README 첫 화면에 통합 마켓플레이스와 단독 설치 명령, 필요한 Node.js(18.19 이상)·Claude Code(2.1.295 이상) 판을 적었다
+
+### Fixed
+- 필요한 Node.js 판을 18.19 이상으로 바로잡았다(`package.json` 의 `engines`, README, 시작하기 문서). 18.18 이하는 확장자가 없는 `bin/wb-*` 스크립트를 ES 모듈로 실행하지 못해 명령이 모두 실패한다
+- 전역 git 설정이 없는 리눅스 CI 에서는 체크포인트 시험이 커밋 작성자를 찾지 못해 실패했다. 그래서 시험 `tests/safety-fixture.mjs` 가 작성자 정보를 직접 넣는다
+
+### Added
+- 플러그인 아이콘 `.claude-plugin/icon.png`(1024px 정사각): 평행한 레인 세 줄과 관문 하나를 두 색으로 그렸다. 원본은 `.claude-plugin/icon.svg` 이고, PNG 는 `rsvg-convert -w 1024 -h 1024 .claude-plugin/icon.svg -o .claude-plugin/icon.png` 로 굽는다
+- GitHub Actions CI(`.github/workflows/ci.yml`): push·pull_request 마다 Node 18·20·22 와 ubuntu·macOS 조합으로 `npm test` 를 돌리고, 따로 `claude plugin validate --strict` 를 돌린다
+- 시험: 기본 라우팅이 opus·sonnet·haiku 만 쓰는지, 기본 부하 문턱 세 개가 서로 다르고 오름차순인지, README·SECURITY 의 언어 전환 줄과 첫 화면 설치 명령, 아이콘 규격
+
 ## [0.1.4] - 2026-11-03
 
 ### Changed

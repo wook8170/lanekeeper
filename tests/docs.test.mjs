@@ -79,7 +79,7 @@ test('docs: every chapter exists in Korean and English, and the root README link
   const index = read('docs/README.md')
   for (const l of LANGS) for (const c of CHAPTERS) assert.ok(index.includes(`${l}/${c}`), `docs/README.md links ${l}/${c}`)
   assert.ok(read('README.md').includes('docs/README.md'), 'README.md links the manual')
-  assert.ok(read('README.en.md').includes('docs/README.md'), 'README.en.md links the manual')
+  assert.ok(read('README.ko.md').includes('docs/README.md'), 'README.ko.md links the manual')
 })
 
 test('docs: the rules chapter is generated from the catalog (wb-rules manual --write)', () => {
@@ -179,7 +179,7 @@ test('docs: every settings key named anywhere in the manual exists', () => {
 })
 
 test('docs: relative links point to existing files', () => {
-  for (const f of [...docFiles(), 'README.md', 'README.en.md']) {
+  for (const f of [...docFiles(), 'README.md', 'README.ko.md', 'SECURITY.md', 'SECURITY.ko.md']) {
     const dir = path.dirname(path.join(ROOT, f))
     for (const m of read(f).matchAll(/\]\(([^)#\s]+)(#[^)]*)?\)/g)) {
       if (/^[a-z]+:/.test(m[1])) continue
