@@ -13,6 +13,13 @@ For: screen text, in-app manual, help, notices. (The name is the Korean polite-f
 - No abbreviations or developer terms. Follow the project glossary when one exists.
 - The text must not sound machine-written. Avoid "easy and fast", "powerful" and the like.
 
+### Do not write the four hard-to-read sentence forms
+- When two sentences are related by reason, result, contrast, order or condition, say so with a connecting word ("so", "but", "only if"). Write "Lookups are slow, so we add a cache", not "Lookups are slow. We add a cache."
+- Do not give things and features human actions (swallow, chase its tail, wake up, kill). Write what actually happens: "the function catches the error and logs nothing".
+- Do not string three or more nouns together without particles or prepositions. Unpack them. Fixed names such as product names are exempt.
+- Do not put a long gap between subject and verb, or between a modifier and what it modifies. Split the sentence when a long phrase sits between them.
+- The Korean source is `~/.claude/rules/REPORT_WRITING_RULES.md` section 15.
+
 ## report
 For: developer documents, reports, certification papers, release documents. The reader is an executive, a business owner, a customer or a project manager, not a developer.
 
@@ -59,8 +66,22 @@ Ask three questions of every sentence. Fix or delete it when any answer is no.
 2. Does a reader who is not a developer understand it at once?
 3. Would the meaning change if the sentence were gone? (If not, delete it.)
 
+### Do not write the four hard-to-read sentence forms
+- When two sentences are related by reason, result, contrast, order or condition, say so with a connecting word ("so", "but", "only if"). Write "Lookups are slow, so we add a cache", not "Lookups are slow. We add a cache."
+- Do not give things and features human actions (swallow, chase its tail, wake up, kill). Write what actually happens: "the function catches the error and logs nothing".
+- Do not string three or more nouns together without particles or prepositions. Unpack them. Fixed names such as product names are exempt.
+- Do not put a long gap between subject and verb, or between a modifier and what it modifies. Split the sentence when a long phrase sits between them.
+- The Korean source is `~/.claude/rules/REPORT_WRITING_RULES.md` section 15.
+
 ## plain
 For: files that match neither of the above.
 
 - Short sentences. Follow the wording and terms already in the file.
 - No emoji or decoration.
+
+### Do not write the four hard-to-read sentence forms
+- When two sentences are related by reason, result, contrast, order or condition, say so with a connecting word ("so", "but", "only if"). Write "Lookups are slow, so we add a cache", not "Lookups are slow. We add a cache."
+- Do not give things and features human actions (swallow, chase its tail, wake up, kill). Write what actually happens: "the function catches the error and logs nothing".
+- Do not string three or more nouns together without particles or prepositions. Unpack them. Fixed names such as product names are exempt.
+- Do not put a long gap between subject and verb, or between a modifier and what it modifies. Split the sentence when a long phrase sits between them.
+- The Korean source is `~/.claude/rules/REPORT_WRITING_RULES.md` section 15.

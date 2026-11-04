@@ -7,7 +7,7 @@ description: Apply the right writing voice to a file. Looks up the style for a p
 
 1. Find the style of a file: `wb-style of <path…>`. The first matching entry of `style.map` in `.wb/config.json` wins. Default map: `docs/**/*.md` → report. Add entries per project, for example screen text → haeyo.
 2. Read the rules for that style: `wb-style rules haeyo|report|plain`.
-3. Write or revise the text by those rules. Before finishing, read it once as the intended reader would and drop any sentence that explains the work instead of the subject.
+3. Write or revise the text by those rules. Every style also follows the four hard-to-read sentence forms listed at the end of its rules: no missing connecting words, no over-personified things, no strings of three or more nouns, no long gap between paired words. Before finishing, read it once as the intended reader would and drop any sentence that explains the work instead of the subject.
 
 ## What each style means
 

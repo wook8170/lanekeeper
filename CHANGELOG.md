@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-03
+
+### Changed
+- 문체 규칙 `rules/writing-style.{ko,en}.md` 의 세 문체(haeyo·report·plain)에 읽기 어려운 문장 네 가지 금지(연결 단어 생략·사물 의인화·명사 셋 이상 이어 붙이기·짝이 되는 말 멀리 띄우기)를 더했다. `/wb:writing-style` 스킬과 검증 에이전트 두 개(`design-adversary`·`ux-adversary`)의 지시문에도 같은 네 규칙을 적었다
+
 ## [0.1.3] - 2026-11-02
 
 ### Added
