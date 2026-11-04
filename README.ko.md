@@ -194,10 +194,10 @@ wb-worktree remove l3 [--force] [--delete-branch]
 - 브랜치 이름은 통합 브랜치의 마지막 부분을 레인 이름으로 바꾼 것이다(`wb/mvp/int` → `wb/mvp/l3`). 경로는 `project.git.worktree_root`(기본 `{repo}/../wt-{task}`)다.
 - `.worktreeinclude` 에 적힌 git 무시 파일(예: `.env`)을 복사한다.
 - `project.worktree.setup` 에 설치 명령(예: `pnpm install --frozen-lockfile`)을 적으면 새 워크트리에서 무거운 실행 슬롯 안에서 실행한다. 명령은 `WB_LANE`, `WB_PORT_<이름>` 환경변수를 받는다.
-- 살아 있는 레인이 `machine.lanes.max` 에 닿으면 만들지 않는다.
+- 정리하지 않은 레인이 `machine.lanes.max` 에 닿으면 만들지 않는다.
 - 지울 때 그 경로 안에서 도는 프로세스가 있으면 지우지 않고 PID 목록을 보여 준다. 하나씩 `kill <PID>` 로 끈 뒤 다시 실행한다. 커밋하지 않은 변경이 있으면 `--force` 가 필요하다. 주 체크아웃과 워크트리가 아닌 폴더는 지우지 않는다. `--delete-branch` 는 브랜치의 커밋이 다른 로컬 브랜치에도 있을 때만 지운다.
 
-**Claude Code 워크트리 훅(선택).** WorktreeCreate 훅은 등록되는 순간 Claude Code 의 워크트리 생성(`claude --worktree`, `EnterWorktree`, 서브에이전트 `isolation: "worktree"`, 백그라운드 세션)을 통째로 대체한다. 등록된 훅이 기본 동작으로 넘기는 방법은 없다. 그래서 wb 는 이 훅을 플러그인 `hooks.json` 에 넣지 않고 기본으로 꺼 둔다. `/wb:init` 의 「레인 워크트리를 wb 가 관리할까요?」에 예라고 답하거나 `.wb/config.json` 에 `"worktree": { "hook": true }` 를 두면, 주 체크아웃의 `.claude/settings.local.json`(이 머신 전용, git 제외)에 WorktreeCreate·WorktreeRemove 훅을 등록한다. 플러그인을 갱신하면 설치 경로가 바뀌므로, 세션 시작 훅이 매번 등록 경로를 현재 플러그인으로 맞추고 설정을 끄면 등록을 지운다. 다른 도구의 WorktreeCreate 훅이 이미 있으면 등록하지 않고 알린다. 상태는 `wb-worktree hooks status`, 즉시 반영은 `wb-worktree hooks sync` 로 한다.
+**Claude Code 워크트리 훅(선택).** WorktreeCreate 훅을 등록하면 Claude Code 의 워크트리 생성을 이 훅이 통째로 대체한다. 대상은 `claude --worktree`, `EnterWorktree`, 서브에이전트 `isolation: "worktree"`, 백그라운드 세션이다. 등록된 훅이 기본 동작으로 넘기는 방법은 없다. 그래서 wb 는 이 훅을 플러그인 `hooks.json` 에 넣지 않고 기본으로 꺼 둔다. `/wb:init` 의 「레인 워크트리를 wb 가 관리할까요?」에 예라고 답하거나 `.wb/config.json` 에 `"worktree": { "hook": true }` 를 두면, wb 가 WorktreeCreate·WorktreeRemove 훅을 등록한다. 등록 위치는 주 체크아웃의 `.claude/settings.local.json`(이 머신 전용, git 제외)이다. 플러그인을 갱신하면 설치 경로가 바뀌므로, 세션 시작 훅이 매번 등록 경로를 현재 플러그인으로 맞춘다. 설정을 끄면 세션 시작 훅이 등록을 지운다. 다른 도구의 WorktreeCreate 훅이 이미 있으면 등록하지 않고 알린다. 상태는 `wb-worktree hooks status`, 즉시 반영은 `wb-worktree hooks sync` 로 한다.
 
 켜면 wb 의 훅은 Claude Code 와 같은 위치(`.claude/worktrees/<이름>`)와 브랜치 이름(`worktree-<이름>`)을 쓰고, 통합 브랜치가 하나로 정해지면 그 HEAD 를 기준으로 삼는다. 포트 임대·`.worktreeinclude` 복사·설치 명령도 같이 처리한다. 이 워크트리는 레인 대장에 등록하지 않는다. 설치 명령은 슬롯을 2분 안에 얻지 못하면 건너뛰고, 나중에 `wb-worktree setup <이름>` 으로 실행한다. 원격 기본 브랜치 기준 생성, 필터 드라이버 차단, 오래된 워크트리 자동 정리 같은 Claude Code 기본 동작은 이 경우 적용되지 않는다.
 
@@ -214,7 +214,7 @@ wb-worktree remove l3 [--force] [--delete-branch]
 | `metrics/lanes.jsonl` | 시작·종료·상태 변경·되돌림 사건을 한 줄씩. 작업 종류, 라우팅 모델, 실제 모델, 분류 근거, 지시서 파일 해시, 토큰 |
 | `lanes.json` | 레인 워크트리 대장(L4). 에이전트가 시작하면 `agent_id` 를 적는다 |
 
-**기록 흐름.** 디스패치 검사 훅이 통과시킨 호출을 `dispatch.json` 에 남긴다. SubagentStart 훅이 같은 종류의 가장 오래된 대기 호출과 에이전트를 짝지어 레인을 진행 상태로 바꾸고 실행 횟수를 센다. SubagentStop 훅이 트랜스크립트의 사용량을 합산해 레인을 검수 대기로 바꾼다. 검수 대기 레인에 새 에이전트가 시작되면 되돌림 1회로 센다. 지시서 표지에 `lane=` 이 없으면 레인에 묶지 않고 metrics 에만 남긴다. 짝지은 대기 호출은 10분이 지나면 버린다.
+**기록 흐름.** 디스패치 검사 훅이 통과시킨 호출을 `dispatch.json` 에 남긴다. SubagentStart 훅이 같은 종류의 가장 오래된 대기 호출과 에이전트를 짝지어 레인을 진행 상태로 바꾸고 실행 횟수를 센다. SubagentStop 훅이 트랜스크립트의 사용량을 합산해 레인을 검수 대기로 바꾼다. 검수 대기 레인에 새 에이전트가 시작되면 되돌림 1회로 센다. 지시서 표지에 `lane=` 이 없으면 레인에 묶지 않고 metrics 에만 남긴다. 짝을 찾지 못한 대기 호출은 10분이 지나면 지운다.
 
 **명령.**
 
@@ -231,9 +231,17 @@ wb-waves handoff archive "<요지>" [--from 파일]  파일(기본: progress.md 
 wb-waves handoff migrate [--force]          기준을 넘은 progress.md 를 아카이브로 옮기고 새 현재 상태 파일을 만듦
 ```
 
-`/wb:lanes` 가 진행판을 보여 주고, `/wb:pickup` 과 `/wb:resume` 이 세션 시작·재개 보고를 만든다. 재개 보고는 `progress.md` 전체(기준 줄 수를 넘은 누적형 파일은 최신 절만)와 아카이브 위치, `git status`, 워크트리 목록, 최근 커밋 5건, 레인 판정을 보여 주고 오래된 항목을 먼저 알린다. 오래된 항목은 `progress.md` 가 작업보다 낡음, `progress.md` 가 기준 줄 수(`personal.handoff.max_lines`, 기본 300)를 넘음, 활동이 `project.waves.stale_min`(기본 20분) 넘게 없는 진행 레인, 사라진 워크트리, 레인 대장에 없는 워크트리, 워크트리의 미커밋 변경, 시작으로 이어지지 않은 디스패치, 종료 기록 없는 에이전트다. 워크트리와 브랜치는 이 단계에서 지우지 않는다.
+`/wb:lanes` 가 진행판을 보여 주고, `/wb:pickup` 과 `/wb:resume` 이 세션 시작·재개 보고를 만든다. 재개 보고는 `progress.md` 전체(기준 줄 수를 넘은 누적형 파일은 최신 절만)와 아카이브 위치, `git status`, 워크트리 목록, 최근 커밋 5건, 레인 판정을 보여 주고 오래된 항목을 먼저 알린다. 오래된 항목으로 보는 경우는 다음과 같다.
 
-**progress.md 와 아카이브.** `progress.md` 는 지금 유효한 상태만 담는다. 맨 위에 아카이브 위치와 검색 방법 한 줄을 두고, 목표와 오너 결정 · 브랜치와 서버 · 진행 중(표) · 다음 할 일 · 확인 대기 · 시스템 지식 · 재개 명령 절을 쓴다. 매 웨이브마다 통째로 다시 쓴다. 끝난 내용(완료한 웨이브, 해소된 확인 대기, 더는 맞지 않는 상태)은 `docs/progress-archive/progress-<YYYY-MM>.md` 끝에 `## <YYYY-MM-DD HH:MM> — <요지>` 절로 덧붙인다. 끝난 것과 남은 것을 가려내기 어려우면 `wb-waves handoff archive "<요지>"` 로 지금 파일 전체를 덧붙인 뒤 새로 쓴다. 덧붙인 내용의 제목은 날짜 절 아래로 한 단계씩 내린다. 이미 누적형으로 커진 파일은 `wb-waves handoff migrate` 가 통째로 `docs/progress-archive/progress-until-<YYYY-MM-DD>.md` 로 옮기고(추적 중이면 `git mv`) 위 절을 갖춘 새 파일을 만든다. 이력은 지우지 않으며, 필요한 부분은 `grep -n '<키워드>' docs/progress-archive/*.md` 로 찾는다. 폴더는 `personal.handoff.archive_dir` 로 바꿀 수 있다.
+- `progress.md` 가 작업보다 낡음
+- `progress.md` 가 기준 줄 수(`personal.handoff.max_lines`, 기본 300)를 넘음
+- 활동이 `project.waves.stale_min`(기본 20분) 넘게 없는 진행 레인
+- 사라진 워크트리, 레인 대장에 없는 워크트리, 워크트리의 미커밋 변경
+- 시작으로 이어지지 않은 디스패치, 종료 기록 없는 에이전트
+
+워크트리와 브랜치는 이 단계에서 지우지 않는다.
+
+**progress.md 와 아카이브.** `progress.md` 는 지금 유효한 상태만 담는다. 맨 위에 아카이브 위치와 검색 방법 한 줄을 두고, 목표와 오너 결정 · 브랜치와 서버 · 진행 중(표) · 다음 할 일 · 확인 대기 · 시스템 지식 · 재개 명령 절을 쓴다. 매 웨이브마다 통째로 다시 쓴다. 끝난 내용(완료한 웨이브, 해소된 확인 대기, 더는 맞지 않는 상태)은 `docs/progress-archive/progress-<YYYY-MM>.md` 끝에 `## <YYYY-MM-DD HH:MM> — <요지>` 절로 덧붙인다. 끝난 것과 남은 것을 가려내기 어려우면 `wb-waves handoff archive "<요지>"` 로 지금 파일 전체를 덧붙인 뒤 새로 쓴다. 덧붙인 내용의 제목은 날짜 절 아래로 한 단계씩 내린다. 이미 누적형으로 커진 파일은 `wb-waves handoff migrate` 로 정리한다. 이 명령은 파일을 통째로 `docs/progress-archive/progress-until-<YYYY-MM-DD>.md` 로 옮기고(추적 중이면 `git mv`) 위 절을 갖춘 새 파일을 만든다. 이력은 지우지 않으며, 필요한 부분은 `grep -n '<키워드>' docs/progress-archive/*.md` 로 찾는다. 폴더는 `personal.handoff.archive_dir` 로 바꿀 수 있다.
 
 **번호 예약.** 마이그레이션·결정 문서처럼 번호가 붙는 파일을 레인이 동시에 만들 때 번호를 `wb-number` 로 받는다. 계열은 `.wb/config.json` 에 선언한다.
 
@@ -267,17 +275,17 @@ wb-check test-results [--json] [--require-pass]
 
 단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `wb-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
 
-시트는 요약 · 단위 · 통합 DB · e2e · e2e 상세 · UI 안정성 · gate 단계 · 실패 목록 · 간헐 실패 · 원장 대조 · 커버리지 · 변이이고, 결과가 없는 시트는 만들지 않는다(요약·실패 목록·간헐 실패는 항상). 같은 실행 안의 재시도에서 통과하거나 별도 재실행(`--rerun`)에서 통과한 시험은 간헐로 센다. 원장 대조는 `paths.e2e_ledger` 의 `*.cases.json` 과 시험 제목의 케이스 ID(`PAY-001`, 이어 쓴 `PAY-002 · 003` 포함)를 맞춰, 활성 케이스의 실패·간헐·건너뜀·미실행(`--ledger-priority`), 보류(`fixme`) 케이스의 통과, 원장에 없거나 폐기된 ID 를 불일치로 적는다. 원장이 있으면 불일치 0 이 출하 조건이다.
+시트는 요약 · 단위 · 통합 DB · e2e · e2e 상세 · UI 안정성 · gate 단계 · 실패 목록 · 간헐 실패 · 원장 대조 · 커버리지 · 변이이고, 결과가 없는 시트는 만들지 않는다(요약·실패 목록·간헐 실패는 항상). 같은 실행 안의 재시도에서 통과하거나 별도 재실행(`--rerun`)에서 통과한 시험은 간헐로 센다. 원장 대조는 `paths.e2e_ledger` 의 `*.cases.json` 과 시험 제목의 케이스 ID(`PAY-001`, 이어 쓴 `PAY-002 · 003` 포함)를 맞춘다. 불일치로 적는 것은 활성 케이스의 실패·간헐·건너뜀·미실행(`--ledger-priority`), 보류(`fixme`) 케이스의 통과, 원장에 없거나 폐기된 ID 다. 원장이 있으면 불일치 0 이 출하 조건이다.
 
 저장 위치는 `paths.test_results`(기본 `docs/test-results/<날짜>/<이름>-<HHMM>.xlsx`, 같은 이름의 `.json` 이 함께 생긴다)이고 커밋한다. 원본 로그는 `paths.test_runs_raw` 에 두며 커밋하지 않는다. `test-results/` 같은 넓은 `.gitignore` 패턴이 `docs/test-results/` 를 가리면 `/wb:init` 이 예외 줄을 제안하고, `wb-check test-results` 는 커밋되지 않은 파일로 보고한다. `/wb:report` 는 `wb-check test-results --json` 의 `file`·`json` 을 증거로 붙이고 `wb-test-report summary --json` 의 수치를 그대로 인용한다.
 
 **종류별 결과와 출하 검증 관문.** `wb-quality` 는 단위·통합·게이트·e2e·UI 안정성·사용성·출하 검증 결과를 종류마다 따로 `docs/test-results/<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx` 로 남기고 색인(`index.json`·`INDEX.md`)을 갱신한다. 명령은 `.wb/config.json` 의 `quality.suites` 에 적는다(예: `examples/quality-config.json`). 품질 스킬(`/wb:quality-unit`·`/wb:quality-integration`·`/wb:quality-gate`·`/wb:quality-e2e`·`/wb:quality-uistab`·`/wb:quality-usability`)이 종류별로 돌리고, `/wb:quality-report` 가 버전 취합본(엑셀·Markdown·HTML)을 만든다. `quality.ship.requires` 를 설정하면 출하 검증 스킬·에이전트를 부르기 전에 훅이 각 종류의 최신 결과를 확인한다. 없거나 다른 커밋의 것이거나 실패했으면 막고, `/wb:ship-verify`(`wb-quality precheck --run`)가 다시 돌린다. 직전 통과 결과보다 시험 수가 줄거나 건너뜀·보류가 늘거나 임계값이 완화된 결과도 막는다.
 
-**UX 적대 점검.** `/wb:quality-ux-adversarial` 은 구현 세션과 분리된 점검 에이전트 `wb:ux-adversary`(권장 모델 Fable, 없으면 Opus)가 실제 화면을 헤드리스로 조작해, 페르소나의 실제 과업을 격리 스택에서 끝까지 수행하며 처음 쓰는 사람이 막히거나 틀리거나 작업을 잃는 지점을 필수 아홉 축(논리적 오류, 정보 표기의 정합성, 사용자 맥락, 흐름 맥락, 초보 기준 길 잃음, 다음 할 일 인지, 오류·예외에서 빠져나갈 길, 접근성·좁은 폭·어두운 테마, 디자인 시스템 시각 대조)으로 찾는다. 발견마다 사용자가 겪는 일, 재현, 증거(2x 캡처·실제 데이터 대조·측정값), 심각도, 디자인 시스템 기준 수정안, DOM/CSS 주입 시안 캡처를 남기고 제품 코드는 고치지 않는다. 메인 세션은 전후 캡처를 나란히 놓은 아티팩트로 오너에게 보고하고, 오너가 확인한 것만 고친 뒤 다시 점검한다. 결과 종류는 `ux-adversarial` 이고, 기본값으로 `quality.ship.advisory` 에 들어 있어 출하 전에 하지 않았거나 해결하지 않은 차단·높음 발견이 있으면 관문이 경고한다(막게 하려면 `quality.ship.requires` 로 옮긴다. `web-ui` 프로젝트는 `/wb:init` 이 넣어 둔다). `/wb:ship-verify` 는 출하 판정 직전에 그 판에서 바뀐 화면을 이 방식으로 점검하고, 차단·높음 지적이 남으면 멈춘다.
+**UX 적대 점검.** `/wb:quality-ux-adversarial` 에서는 점검 에이전트 `wb:ux-adversary`(권장 모델 Fable, 없으면 Opus)가 구현 세션과 분리된 맥락에서 실제 화면을 헤드리스로 조작한다. 이 에이전트는 격리 스택에서 페르소나의 실제 과업을 끝까지 수행하면서, 처음 쓰는 사람이 막히거나 틀리거나 작업을 잃는 지점을 필수 아홉 축으로 찾는다. 아홉 축은 논리적 오류, 정보 표기의 정합성, 사용자 맥락, 흐름 맥락, 초보 기준 길 잃음, 다음 할 일 인지, 오류·예외에서 빠져나갈 길, 접근성·좁은 폭·어두운 테마, 디자인 시스템 시각 대조다. 발견마다 사용자가 겪는 일, 재현, 증거(2x 캡처·실제 데이터 대조·측정값), 심각도, 디자인 시스템 기준 수정안, DOM/CSS 주입 시안 캡처를 남긴다. 제품 코드는 고치지 않는다. 메인 세션은 전후 캡처를 나란히 놓은 아티팩트로 오너에게 보고하고, 오너가 확인한 것만 고친 뒤 다시 점검한다. 결과 종류는 `ux-adversarial` 이며, 이 종류는 기본값으로 `quality.ship.advisory` 에 들어 있다. 그래서 출하 전에 점검하지 않았거나 해결하지 않은 차단·높음 발견이 있으면 관문이 경고한다(막게 하려면 `quality.ship.requires` 로 옮긴다. `web-ui` 프로젝트는 `/wb:init` 이 넣어 둔다). `/wb:ship-verify` 는 출하 판정 직전에 그 판에서 바뀐 화면을 이 방식으로 점검하고, 차단·높음 지적이 남으면 멈춘다.
 
-**설계 적대 검증.** `/wb:design-adversarial` 은 설계를 쓴 쪽과 다른 맥락의 검증 에이전트 `wb:design-adversary` 가 설계를 인용 코드와 직접 대조해 높음·중간·낮음 지적(근거 `파일:줄`, 고칠 방향)과 「높음 N건」을 낸다. 설계는 판으로 고치고 판마다 반영 대조표를 두며, 「높음 0건」이어야 구현에 들어간다. 구현이 끝나면 코드 정독으로 설계 불변식을 한 번 더 확인한다.
+**설계 적대 검증.** `/wb:design-adversarial` 에서는 검증 에이전트 `wb:design-adversary` 가 설계를 쓴 쪽과 다른 맥락에서 설계를 인용 코드와 직접 대조한다. 결과로 높음·중간·낮음 지적(근거 `파일:줄`, 고칠 방향)과 「높음 N건」을 낸다. 설계는 판으로 고치고 판마다 반영 대조표를 두며, 「높음 0건」이어야 구현에 들어간다. 구현이 끝나면 코드 정독으로 설계 불변식을 한 번 더 확인한다.
 
-**문서 현행화.** `wb-docs` 는 화면·기능 변경에서 고칠 문서를 찾는다. 화면 코드에서 사라진 문구가 남아 있는 문서 줄, 짝 파일의 다른 쪽, 묶음의 나머지, 규칙이 요구한 생성 문서는 필수로, 바뀐 화면 부분을 설명하는 문서와 재촬영 후보 그림은 검토로 보여 준다. `/wb:docs-sync` 가 자동 생성 → 수정 초안 → 재촬영 → 검사 → 관문(`wb-docs check`) 순서로 진행한다. 대상과 규칙은 `.wb/config.json` 의 `docs_sync` 에 적는다(예: `examples/docs-sync-config.json`). 설정하면 `wb-quality` 에 종류 `docs` 가 생겨 출하 검증 관문에 넣을 수 있다.
+**문서 현행화.** `wb-docs` 는 화면·기능 변경에서 고칠 문서를 찾는다. 필수로 보여 주는 것은 화면 코드에서 사라진 문구가 남아 있는 문서 줄, 짝 파일의 다른 쪽, 묶음의 나머지, 규칙이 요구한 생성 문서다. 바뀐 화면 부분을 설명하는 문서와 재촬영 후보 그림은 검토로 보여 준다. `/wb:docs-sync` 가 자동 생성 → 수정 초안 → 재촬영 → 검사 → 관문(`wb-docs check`) 순서로 진행한다. 대상과 규칙은 `.wb/config.json` 의 `docs_sync` 에 적는다(예: `examples/docs-sync-config.json`). 설정하면 `wb-quality` 에 종류 `docs` 가 생겨 출하 검증 관문에 넣을 수 있다.
 
 ## 검수·취합·보고
 
@@ -323,7 +331,7 @@ wb-defects summary [--json] · export [--format md,xlsx]
 
 `artifacts_keep_webp.over_kb`(기본 300KB)를 넘는 PNG 는 `quality`(기본 80) WebP 로 바뀐다. 변환 도구는 cwebp, 없으면 Python Pillow 다. 둘 다 없으면 PNG 를 그대로 두고 설치 방법을 알린다. 보고 HTML 은 외부 주소를 쓰지 않으므로 원격 기기에서도 이미지가 보인다. 결함 대장 엑셀은 Python 3 와 openpyxl 이 필요하다. 없으면 Markdown 만 만들고 종료 코드 3 을 돌려준다.
 
-Stop 훅 `artifact-check` 는 `/wb:report` 를 실행한 세션이 아티팩트(Artifact 도구, 또는 `artifact_fallback: html-file` 일 때 `wb-art report`) 없이 끝나려 하면 한 번 막는다. 시험 결과 엑셀을 쓰는 프로젝트(`.wb/verify.config.json` 이나 결과 폴더가 있음)는 최신 결과 엑셀도 확인한다. `personal.report.artifact_check: false` 로 끈다.
+`/wb:report` 를 실행한 세션이 아티팩트 없이 끝나려 하면 Stop 훅 `artifact-check` 가 한 번 막는다. 여기서 아티팩트는 Artifact 도구로 만든 것, 또는 `artifact_fallback: html-file` 일 때 `wb-art report` 로 만든 것이다. 시험 결과 엑셀을 쓰는 프로젝트(`.wb/verify.config.json` 이나 결과 폴더가 있음)는 최신 결과 엑셀도 확인한다. `personal.report.artifact_check: false` 로 끈다.
 
 ## 시안 먼저
 
@@ -375,7 +383,7 @@ wb-index metrics [--days N] # codegraph 응답 분류 집계
 
 | 시점 | 스크립트 | 동작 |
 |---|---|---|
-| PreToolUse(Bash·Grep) | `codegraph/nudge` | 색인이 있는 체크아웃에서 식별자 하나(함수·타입·상수 이름)를 grep 하면 세션에 한 번 「호출처는 `codegraph_callers` 한 번으로 감싸는 함수까지 나온다」고 알린다. grep 은 막지 않는다. 색인이 없는 체크아웃이면 알리지 않고 대기열에 넣는다. `project.codegraph.nudge: "off"` 로 끈다 |
+| PreToolUse(Bash·Grep) | `codegraph/nudge` | 색인이 있는 체크아웃에서 식별자 하나(함수·타입·상수 이름)를 grep 하면 세션에 한 번 「`codegraph_callers` 를 한 번 부르면 호출처가 감싸는 함수까지 나온다」고 알린다. grep 은 막지 않는다. 색인이 없는 체크아웃이면 알리지 않고 대기열에 넣는다. `project.codegraph.nudge: "off"` 로 끈다 |
 | PreToolUse(codegraph MCP) | `codegraph/deadpath` | 이 세션에서 「색인 없음」 응답을 받은 경로로 다시 부르면 막는다(「색인 없음 · 대기열 등록 · grep 으로 진행」). 그 사이 색인이 생기면 다시 허용한다 |
 | PostToolUse · PostToolUseFailure(codegraph MCP) | `codegraph/record` | 응답을 정상·빈 결과·미초기화·미적재·기타 오류로 분류해 `<주 체크아웃>/.wb/metrics/codegraph.jsonl` 에 한 줄씩 남긴다. 색인 없음 응답이면 경로를 표시하고 대기열에 넣은 뒤 grep 으로 진행하라고 바로 알린다 |
 | SessionStart | `codegraph/session-start` | codegraph 가 설치돼 있으면 짧은 사용 지침(`rules/codegraph.{ko,en}.md`)을 넣는다 |
