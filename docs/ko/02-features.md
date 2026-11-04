@@ -397,6 +397,7 @@ wb-token status
 | `/wb:quality-uistab` | UI 안정성 하네스를 돌리고 임계 파일과 함께 보관한다 |
 | `/wb:quality-usability` | 초보 사용자 대역 에이전트로 사용성 시험을 하고 기록한다 |
 | `/wb:quality-ux-adversarial` | 분리된 맥락의 점검자가 UX 를 적대적으로 점검하고, 오너 확인 뒤 고친 다음 다시 점검한다 |
+| `/wb:design-adversarial` | 구현 전에 다른 맥락의 검증자가 설계를 적대적으로 검증하고, 구현 뒤 설계 불변식을 확인한다 |
 | `/wb:ship-verify` | 선행 검증 관문을 통과시킨 뒤 출하 검증을 한다 |
 | `/wb:quality-report` | 버전 품질 보고서(엑셀·Markdown·HTML)를 만든다 |
 | `/wb:docs-sync` | 화면·기능 변경에 맞춰 문서·스크린샷을 한 번에 현행화한다 |
