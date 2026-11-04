@@ -397,6 +397,7 @@ Type a skill in the Claude Code prompt as `/wb:<name>`. Claude also calls a skil
 | `/wb:quality-uistab` | Runs the UI stability harness and keeps the result with its threshold files |
 | `/wb:quality-usability` | Runs a usability test with beginner stand-in agents and records it |
 | `/wb:quality-ux-adversarial` | A checker in a separate context checks the UX adversarially; fixes follow the owner's confirmation and are checked again |
+| `/wb:design-adversarial` | Before implementation, a checker in a separate context reviews the design adversarially; after implementation it confirms the design invariants |
 | `/wb:ship-verify` | Gets the precheck through, then runs ship verification |
 | `/wb:quality-report` | Builds the quality report of a version (workbook, Markdown, HTML) |
 | `/wb:docs-sync` | Brings documents and screenshots up to date with a change of screens or features |
