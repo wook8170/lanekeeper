@@ -1,10 +1,10 @@
 <!-- wb-brief v1 type=review lane={{lane}} template=review implementer={{implementer}} role=verifier -->
-<!-- 표지: type 은 라우팅 작업 종류(wb-route tasks), lane 은 레인 이름, role=verifier 는 부하가 높을 때 무거운 실행을 먼저 멈추는 검수 레인 표식. 적대적 리뷰는 type=adversarial 로 바꾼다(implementer 와 다른 모델로 라우팅). {{…}} 자리를 모두 채워야 디스패치된다. -->
+<!-- 표지: type 은 라우팅 작업 종류(wb-route tasks), lane 은 레인 이름, role=verifier 는 검수 레인 표식이다(부하가 높으면 이 레인의 무거운 실행부터 멈춘다). 적대적 리뷰는 type=adversarial 로 바꾼다(implementer 와 다른 모델로 라우팅). {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}}
 
 ## 기준
 - 워크트리: {{worktree}} (브랜치 {{branch}})
-- 기준 HEAD: {{base_sha}} — 디스패치 직전 통합 브랜치 HEAD. 시작할 때 `git log -1` 로 같은지 확인하고, 다르면 작업 전에 보고한다.
+- 기준 HEAD: {{base_sha}} — 디스패치 직전의 통합 브랜치 HEAD. 시작할 때 `git log -1` 로 같은지 확인하고, 다르면 작업 전에 보고한다.
 - 먼저 읽을 것: {{read_first}}
 
 ## 목표
@@ -21,7 +21,7 @@
 - 오너·운영 서버와 DB 사용. 시험용 DB·레인 포트만 쓴다.
 - 보호 포트의 프로세스 종료, 이름 패턴으로 프로세스 종료. 자기가 띄운 PID 만 종료한다.
 - 창이 뜨는 브라우저. 브라우저가 필요하면 헤드리스로만 띄운다.
-- 전체 시험 스위트·전 패키지 typecheck·게이트 실행 금지(메인이 취합 뒤 한 번 돈다).
+- 전체 시험 스위트·전 패키지 typecheck·게이트 실행 금지(메인 세션이 취합한 뒤 한 번 돌린다).
 
 ## 시험 규칙
 - 변경된 시험 파일과 관련 시험 파일만 단독 실행한다. 전체 스위트는 돌리지 않는다.

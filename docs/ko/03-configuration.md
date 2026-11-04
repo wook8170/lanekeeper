@@ -36,7 +36,7 @@ wb-config dump              합친 설정 전체
 wb-config doctor            점검과 주요 값의 출처
 ```
 
-모르는 키는 무시하고 경고로만 알린다. 형식이 틀린 값은 오류이며, 설정에 오류가 있는 동안 안전 훅은 git 반영·프로세스 종료·삭제·브라우저 실행을 막는다.
+모르는 키는 무시하고 경고로만 알린다. 형식이 틀린 값은 오류다. 설정에 오류가 있는 동안 안전 훅은 git 반영·프로세스 종료·삭제·브라우저 실행을 막는다.
 
 ```
 wb-config validate
@@ -45,7 +45,7 @@ wb-config validate
 
 ## 4. 키 참조
 
-표의 기본값은 JSON 으로 적었다. 「예약」 표시가 있는 키는 형식 검사만 하고 0.1.0 의 명령과 훅은 읽지 않는다. 「스킬 참고」 표시가 있는 키는 명령이 직접 읽지 않고 스킬 안내에서 Claude 가 참고한다.
+표의 기본값은 JSON 으로 적었다. 「예약」 표시가 있는 키는 형식만 검사한다. 0.1.0 의 명령과 훅은 이 키를 읽지 않는다. 「스킬 참고」 표시가 있는 키는 명령이 직접 읽지 않고 스킬 안내에서 Claude 가 참고한다.
 
 ### 4.1 모델 라우팅(`routing`)
 
@@ -109,13 +109,13 @@ wb-config validate
 
 ### 4.3 개인(`personal`)
 
-개인 파일 `~/.wb/personal.json` 에 둔다. `language` 와 `report.chat_detail` 은 플러그인 설정 화면에서도 고를 수 있으며, 이 파일의 값이 이긴다.
+개인 파일 `~/.wb/personal.json` 에 둔다. `language` 와 `report.chat_detail` 은 플러그인 설정 화면에서도 고를 수 있다. 두 곳에 모두 값이 있으면 이 파일의 값을 쓴다.
 
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
 | `personal.version` | `1` | 파일 형식 판 | `1` |
 | `personal.language` | `"auto"` | 메시지 언어. `auto` 는 시스템 로캘을 따른다 | `"ko"` |
-| `personal.report.chat_detail` | `"summary"` | 채팅 보고 분량. `summary` 는 요약과 아티팩트 링크, `detailed` 는 표·근거·수치까지 채팅에 | `"detailed"` |
+| `personal.report.chat_detail` | `"summary"` | 채팅 보고 분량. `summary` 는 요약과 아티팩트 링크, `detailed` 는 표·근거·수치까지 채팅에 싣는다 | `"detailed"` |
 | `personal.report.viewer` | `"local"` | 보고를 보는 곳. `remote` 면 원격 기기에서 열 수 있는 형태로 만든다(스킬 참고) | `"remote"` |
 | `personal.report.artifact_fallback` | `"html-file"` | 아티팩트 도구가 없을 때 대신 쓸 방식. `html-file` · `none` | `"none"` |
 | `personal.report.artifact_check` | `true` | 보고 단계가 아티팩트 없이 끝나면 한 번 막을지 | `false` |
@@ -191,7 +191,7 @@ wb-config validate
 | `project.glossary.terms_dict` | `"docs/glossary/terms.yaml"` | 용어 사전. 있으면 검수 9번 항목이 동작한다 | 기본값 유지 |
 | `project.glossary.terms_scan` | `"docs/glossary/config.json"` | 예약 | 기본값 유지 |
 | `project.glossary.copy_globs` | `[]` | 예약 | 비워 둠 |
-| `project.style.map` | `[{"glob":"docs/**/*.md","style":"report"}]` | 파일별 문체. 앞에서부터 처음 맞는 항목이 이긴다. 문체는 `haeyo` · `report` · `plain` | `[{"glob":"src/**/*.tsx","style":"haeyo"}]` |
+| `project.style.map` | `[{"glob":"docs/**/*.md","style":"report"}]` | 파일별 문체. 앞에서부터 처음 맞는 항목을 적용한다. 문체는 `haeyo` · `report` · `plain` | `[{"glob":"src/**/*.tsx","style":"haeyo"}]` |
 | `project.mockup.ui_globs` | `[]` | 화면 파일 범위. 비어 있으면 시안 먼저 훅이 동작하지 않는다 | `["src/**/*.tsx"]` |
 | `project.mockup.tokens_css` | `""` | 시안을 만들 때 쓸 디자인 토큰 CSS(스킬 참고) | `"src/styles/tokens.css"` |
 | `project.mockup.decision_required` | `true` | 화면 구조 변경에 시안 결정을 요구할지 | `false` |
@@ -232,7 +232,7 @@ wb-config validate
 
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
-| `project.docs_sync.base` | `"main"` | 비교 기준 브랜치. 변경 = 이 기준과의 merge-base 부터 작업 트리까지(미커밋·새 파일 포함) | `"develop"` |
+| `project.docs_sync.base` | `"main"` | 비교 기준 브랜치. 변경은 이 기준과의 merge-base 부터 작업 트리까지다(미커밋·새 파일 포함) | `"develop"` |
 | `project.docs_sync.release_tag` | `"v*"` | `--base release` 가 고르는 최근 태그의 패턴 | `"release-*"` |
 | `project.docs_sync.quality_base` | `"release"` | 품질 종류 `docs` 가 비교할 기준. `release` 는 최근 릴리스 태그(없으면 `base`) | `"main"` |
 | `project.docs_sync.screen_sources` | `[]` | 화면 코드 경로(glob). 이 파일의 변경에서 문구와 시험 ID 를 읽는다 | `["apps/web/src/screens/**"]` |
@@ -241,8 +241,8 @@ wb-config validate
 | `project.docs_sync.text_pattern` | `""` | 문구로 볼 문자열의 정규식(유니코드). 비우면 낱말 두 개 이상 | `"\\p{Script=Hangul}"` |
 | `project.docs_sync.min_phrase_length` | `4` | 문구 최소 글자 수 | `3` |
 | `project.docs_sync.max_files_per_phrase` | `12` | 이보다 많은 문서에 나오는 문구는 너무 흔해 역색인에서 뺀다 | `20` |
-| `project.docs_sync.targets` | `[]` | 현행화 대상 `[{ "id", "name", "kind", "paths" }]`. 대상 하나가 품질 결과의 시험 하나 | 예시 파일 |
-| `project.docs_sync.rules` | `[]` | `[{ "when", "unless", "require", "review", "why" }]`. 바뀐 경로(`when`)에 따라 대상을 필수·검토로 | 예시 파일 |
+| `project.docs_sync.targets` | `[]` | 현행화 대상 `[{ "id", "name", "kind", "paths" }]`. 대상 하나를 품질 결과의 시험 하나로 센다 | 예시 파일 |
+| `project.docs_sync.rules` | `[]` | `[{ "when", "unless", "require", "review", "why" }]`. 바뀐 경로(`when`)에 따라 대상을 필수나 검토로 정한다 | 예시 파일 |
 | `project.docs_sync.mirrors` | `[]` | `[{ "from", "to", "target" }]`. `from` 정규식에 맞는 파일만 바뀌면 `to` 파일이 필수 | 예시 파일 |
 | `project.docs_sync.groups` | `[]` | `[{ "name", "target", "files" }]`. 일부만 바뀌면 나머지가 필수 | 예시 파일 |
 | `project.docs_sync.reverse_index.targets` | `[]` | 사라진 문구 · 주변 문구를 찾을 대상 id | `["manual","help"]` |
@@ -250,8 +250,8 @@ wb-config validate
 | `project.docs_sync.shots.scripts` | `[]` | 캡처 스크립트 `[{ "file", "call_pattern", "key_pattern", "key_scope", "entry_functions", "image", "ref", "command" }]` | 예시 파일 |
 | `project.docs_sync.shots.command` | `""` | 재촬영 명령. `{keys}` 에 장면 키 목록 | `"SCENES={keys} node scripts/capture.mjs"` |
 | `project.docs_sync.screen_registry` | `{}` | 화면 목록 파일 `{ "file", "list", "sources", "id", "title" }`. 바뀐 파일이 소스인 화면을 보여 준다 | `{"file":"e2e/screens.json","list":"screens"}` |
-| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs apply` 가 해당하는 것만 돈다 | 예시 파일 |
-| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs verify` 가 돈다. `when` 이 비면 늘 | 예시 파일 |
+| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs apply` 가 해당하는 것만 실행한다 | 예시 파일 |
+| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs verify` 가 실행한다. `when` 이 비면 항상 실행한다 | 예시 파일 |
 | `project.docs_sync.manual_items` | `[]` | `[{ "when", "text" }]`. 사람이 할 일로 지도 끝에 나온다 | 예시 파일 |
 | `project.docs_sync.ack_file` | `".wb/docs-sync-acks.json"` | 일부러 고치지 않는 필수 항목의 확인 기록(`{ "acks": [ … ] }`) | 기본값 유지 |
 | `project.docs_sync.style` | `""` | 수정 초안 끝에 붙는 문체 안내 | `"짧은 문장, 화면 문구는 그대로 인용"` |
@@ -264,7 +264,7 @@ wb-config validate
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
 | `project.codegraph.nudge` | `"warn"` | 식별자 grep 때 codegraph 안내. `warn` · `off` | `"off"` |
-| `project.codegraph.auto_index` | `true` | 워크트리 생성·grep·색인 없음 응답 때 자동으로 색인 대기열에 넣을지 | `false` |
+| `project.codegraph.auto_index` | `true` | 워크트리를 만들 때, grep 할 때, 「색인 없음」 응답을 받을 때 자동으로 색인 대기열에 넣을지 | `false` |
 | `project.codegraph.index_on_worktree` | 없음 | `auto_index` 의 옛 이름. 한 판 동안 별칭으로 읽는다 | 쓰지 않음 |
 | `project.slots.heavy` | `[]` | 무거운 실행으로 볼 정규식 추가 | `["^make all$"]` |
 | `project.slots.browser` | `[]` | 브라우저 실행으로 볼 정규식 추가 | `["^npm run shots$"]` |
@@ -321,7 +321,7 @@ wb-config validate
 
 **품질 스위트(`.wb/config.json` 의 `quality`)**
 
-pnpm 모노저장소에서 단위·시험용 DB·게이트·e2e·UI 안정성·사용성을 나눈 예다. 전체는 플러그인의 [examples/quality-config.json](../../examples/quality-config.json) 에 있다.
+pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI 안정성·사용성으로 나눈 예다. 전체는 플러그인의 [examples/quality-config.json](../../examples/quality-config.json) 에 있다.
 
 ```json
 "quality": {
