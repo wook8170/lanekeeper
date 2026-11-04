@@ -233,7 +233,7 @@ test('7 wb-test-report run: [verify] lines in the configured language', () => {
 test('6 messages, skills and READMEs name only skills that exist', () => {
   const root = path.join(HERE, '..')
   const names = new Set(fs.readdirSync(path.join(root, 'skills')).filter((d) => fs.existsSync(path.join(root, 'skills', d, 'SKILL.md'))))
-  const files = ['locales/ko.json', 'locales/en.json', 'README.md', 'README.en.md', ...[...names].map((n) => `skills/${n}/SKILL.md`)]
+  const files = ['locales/ko.json', 'locales/en.json', 'README.md', 'README.ko.md', ...[...names].map((n) => `skills/${n}/SKILL.md`)]
   for (const f of files) {
     for (const m of fs.readFileSync(path.join(root, f), 'utf8').matchAll(/\/wb:([a-z][a-z0-9-]*)/g)) assert.ok(names.has(m[1]), `${f}: /wb:${m[1]}`)
   }
@@ -306,8 +306,8 @@ test('11 /wb:approve: the expiry is shown in local time with the offset', async 
 // ── 12 SECURITY states what reads conversation logs ────────────────────
 test('12 SECURITY: the token guard row says what it reads from ~/.claude.json and that the command reads logs without a budget', () => {
   const root = path.join(HERE, '..')
-  assert.match(fs.readFileSync(path.join(root, 'SECURITY.md'), 'utf8'), /훅은 공식 사용량도 예산\(`token_guard\.budget`\)도 없으면 대화 기록을 읽지 않는다\. 사람이 `wb-token status`/)
-  assert.match(fs.readFileSync(path.join(root, 'SECURITY.en.md'), 'utf8'), /With neither an official value nor a budget .* the hook reads no conversation logs\. Running `wb-token status`/)
+  assert.match(fs.readFileSync(path.join(root, 'SECURITY.ko.md'), 'utf8'), /훅은 공식 사용량도 예산\(`token_guard\.budget`\)도 없으면 대화 기록을 읽지 않는다\. 사람이 `wb-token status`/)
+  assert.match(fs.readFileSync(path.join(root, 'SECURITY.md'), 'utf8'), /With neither an official value nor a budget .* the hook reads no conversation logs\. Running `wb-token status`/)
 })
 
 // ── 14 no internal lane names in rule text ─────────────────────────────

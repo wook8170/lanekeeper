@@ -8,7 +8,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { ROOT, makeEnv, runScript } from './l3-fixture.mjs'
-import { resolveConfig, resolveTiers } from '../lib/config.mjs'
+import { resolveConfig, resolveTiers, TIER_RATIOS } from '../lib/config.mjs'
 import * as L from '../lib/load.mjs'
 import { evaluate } from '../hooks/scripts/dispatch/dispatch-guard.mjs'
 import { judgeSlots } from '../hooks/scripts/slots/slot-guard.mjs'
@@ -27,23 +27,31 @@ function setup(load = {}) {
 
 // ---- tiers ----------------------------------------------------------------
 
-test('tiers: auto follows the logical core count (x2 hold, x2.8 stop, rounded)', () => {
-  assert.deepEqual(resolveTiers({}, 10), { light_only: 20, hold_new_lanes: 20, stop_heavy: 28 })
-  assert.deepEqual(resolveTiers({ machine: { load: { tiers: { hold_new_lanes: 'auto', stop_heavy: 'auto' } } } }, 7), { light_only: 14, hold_new_lanes: 14, stop_heavy: 20 })
+test('tiers: auto follows the logical core count (x1.5 light, x2 hold, x2.8 stop, rounded)', () => {
+  assert.deepEqual(resolveTiers({}, 10), { light_only: 15, hold_new_lanes: 20, stop_heavy: 28 })
+  assert.deepEqual(resolveTiers({ machine: { load: { tiers: { hold_new_lanes: 'auto', stop_heavy: 'auto' } } } }, 7), { light_only: 11, hold_new_lanes: 14, stop_heavy: 20 })
   assert.deepEqual(resolveTiers({}, 1), { light_only: 2, hold_new_lanes: 2, stop_heavy: 3 })
+})
+
+test('tiers: with the defaults the three thresholds differ and rise (light < hold < stop)', () => {
+  assert.ok(TIER_RATIOS.light_only < TIER_RATIOS.hold_new_lanes && TIER_RATIOS.hold_new_lanes < TIER_RATIOS.stop_heavy, JSON.stringify(TIER_RATIOS))
+  for (const cores of [2, 4, 8, 10, 16, 32, 64]) {
+    const t = resolveTiers({ machine: { load: { tiers: { light_only: 'auto', hold_new_lanes: 'auto', stop_heavy: 'auto' } } } }, cores)
+    assert.ok(t.light_only < t.hold_new_lanes && t.hold_new_lanes < t.stop_heavy, `${cores} cores: ${JSON.stringify(t)}`)
+  }
 })
 
 test('tiers: numbers are taken as they are, a mix with auto works, stop is never below hold', () => {
   assert.deepEqual(resolveTiers({ machine: { load: { tiers: { hold_new_lanes: 15, stop_heavy: 25.5 } } } }, 10), { light_only: 15, hold_new_lanes: 15, stop_heavy: 25.5 })
   assert.deepEqual(resolveTiers({ machine: { load: { tiers: { hold_new_lanes: 12 } } } }, 10), { light_only: 12, hold_new_lanes: 12, stop_heavy: 28 })
-  assert.deepEqual(resolveTiers({ machine: { load: { tiers: { hold_new_lanes: 30, stop_heavy: 10 } } } }, 10), { light_only: 20, hold_new_lanes: 30, stop_heavy: 30 })
+  assert.deepEqual(resolveTiers({ machine: { load: { tiers: { hold_new_lanes: 30, stop_heavy: 10 } } } }, 10), { light_only: 15, hold_new_lanes: 30, stop_heavy: 30 })
 })
 
 test('tiers: settings accept auto or a number, reject anything else, and reach effective values', () => {
   const { fx } = setup({ check_every_min: 0 })
   const r = resolveConfig({ projectDir: fx.repo, env: fx.env })
   assert.deepEqual(r.errors, [])
-  assert.deepEqual(r.effective.load_tiers, { light_only: Math.min(20, Math.round(os.cpus().length * 2)), ...TIERS })
+  assert.deepEqual(r.effective.load_tiers, { light_only: Math.min(20, Math.round(os.cpus().length * 1.5)), ...TIERS })
   assert.equal(L.loadSettings(r).checkEveryMin, 0)
   fs.writeFileSync(path.join(fx.env.WB_HOME, 'machine.json'), JSON.stringify({ version: 1, load: { tiers: { hold_new_lanes: 'high' }, check_every_min: -1 } }))
   const bad = resolveConfig({ projectDir: fx.repo, env: fx.env })
@@ -139,13 +147,13 @@ test('dispatch guard: between light_only and hold only light task types start a 
   assert.ok(codes(heavy).includes('load_light_only'), codes(heavy).join(','))
   assert.deepEqual(heavy.verdicts.find((v) => v.code === 'load_light_only').vars, { load: '25.00', light: 20, hold: 35, task: 'impl-multi' })
   // light types pass in the band
-  for (const [t, m] of [['design', 'fable'], ['review', 'fable'], ['adversarial', 'fable'], ['docs', 'sonnet'], ['mockup', 'opus']]) {
+  for (const [t, m] of [['design', 'opus'], ['review', 'opus'], ['adversarial', 'sonnet'], ['docs', 'sonnet'], ['mockup', 'opus']]) {
     const r = dispatchType(s, 25, t, m)
     assert.ok(!codes(r).some((c) => c.startsWith('load_')), `${t}: ${codes(r).join(',')}`)
   }
   // below the band nothing is held; at hold everything is
   assert.ok(!codes(dispatchType(s, 19.99, 'impl-multi', 'opus')).includes('load_light_only'))
-  assert.ok(codes(dispatchType(s, 35, 'design', 'fable')).includes('load_hold'))
+  assert.ok(codes(dispatchType(s, 35, 'design', 'opus')).includes('load_hold'))
   // an existing lane is never held
   s.lanes([{ id: 'n1', branch: 'b', worktree: s.fx.repo }])
   assert.ok(!codes(dispatchType(s, 25, 'impl-multi', 'opus')).some((c) => c.startsWith('load_')))
@@ -314,7 +322,7 @@ test('wb-slot reap --orphans and check run with the real ps read-only (no --kill
   assert.equal(c.status, 0, c.stderr)
   const k = JSON.parse(c.stdout)
   assert.equal(k.tier, 'hold')
-  assert.deepEqual(k.tiers, { light_only: Math.min(20, Math.round(os.cpus().length * 2)), ...TIERS })
+  assert.deepEqual(k.tiers, { light_only: Math.min(20, Math.round(os.cpus().length * 1.5)), ...TIERS })
   assert.ok(Array.isArray(k.orphans.candidates))
   const text = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-slot'), 'check'], { cwd: s.fx.repo, env, encoding: 'utf8' })
   assert.match(text.stdout, /tier: new lanes held/)

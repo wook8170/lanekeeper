@@ -1,7 +1,6 @@
 {
   "version": 1,
   "models": {
-    "fable":  { "agent_param": "fable",  "rank": 4 },
     "opus":   { "agent_param": "opus",   "rank": 3 },
     "sonnet": { "agent_param": "sonnet", "rank": 2 },
     "haiku":  { "agent_param": "haiku",  "rank": 1 }
@@ -9,10 +8,10 @@
   "denied": [],
   "denied_note": {},
   "tasks": {
-    "design":         { "label": "design-analysis",   "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
-    "review":         { "label": "review-verdict",    "chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
+    "design":         { "label": "design-analysis",   "chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
+    "review":         { "label": "review-verdict",    "chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
     "security":       { "label": "security-review",   "chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify", "weight": "light" },
-    "adversarial":    { "label": "adversarial-review","chain": ["fable", "opus"],   "floor": "opus",   "on_floor": "wait-notify", "differ_from": "implementer", "weight": "light" },
+    "adversarial":    { "label": "adversarial-review","chain": ["opus"],            "floor": "opus",   "on_floor": "wait-notify", "differ_from": "implementer", "weight": "light" },
     "impl-multi":     { "label": "multi-file-impl",   "chain": ["opus", "sonnet"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "heavy" },
     "impl-spec":      { "label": "spec-impl",         "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "heavy" },
     "docs":           { "label": "docs",              "chain": ["sonnet", "opus"],  "floor": "sonnet", "on_floor": "wait-notify", "weight": "light" },

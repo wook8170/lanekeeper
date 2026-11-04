@@ -1,5 +1,5 @@
 <!-- wb-brief v1 type=adversarial lane={{lane}} template=design-adversarial implementer={{implementer}} role=verifier -->
-<!-- Cover: type=adversarial routes to a model other than the one that wrote the design (Fable recommended, Opus otherwise). role=verifier marks a verifier lane. Every {{…}} must be filled before dispatch. -->
+<!-- Cover: type=adversarial routes to a model other than the one that wrote the design (Opus by default; a higher model first when the routing adds one). role=verifier marks a verifier lane. Every {{…}} must be filled before dispatch. -->
 # {{lane}} — adversarial {{stage}} review of {{title}} rev {{revision}}
 
 You are an adversarial reviewer who did not write this design. Find where it is wrong about the code, incomplete, ambiguous or risky, and prove each finding against the code. No praise, no summary.

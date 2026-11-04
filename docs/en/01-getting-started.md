@@ -21,7 +21,7 @@ This page covers installation, project setup, and a first 30 minutes in which on
 | Item | Needed | Used for |
 |---|---|---|
 | Claude Code | Required | Runs the plugin. This page was checked with version 2.1.302 |
-| Node.js 18 or later | Required | Runs the hooks and the `wb-*` commands |
+| Node.js 18.19 or later | Required | Runs the hooks and the `wb-*` commands |
 | git | Required | Branch and worktree checks |
 | Python 3.8 or later with openpyxl | Optional | Test result and defect register workbooks |
 | codegraph | Optional | Code index. Without it the related hooks do nothing |
@@ -214,7 +214,7 @@ Request kind: screen change
   2. A mockup lane draws the current and proposed screens (model opus)
   3. The owner chooses from the mockups (`/wb:decide`)
   4. An implementation lane builds it as the brief says (model opus)
-  5. A different model reviews it in a fresh context (model fable)
+  5. A different model reviews it in a fresh context (model opus)
   6. Merge the reviewed lane into the integration branch
   7. Report: what was checked and what remains, kept apart
   8. Update `progress.md` and tell the user to `/clear`

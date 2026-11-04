@@ -1,5 +1,5 @@
 <!-- wb-brief v1 type=adversarial lane={{lane}} template=ux-adversarial implementer={{implementer}} role=verifier -->
-<!-- Cover: type=adversarial routes to a model other than the implementer's (Fable recommended, Opus otherwise). role=verifier marks a verifier lane, whose heavy runs stop first under high load. Every {{…}} must be filled before dispatch. -->
+<!-- Cover: type=adversarial routes to a model other than the implementer's (Opus by default; a higher model first when the routing adds one). role=verifier marks a verifier lane, whose heavy runs stop first under high load. Every {{…}} must be filled before dispatch. -->
 # {{lane}} — adversarial UX check of {{title}}
 
 You are an adversarial UX checker who took no part in building this product. Drive the real screens and find where a first-time user gets stuck, goes wrong or loses work. No praise, no summary.

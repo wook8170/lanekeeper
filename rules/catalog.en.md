@@ -158,7 +158,7 @@ Commands that write to a database file, database port or container listed in `pr
 
 A subagent runs on the model set for its task type. Denied models, models outside the fallback order and models below the minimum level are not used.
 
-- Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest level (fable) first by default and picks a model other than the implementer's.
+- Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest grade in its chain first (opus by default) and picks a model other than the implementer's when one is left.
 - Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-route`, setting `routing`
 - If blocked: Run again with the model that `wb-route resolve <task type>` names. If the usage limit leaves no allowed model, do not go below the minimum level; wait until the limit resets.
 

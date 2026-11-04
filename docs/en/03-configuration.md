@@ -55,19 +55,25 @@ Kept in the personal file `~/.wb/routing.json`.
 |---|---|---|---|
 | `routing.version` | `1` | File format version | `1` |
 | `routing.models` | see below | Agent tool value (`agent_param`) and grade (`rank`) per model name. A larger rank is a higher grade | `{"opus":{"agent_param":"opus","rank":3}}` |
-| `routing.denied` | `[]` | Models not to use. Merged as a protected list | `["fable"]` |
-| `routing.denied_note` | `{}` | Notes on why a model is denied (skill reference) | `{"fable":"personal choice"}` |
+| `routing.denied` | `[]` | Models not to use. Merged as a protected list | `["haiku"]` |
+| `routing.denied_note` | `{}` | Notes on why a model is denied (skill reference) | `{"haiku":"personal choice"}` |
 | `routing.tasks` | see below | Per task type: `label`, `chain` (fallback order), `floor` (minimum grade), `on_floor` (`wait-notify`), `differ_from` (`implementer`), `weight` (`light` · `heavy`, `heavy` when missing) | `{"review":{"chain":["opus"]}}` |
 | `routing.limits_state` | `"${CLAUDE_PLUGIN_DATA}/limits.json"` | File that records models out of quota | keep the default |
 
-The default `routing.models` are fable (rank 4), opus (3), sonnet (2) and haiku (1). The eleven default `routing.tasks` match the table in section 2 of [Features](02-features.md). To change one task type, write only the keys to change.
+The default `routing.models` are opus (rank 3), sonnet (2) and haiku (1). Every Claude Code account can use these three. The eleven default `routing.tasks` match the table in section 2 of [Features](02-features.md). To change one task type, write only the keys to change.
+
+To use one more model, add it to `routing.models` and put it at the front of the chains that should try it first. A chain array replaces the default one, so write the whole order. When the new model is denied or out of quota, the chain falls back to the next model. The example below adds a model ranked above opus for design and review, and keeps haiku out.
 
 ```json
 {
   "version": 1,
-  "denied": ["fable"],
-  "denied_note": { "fable": "personal choice; delete this line to lift it" },
-  "tasks": { "review": { "chain": ["opus"] } }
+  "models": { "fable": { "agent_param": "fable", "rank": 4 } },
+  "tasks": {
+    "design": { "chain": ["fable", "opus"] },
+    "review": { "chain": ["fable", "opus"] }
+  },
+  "denied": ["haiku"],
+  "denied_note": { "haiku": "personal choice; delete this line to lift it" }
 }
 ```
 
@@ -82,7 +88,7 @@ Kept in the personal file `~/.wb/machine.json`. Port numbers live only in this f
 | `machine.load.max` | `"auto"` | Slot runs wait at or above this 1-minute load. `auto` is logical cores × 2. Cap rule | `16` |
 | `machine.load.auto_rule` | `"logical_cores * 2"` | Description of the `auto` formula (reserved) | keep the default |
 | `machine.load.sample` | `"1min"` | Load average to compare: `1min` · `5min` · `15min` | `"5min"` |
-| `machine.load.tiers.light_only` | `"auto"` | At or above this 1-minute load, new lanes are refused for task types with heavy runs (any `weight` other than `light`). Light types such as design, review, adversarial review, docs and mockups can still start. `auto` is logical cores × 2. Lowered to the hold-new-lanes threshold when larger (with both on `auto` this tier is empty) | `20` |
+| `machine.load.tiers.light_only` | `"auto"` | At or above this 1-minute load, new lanes are refused for task types with heavy runs (any `weight` other than `light`). Light types such as design, review, adversarial review, docs and mockups can still start. `auto` is logical cores × 1.5 (rounded). Lowered to the hold-new-lanes threshold when larger | `15` |
 | `machine.load.tiers.hold_new_lanes` | `"auto"` | New lanes (Agent dispatches) are refused at or above this 1-minute load. A dispatch to an existing lane is not held. `auto` is logical cores × 2 | `20` |
 | `machine.load.tiers.stop_heavy` | `"auto"` | A verifier lane's heavy run is refused at once at or above this 1-minute load. Slots already held are left alone. `auto` is logical cores × 2.8 (rounded). Raised to the hold-new-lanes threshold when smaller | `28` |
 | `machine.load.check_every_min` | `30` | Minutes between load checks when a prompt is sent. One line is added only when a threshold is reached. `0` turns it off | `0` |

@@ -8,14 +8,34 @@ import { classify, resolveRoute, checkModel, modelKeyFor, limitsMap, explainLine
 import { recordLimit } from '../lib/limits.mjs'
 import { resolveConfig } from '../lib/config.mjs'
 import { translator } from '../lib/i18n.mjs'
-import { makeEnv, bin } from './l3-fixture.mjs'
+import { makeEnv, bin, FABLE_ROUTING } from './l3-fixture.mjs'
 
 const DEFAULTS = JSON.parse(fs.readFileSync(new URL('../defaults/routing.json', import.meta.url), 'utf8'))
-const routing = (patch = {}) => ({ ...structuredClone(DEFAULTS), ...patch })
+// DEFAULTS with the fable layer merged in the way a personal routing.json is
+const WITH_FABLE = (() => {
+  const r = structuredClone(DEFAULTS)
+  Object.assign(r.models, FABLE_ROUTING.models)
+  for (const [k, v] of Object.entries(FABLE_ROUTING.tasks)) Object.assign(r.tasks[k], v)
+  return r
+})()
+const routing = (patch = {}) => ({ ...structuredClone(WITH_FABLE), ...patch })
 const FUTURE = new Date(Date.now() + 2 * 3600_000).toISOString()
 const LATER = new Date(Date.now() + 5 * 3600_000).toISOString()
 
-test('defaults: first model of each chain', () => {
+test('defaults: only models every account has; design, review and adversarial on opus', () => {
+  assert.deepEqual(Object.keys(DEFAULTS.models).sort(), ['haiku', 'opus', 'sonnet'])
+  for (const t of ['design', 'review', 'security', 'adversarial']) {
+    assert.deepEqual(DEFAULTS.tasks[t].chain, ['opus'], t)
+    assert.equal(DEFAULTS.tasks[t].floor, 'opus', t)
+  }
+  assert.equal(resolveRoute(DEFAULTS, 'design').model, 'opus')
+  // adversarial with an opus implementer: no other model at the floor, same model in a fresh context
+  const d = resolveRoute(DEFAULTS, 'adversarial', { implementer: 'opus' })
+  assert.equal(d.model, 'opus')
+  assert.equal(d.sameAsImplementer, true)
+})
+
+test('fable layer: first model of each chain', () => {
   const r = routing()
   assert.equal(resolveRoute(r, 'design').model, 'fable')
   assert.equal(resolveRoute(r, 'impl-multi').model, 'opus')
@@ -40,7 +60,7 @@ test('1 denied: removed before anything else, next model in the chain is used', 
 test('1 denied: personal denied list survives a project that clears it (union)', () => {
   const fx = makeEnv()
   try {
-    fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, denied: ['fable'] }))
+    fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied: ['fable'] }))
     fs.mkdirSync(path.join(fx.repo, '.wb'))
     fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, routing: { denied: [] } }))
     const resolved = resolveConfig({ projectDir: fx.repo, env: fx.env })
@@ -88,7 +108,7 @@ test('2 limits: "*" holds the whole chain and waits for that reset', () => {
   assert.equal(v[0].level, 'deny')
 })
 
-test('adversarial default chain: fable first, opus as the fallback', () => {
+test('adversarial chain with the fable layer: fable first, opus as the fallback', () => {
   assert.deepEqual(routing().tasks.adversarial.chain, ['fable', 'opus'])
   assert.equal(resolveRoute(routing({ denied: ['fable'] }), 'adversarial').model, 'opus')
   // implementer on fable: the review goes to opus
@@ -120,7 +140,7 @@ test('3 differ_from: no other model left -> same model in a fresh context, repor
 
 test('3 differ_from: unknown implementer is noted and skipped', () => {
   const d = resolveRoute(routing(), 'adversarial')
-  assert.equal(d.model, 'fable', 'adversarial review tries fable first (owner rule: adversarial review on fable, apart from the implementer)')
+  assert.equal(d.model, 'fable', 'with the fable layer, adversarial review tries fable first, apart from the implementer')
   assert.equal(d.steps[2].note, 'implementer-unknown')
   // implementer given as a full model id maps to its key
   assert.equal(modelKeyFor(routing(), 'claude-opus-4-8'), 'opus')
@@ -201,7 +221,7 @@ test('explain: one line per step and the result, ko and en', () => {
 test('wb-route: resolve prints agent_param, exit 3 while waiting, explain trace', () => {
   const fx = makeEnv()
   try {
-    fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, denied: ['fable'] }))
+    fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied: ['fable'] }))
     let r = bin('wb-route', ['resolve', 'design'], fx.env, fx.repo)
     assert.equal(r.status, 0, r.stderr)
     assert.equal(r.stdout.trim(), 'opus')

@@ -10,6 +10,10 @@ import { evaluate } from '../hooks/scripts/safety/pretool.mjs'
 // keep the developer's own git settings (aliases, hooks) out of the tests
 process.env.GIT_CONFIG_GLOBAL = '/dev/null'
 process.env.GIT_CONFIG_NOSYSTEM = '1'
+// a fixed identity for commits made in this process (checkpoint): without a
+// global config, git on a CI runner cannot guess one
+for (const k of ['GIT_AUTHOR_NAME', 'GIT_COMMITTER_NAME']) process.env[k] ||= 't'
+for (const k of ['GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_EMAIL']) process.env[k] ||= 't@example.com'
 
 export const git = (cwd, ...args) =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], {
