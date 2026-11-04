@@ -163,3 +163,14 @@ test('README and SECURITY: English first with a language switch, Korean in *.ko.
     assert.match(head, /Claude Code 2\.1\.295/, f)
   }
 })
+
+test('plugin icon: square PNG 512-2048 px under 2 MB, baked from the committed SVG', () => {
+  const png = fs.readFileSync(path.join(ROOT, '.claude-plugin', 'icon.png'))
+  assert.equal(png.subarray(1, 4).toString('latin1'), 'PNG')
+  const w = png.readUInt32BE(16)
+  const h = png.readUInt32BE(20)
+  assert.equal(w, h)
+  assert.ok(w >= 512 && w <= 2048, String(w))
+  assert.ok(png.length < 2 * 1024 * 1024)
+  assert.match(read('.claude-plugin/icon.svg'), /<svg[^>]*viewBox="0 0 512 512"/)
+})

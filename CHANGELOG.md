@@ -17,8 +17,9 @@
 - 전역 git 설정이 없는 리눅스 CI 에서는 체크포인트 시험이 커밋 작성자를 찾지 못해 실패했다. 그래서 시험 `tests/safety-fixture.mjs` 가 작성자 정보를 직접 넣는다
 
 ### Added
+- 플러그인 아이콘 `.claude-plugin/icon.png`(1024px 정사각): 평행한 레인 세 줄과 관문 하나를 두 색으로 그렸다. 원본은 `.claude-plugin/icon.svg` 이고, PNG 는 `rsvg-convert -w 1024 -h 1024 .claude-plugin/icon.svg -o .claude-plugin/icon.png` 로 굽는다
 - GitHub Actions CI(`.github/workflows/ci.yml`): push·pull_request 마다 Node 18·20·22 와 ubuntu·macOS 조합으로 `npm test` 를 돌리고, 따로 `claude plugin validate --strict` 를 돌린다
-- 시험: 기본 라우팅이 opus·sonnet·haiku 만 쓰는지, 기본 부하 문턱 세 개가 서로 다르고 오름차순인지, README·SECURITY 의 언어 전환 줄과 첫 화면 설치 명령
+- 시험: 기본 라우팅이 opus·sonnet·haiku 만 쓰는지, 기본 부하 문턱 세 개가 서로 다르고 오름차순인지, README·SECURITY 의 언어 전환 줄과 첫 화면 설치 명령, 아이콘 규격
 
 ## [0.1.4] - 2026-11-03
 
