@@ -5,6 +5,8 @@
 
 Lanekeeper is a Claude Code plugin that keeps the rules for running several subagent lanes at once in settings files and enforces them with hooks. It picks a model for each kind of task, limits how many lanes and heavy commands run at the same time, and stops a lane from committing to a protected branch or killing another task's server. When a lane finishes, a report file and a review checklist confirm the result.
 
+![Lanekeeper demo: the lane board, run slots and the model for each task type, then the safety hook denying a commit on main, a kill by pattern and a push from a lane, and asking before git stash](docs/demo.gif)
+
 ```
 # From the combined marketplace
 claude plugin marketplace add wook8170/claude-plugins
