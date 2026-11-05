@@ -1,4 +1,4 @@
-// Shared fixture for the L3 tests: isolated HOME, WB_HOME, plugin data and
+// Shared fixture for the L3 tests: isolated HOME, LANEKEEPER_HOME, plugin data and
 // Claude config folders, a throw-away git repository and a hook runner.
 import fs from 'node:fs'
 import os from 'node:os'
@@ -24,16 +24,16 @@ export const git = (cwd, ...args) =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
 export function makeEnv(extra = {}) {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-l3-')))
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-l3-')))
   const home = path.join(base, 'home')
   const env = {
     HOME: home,
-    WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'),
+    LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'),
     CLAUDE_PLUGIN_DATA: path.join(base, 'data'),
     CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
-    WB_NO_NOTIFY: '1',
+    LANEKEEPER_NO_NOTIFY: '1',
     // the real load average must not decide a test (load tiers); tests that need it set their own
-    WB_LOAD_FAKE: '0',
+    LANEKEEPER_LOAD_FAKE: '0',
     LANG: 'en_US.UTF-8',
     PATH: process.env.PATH,
     GIT_CONFIG_GLOBAL: '/dev/null',
@@ -44,7 +44,7 @@ export function makeEnv(extra = {}) {
     GIT_COMMITTER_EMAIL: 't@example.com',
     ...extra,
   }
-  fs.mkdirSync(env.WB_HOME, { recursive: true })
+  fs.mkdirSync(env.LANEKEEPER_HOME, { recursive: true })
   const repo = path.join(base, 'repo')
   fs.mkdirSync(repo)
   git(repo, 'init', '-q', '-b', 'main')
@@ -55,8 +55,8 @@ export function makeEnv(extra = {}) {
     base,
     env,
     repo,
-    personal: (obj) => fs.writeFileSync(path.join(env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, ...obj })),
-    readPersonal: () => JSON.parse(fs.readFileSync(path.join(env.WB_HOME, 'personal.json'), 'utf8')),
+    personal: (obj) => fs.writeFileSync(path.join(env.LANEKEEPER_HOME, 'personal.json'), JSON.stringify({ version: 1, ...obj })),
+    readPersonal: () => JSON.parse(fs.readFileSync(path.join(env.LANEKEEPER_HOME, 'personal.json'), 'utf8')),
     cleanup: () => fs.rmSync(base, { recursive: true, force: true }),
   }
 }

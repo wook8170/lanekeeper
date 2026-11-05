@@ -1,4 +1,4 @@
-// User manual (docs/) against the code: skill names, wb-* commands and their
+// User manual (docs/) against the code: skill names, lanekeeper-* commands and their
 // subcommands, settings keys with their defaults, rule and skill counts, the
 // generated rules chapter, links, and the Korean/English pair.
 import { test } from 'node:test'
@@ -19,14 +19,14 @@ const docFiles = () => ['docs/README.md', ...LANGS.flatMap((l) => CHAPTERS.map((
 const doc = (lang, chapter) => read(`docs/${lang}/${chapter}`)
 
 const skills = () => fs.readdirSync(path.join(ROOT, 'skills')).filter((d) => fs.existsSync(path.join(ROOT, 'skills', d, 'SKILL.md'))).sort()
-const commands = () => fs.readdirSync(path.join(ROOT, 'bin')).filter((f) => f.startsWith('wb-')).sort()
+const commands = () => fs.readdirSync(path.join(ROOT, 'bin')).filter((f) => f.startsWith('lanekeeper-')).sort()
 
 // Skills that messages mention but this release does not ship. Each entry must
 // still be mentioned by a locale message; remove it when the skill lands.
 const ABSENT_SKILLS = {}
 
-// wb-* words that are names, not commands.
-const NOT_COMMANDS = new Set(['wb-plugin', 'wb-brief', 'wb-decision', 'wb-gate-pass', 'wb-scratch'])
+// lanekeeper-* words that are names, not commands.
+const NOT_COMMANDS = new Set(['lanekeeper', 'lanekeeper-brief', 'lanekeeper-decision', 'lanekeeper-gate-pass', 'lanekeeper-scratch'])
 
 // Leaf keys of the settings schema. A map with default entries contributes one
 // key per entry (project.paths.briefs …); other maps count as one key.
@@ -42,7 +42,7 @@ function leafKeys(defaults) {
 }
 
 function mergedDefaults() {
-  const { sources } = collectSources({ projectDir: null, env: { HOME: '/nonexistent', WB_HOME: '/nonexistent-wb-home' } })
+  const { sources } = collectSources({ projectDir: null, env: { HOME: '/nonexistent', LANEKEEPER_HOME: '/nonexistent-lanekeeper-home' } })
   return mergeSources(sources).config
 }
 
@@ -82,7 +82,7 @@ test('docs: every chapter exists in Korean and English, and the root README link
   assert.ok(read('README.ko.md').includes('docs/README.md'), 'README.ko.md links the manual')
 })
 
-test('docs: the rules chapter is generated from the catalog (wb-rules manual --write)', () => {
+test('docs: the rules chapter is generated from the catalog (lanekeeper-rules manual --write)', () => {
   const rules = loadCatalog()
   for (const l of LANGS) assert.equal(doc(l, '04-rules.md'), renderManual(rules, l, translator(l)), `docs/${l}/04-rules.md is stale`)
 })
@@ -99,17 +99,17 @@ test('docs: every skill has its own section in the features chapter, and no unkn
   const names = skills()
   for (const l of LANGS) {
     const text = doc(l, '02-features.md')
-    const headings = [...text.matchAll(/^### \/wb:([a-z0-9-]+)$/gm)].map((m) => m[1]).sort()
+    const headings = [...text.matchAll(/^### \/lanekeeper:([a-z0-9-]+)$/gm)].map((m) => m[1]).sort()
     assert.deepEqual(headings, names, `${l}: skill sections`)
   }
   const messages = read('locales/ko.json') + read('locales/en.json')
   for (const [name, key] of Object.entries(ABSENT_SKILLS)) {
     assert.ok(!names.includes(name), `${name} ships now; drop it from ABSENT_SKILLS`)
-    assert.ok(messages.includes(`/wb:${name}`) && messages.includes(`"${key}"`), `${name} no longer mentioned by ${key}`)
+    assert.ok(messages.includes(`/lanekeeper:${name}`) && messages.includes(`"${key}"`), `${name} no longer mentioned by ${key}`)
   }
   for (const f of docFiles()) {
-    for (const m of read(f).matchAll(/\/wb:([a-z][a-z0-9-]*)/g)) {
-      assert.ok(names.includes(m[1]) || m[1] in ABSENT_SKILLS, `${f}: /wb:${m[1]} is not a skill`)
+    for (const m of read(f).matchAll(/\/lanekeeper:([a-z][a-z0-9-]*)/g)) {
+      assert.ok(names.includes(m[1]) || m[1] in ABSENT_SKILLS, `${f}: /lanekeeper:${m[1]} is not a skill`)
     }
   }
 })
@@ -136,17 +136,17 @@ test('docs: stated skill and rule counts match the code', () => {
   assert.ok(seen >= 4, 'the manual states the counts')
 })
 
-test('docs: every wb-* command exists, and every subcommand appears in the command usage', () => {
+test('docs: every lanekeeper-* command exists, and every subcommand appears in the command usage', () => {
   const bins = new Set(commands())
   const usage = Object.fromEntries([...bins].map((b) => [b, read(`bin/${b}`).split('\n').filter((l) => l.startsWith('//')).join('\n')]))
   for (const f of docFiles()) {
     const text = read(f)
-    for (const m of text.matchAll(/\bwb-[a-z][a-z-]*[a-z]\b/g)) {
+    for (const m of text.matchAll(/\blanekeeper-[a-z][a-z-]*[a-z]\b/g)) {
       if (NOT_COMMANDS.has(m[0])) continue
       assert.ok(bins.has(m[0]), `${f}: ${m[0]} is not a command in bin/`)
     }
     for (const line of [...codeSpans(text), ...codeBlockLines(text)]) {
-      const m = line.trim().replace(/^\$ /, '').match(/^(wb-[a-z-]+) ([a-z][a-z-]*)\b/)
+      const m = line.trim().replace(/^\$ /, '').match(/^(lanekeeper-[a-z-]+) ([a-z][a-z-]*)\b/)
       if (!m || !bins.has(m[1])) continue
       assert.match(usage[m[1]], new RegExp(`\\b${m[2]}\\b`), `${f}: \`${m[1]} ${m[2]}\` is not in the usage of ${m[1]}`)
     }
@@ -209,11 +209,11 @@ test('docs: npm pack includes the manual', () => {
   }
 })
 
-test('wb-rules manual: prints the chapter in reading order (git first, planned last), numbered 1..n', async () => {
+test('lanekeeper-rules manual: prints the chapter in reading order (git first, planned last), numbered 1..n', async () => {
   const { execFileSync } = await import('node:child_process')
-  const out = execFileSync(process.execPath, [path.join(ROOT, 'bin', 'wb-rules'), 'manual', '--lang', 'en'], {
+  const out = execFileSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-rules'), 'manual', '--lang', 'en'], {
     encoding: 'utf8',
-    env: { ...process.env, WB_HOME: '/nonexistent-wb-home' },
+    env: { ...process.env, LANEKEEPER_HOME: '/nonexistent-lanekeeper-home' },
   })
   const rules = loadCatalog()
   assert.equal(out, renderManual(rules, 'en', translator('en')))

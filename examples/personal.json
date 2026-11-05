@@ -3,5 +3,5 @@
   "language": "ko",
   "report": { "chat_detail": "detailed", "viewer": "remote" },
   "auto_retry": { "enabled": true, "permission_mode": "default" },
-  "paths": { "scratch_root": "~/.wb-scratch/{project}" }
+  "paths": { "scratch_root": "~/.lanekeeper-scratch/{project}" }
 }

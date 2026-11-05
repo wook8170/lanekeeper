@@ -18,8 +18,8 @@ const TIERS = { hold_new_lanes: 20, stop_heavy: 28 }
 
 function setup(load = {}) {
   const fx = makeEnv()
-  fs.writeFileSync(path.join(fx.env.WB_HOME, 'machine.json'), JSON.stringify({ version: 1, load: { tiers: TIERS, ...load }, slots: { lease_dir: path.join(fx.base, 'slots') } }))
-  const sd = path.join(fx.repo, '.git', 'wb')
+  fs.writeFileSync(path.join(fx.env.LANEKEEPER_HOME, 'machine.json'), JSON.stringify({ version: 1, load: { tiers: TIERS, ...load }, slots: { lease_dir: path.join(fx.base, 'slots') } }))
+  const sd = path.join(fx.repo, '.git', 'lanekeeper')
   fs.mkdirSync(sd, { recursive: true })
   const lanes = (list) => fs.writeFileSync(path.join(sd, 'lanes.json'), JSON.stringify({ lanes: list }))
   return { fx, sd, lanes }
@@ -53,7 +53,7 @@ test('tiers: settings accept auto or a number, reject anything else, and reach e
   assert.deepEqual(r.errors, [])
   assert.deepEqual(r.effective.load_tiers, { light_only: Math.min(20, Math.round(os.cpus().length * 1.5)), ...TIERS })
   assert.equal(L.loadSettings(r).checkEveryMin, 0)
-  fs.writeFileSync(path.join(fx.env.WB_HOME, 'machine.json'), JSON.stringify({ version: 1, load: { tiers: { hold_new_lanes: 'high' }, check_every_min: -1 } }))
+  fs.writeFileSync(path.join(fx.env.LANEKEEPER_HOME, 'machine.json'), JSON.stringify({ version: 1, load: { tiers: { hold_new_lanes: 'high' }, check_every_min: -1 } }))
   const bad = resolveConfig({ projectDir: fx.repo, env: fx.env })
   const paths = bad.errors.map((e) => e.path)
   assert.ok(paths.includes('machine.load.tiers.hold_new_lanes'), paths.join(','))
@@ -68,15 +68,15 @@ test('tiers: boundaries are inclusive (load equal to a threshold is in that tier
   assert.equal(L.tierOf(NaN, TIERS), 'ok')
 })
 
-test('readLoad: WB_LOAD_FAKE replaces the load average; otherwise the sample index is used', () => {
-  assert.equal(L.readLoad('1min', { WB_LOAD_FAKE: '23.5' }), 23.5)
+test('readLoad: LANEKEEPER_LOAD_FAKE replaces the load average; otherwise the sample index is used', () => {
+  assert.equal(L.readLoad('1min', { LANEKEEPER_LOAD_FAKE: '23.5' }), 23.5)
   assert.equal(L.readLoad('5min', {}, () => [1, 2, 3]), 2)
-  assert.equal(L.readLoad('1min', { WB_LOAD_FAKE: 'x' }, () => [4, 5, 6]), 4)
+  assert.equal(L.readLoad('1min', { LANEKEEPER_LOAD_FAKE: 'x' }, () => [4, 5, 6]), 4)
 })
 
 // ---- dispatch guard ---------------------------------------------------------
 
-const BRIEF = (lane) => `<!-- wb-brief v1 type=impl-multi lane=${lane} -->\nwork`
+const BRIEF = (lane) => `<!-- lanekeeper-brief v1 type=impl-multi lane=${lane} -->\nwork`
 const dispatchAt = (s, load, lane = 'n1') =>
   evaluate({ tool_name: 'Agent', tool_input: { prompt: BRIEF(lane), model: 'opus' }, cwd: s.fx.repo }, s.fx.env, { stateDir: s.sd, loadavg: () => load })
 const codes = (r) => r.verdicts.map((v) => v.code)
@@ -99,23 +99,23 @@ test('dispatch guard: a dispatch to a lane already in lanes.json is not held, ev
   assert.ok(codes(dispatchAt(s, 50, 'l2')).includes('load_hold'))
 })
 
-test('dispatch guard hook: the deny message names the load, the threshold and what to do (WB_LOAD_FAKE)', () => {
+test('dispatch guard hook: the deny message names the load, the threshold and what to do (LANEKEEPER_LOAD_FAKE)', () => {
   const s = setup()
   s.lanes([])
-  const r = runScript('hooks/scripts/dispatch/dispatch-guard.mjs', { tool_name: 'Agent', tool_input: { prompt: BRIEF('n9'), model: 'opus' }, cwd: s.fx.repo }, { ...s.fx.env, WB_LOAD_FAKE: '25' })
+  const r = runScript('hooks/scripts/dispatch/dispatch-guard.mjs', { tool_name: 'Agent', tool_input: { prompt: BRIEF('n9'), model: 'opus' }, cwd: s.fx.repo }, { ...s.fx.env, LANEKEEPER_LOAD_FAKE: '25' })
   const out = r.out
   assert.ok(out, r.err)
   assert.equal(out.hookSpecificOutput.permissionDecision, 'deny')
   const text = out.hookSpecificOutput.permissionDecisionReason
   assert.match(text, /25\.00/)
   assert.match(text, /hold-new-lanes threshold 20/)
-  assert.match(text, /wb-slot check/)
+  assert.match(text, /lanekeeper-slot check/)
 })
 
 // ---- light-only tier ----------------------------------------------------------
 
 const OWNER = { light_only: 20, hold_new_lanes: 35, stop_heavy: 35 }
-const typed = (type, lane = 'n1') => `<!-- wb-brief v1 type=${type} lane=${lane} -->\nwork`
+const typed = (type, lane = 'n1') => `<!-- lanekeeper-brief v1 type=${type} lane=${lane} -->\nwork`
 const dispatchType = (s, load, type, model, extra = {}) =>
   evaluate({ tool_name: 'Agent', tool_input: { prompt: typed(type), model, ...extra }, cwd: s.fx.repo }, s.fx.env, { stateDir: s.sd, loadavg: () => load })
 
@@ -171,7 +171,7 @@ function OWNER_LOAD() {
 
 // ---- slot guard -----------------------------------------------------------
 
-const judge = (s, command, load, extra = {}) => judgeSlots({ tool_name: 'Bash', tool_input: { command }, cwd: s.fx.repo }, { ...s.fx.env, WB_LOAD_FAKE: String(load), ...extra })
+const judge = (s, command, load, extra = {}) => judgeSlots({ tool_name: 'Bash', tool_input: { command }, cwd: s.fx.repo }, { ...s.fx.env, LANEKEEPER_LOAD_FAKE: String(load), ...extra })
 
 test('slot guard: a verifier lane heavy run is denied at stop_heavy, executors keep the normal note', () => {
   const s = setup()
@@ -188,10 +188,10 @@ test('slot guard: a verifier lane heavy run is denied at stop_heavy, executors k
 test('slot guard: a wrapped heavy run of a verifier is denied too; light and status commands pass', () => {
   const s = setup()
   s.lanes([{ id: 'v1', branch: 'b', worktree: s.fx.repo, role: 'verifier' }])
-  assert.equal(judge(s, 'wb-slot --kind heavy -- npm test', 30).code, 'slot.load_stop_heavy')
-  assert.equal(judge(s, 'wb-slot status', 30), null)
+  assert.equal(judge(s, 'lanekeeper-slot --kind heavy -- npm test', 30).code, 'slot.load_stop_heavy')
+  assert.equal(judge(s, 'lanekeeper-slot status', 30), null)
   assert.equal(judge(s, 'ls -la', 30), null)
-  assert.equal(judge(s, 'wb-slot --kind heavy -- npm test', 10), null)
+  assert.equal(judge(s, 'lanekeeper-slot --kind heavy -- npm test', 10), null)
 })
 
 test('slot guard: without a role in lanes.json the brief marker or a role line decides; neither = executor', () => {
@@ -199,30 +199,30 @@ test('slot guard: without a role in lanes.json the brief marker or a role line d
   s.lanes([{ id: 'r1', branch: 'b', worktree: s.fx.repo }])
   const brief = path.join(s.fx.base, 'r1.md')
   fs.writeFileSync(path.join(s.sd, 'waves.json'), JSON.stringify({ version: 1, waves: [{ id: 'w1', lanes: [{ lane: 'r1', brief }] }] }))
-  fs.writeFileSync(brief, '<!-- wb-brief v1 type=review lane=r1 role=verifier -->\n# goal\n')
+  fs.writeFileSync(brief, '<!-- lanekeeper-brief v1 type=review lane=r1 role=verifier -->\n# goal\n')
   assert.equal(judge(s, 'npm test', 30).code, 'slot.load_stop_heavy')
-  fs.writeFileSync(brief, '<!-- wb-brief v1 type=review lane=r1 -->\n역할: 검수자\n')
+  fs.writeFileSync(brief, '<!-- lanekeeper-brief v1 type=review lane=r1 -->\n역할: 검수자\n')
   assert.equal(judge(s, 'npm test', 30).code, 'slot.load_stop_heavy')
-  fs.writeFileSync(brief, '<!-- wb-brief v1 type=impl-multi lane=r1 -->\n# goal\n')
+  fs.writeFileSync(brief, '<!-- lanekeeper-brief v1 type=impl-multi lane=r1 -->\n# goal\n')
   assert.equal(judge(s, 'npm test', 30).code, 'slot.unwrapped')
   assert.deepEqual(L.laneRole(s.sd, null), { role: 'executor', source: 'none' })
 })
 
 test('roleFromBrief: marker attribute wins, then the first role line', () => {
-  assert.equal(L.roleFromBrief('<!-- wb-brief v1 type=x role=executor -->\nrole: verifier'), 'executor')
+  assert.equal(L.roleFromBrief('<!-- lanekeeper-brief v1 type=x role=executor -->\nrole: verifier'), 'executor')
   assert.equal(L.roleFromBrief('# t\n- **Role**: verifier\n'), 'verifier')
   assert.equal(L.roleFromBrief('역할: 실행'), 'executor')
   assert.equal(L.roleFromBrief('nothing here'), null)
 })
 
-test('wb-slot: a verifier lane is refused at once with exit 75 at stop_heavy; slots already held stay', () => {
+test('lanekeeper-slot: a verifier lane is refused at once with exit 75 at stop_heavy; slots already held stay', () => {
   const s = setup()
   s.lanes([{ id: 'v1', branch: 'b', worktree: s.fx.repo, role: 'verifier' }])
   const slotDir = path.join(s.fx.base, 'slots', 'heavy', 'slot1')
   fs.mkdirSync(slotDir, { recursive: true })
   const owner = { version: 1, kind: 'heavy', slot: 1, pid: process.pid, started: new Date().toISOString(), renewed: new Date().toISOString() }
   fs.writeFileSync(path.join(slotDir, 'owner.json'), JSON.stringify(owner))
-  const run = (load, lane) => spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-slot'), '--lane', lane, '--timeout', '0', '--', 'true'], { cwd: s.fx.repo, env: { ...s.fx.env, WB_LOAD_FAKE: String(load) }, encoding: 'utf8' })
+  const run = (load, lane) => spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-slot'), '--lane', lane, '--timeout', '0', '--', 'true'], { cwd: s.fx.repo, env: { ...s.fx.env, LANEKEEPER_LOAD_FAKE: String(load) }, encoding: 'utf8' })
   const r = run(30, 'v1')
   assert.equal(r.status, 75)
   assert.match(r.stderr, /stop-heavy threshold 28/)
@@ -245,7 +245,7 @@ const PS = [
   '107     1 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new',
   '108     1 node /srv/app/server.js',
   '109     1 node /usr/local/bin/vite',
-  '200   104 node /plugin/bin/wb-slot check',
+  '200   104 node /plugin/bin/lanekeeper-slot check',
 ].join('\n')
 
 function fakeDeps(over = {}) {
@@ -310,21 +310,21 @@ test('orphans: parsePs and commandPaths', () => {
   assert.ok(!L.ORPHAN_RE.test('/usr/bin/invited --flag'))
 })
 
-test('wb-slot reap --orphans and check run with the real ps read-only (no --kill)', () => {
+test('lanekeeper-slot reap --orphans and check run with the real ps read-only (no --kill)', () => {
   const s = setup()
-  const env = { ...s.fx.env, WB_LOAD_FAKE: '21' }
-  const r = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-slot'), 'reap', '--orphans', '--json'], { cwd: s.fx.repo, env, encoding: 'utf8' })
+  const env = { ...s.fx.env, LANEKEEPER_LOAD_FAKE: '21' }
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-slot'), 'reap', '--orphans', '--json'], { cwd: s.fx.repo, env, encoding: 'utf8' })
   assert.equal(r.status, 0, r.stderr)
   const j = JSON.parse(r.stdout)
   assert.equal(j.dryRun, true)
   assert.deepEqual(j.killed, [])
-  const c = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-slot'), 'check', '--json'], { cwd: s.fx.repo, env, encoding: 'utf8' })
+  const c = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-slot'), 'check', '--json'], { cwd: s.fx.repo, env, encoding: 'utf8' })
   assert.equal(c.status, 0, c.stderr)
   const k = JSON.parse(c.stdout)
   assert.equal(k.tier, 'hold')
   assert.deepEqual(k.tiers, { light_only: Math.min(20, Math.round(os.cpus().length * 1.5)), ...TIERS })
   assert.ok(Array.isArray(k.orphans.candidates))
-  const text = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-slot'), 'check'], { cwd: s.fx.repo, env, encoding: 'utf8' })
+  const text = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-slot'), 'check'], { cwd: s.fx.repo, env, encoding: 'utf8' })
   assert.match(text.stdout, /tier: new lanes held/)
 })
 
@@ -346,7 +346,7 @@ test('check hook: silent below the tiers, one line above, then quiet until the i
   assert.equal(at(5), null, 'normal load: silent')
   now += 31 * 60_000
   const out = at(22)
-  assert.match(out.hookSpecificOutput.additionalContext, /^\[wb\] .*22\.00.*hold-new-lanes threshold 20/)
+  assert.match(out.hookSpecificOutput.additionalContext, /^\[lanekeeper\] .*22\.00.*hold-new-lanes threshold 20/)
   now += 10 * 60_000
   assert.equal(at(40), null, 'within the interval: silent')
   now += 30 * 60_000

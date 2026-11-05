@@ -1,16 +1,22 @@
 {
-  "name": "wb",
-  "displayName": "Agent Workbench",
-  "version": "0.1.5",
-  "description": "Workbench for running parallel Claude Code agent lanes: model routing, lane and slot limits, git safety guards, handoff and review.",
+  "name": "lanekeeper",
+  "displayName": "Lanekeeper — Agent Workbench",
+  "version": "0.2.0",
+  "description": "Workbench for running parallel Claude Code agent lanes: model routing, lane and slot limits, git safety guards, handoff and review. Claude Code only (ships bin/ tools).",
   "author": { "name": "윤결파파", "email": "wook81701@gmail.com" },
+  "homepage": "https://github.com/wook8170/lanekeeper",
+  "repository": "https://github.com/wook8170/lanekeeper",
   "license": "MIT",
   "keywords": ["orchestration", "subagents", "worktree", "safety", "handoff"],
+  "icon": "./.claude-plugin/icon.png",
+  "documentationUrl": "https://github.com/wook8170/lanekeeper/blob/main/README.md",
+  "supportUrl": "https://github.com/wook8170/lanekeeper/issues",
+  "privacyPolicyUrl": "https://github.com/wook8170/lanekeeper/blob/main/PRIVACY.md",
   "userConfig": {
     "language": {
       "type": "string",
       "title": "Message language",
-      "description": "Language for wb messages. auto follows the system locale. ~/.wb/personal.json overrides this value.",
+      "description": "Language for Lanekeeper messages. auto follows the system locale. ~/.lanekeeper/personal.json overrides this value.",
       "options": ["auto", "ko", "en"],
       "default": "auto"
     },

@@ -1,24 +1,25 @@
 #!/usr/bin/env node
-// wb-docs — docs sync after a change of screens or features (settings: project.docs_sync).
+// lanekeeper-docs — docs sync after a change of screens or features (settings: project.docs_sync).
 //
-//   wb-docs map [--base <ref>] [--json <file>]     impact map: per target verdict, required and review
+//   lanekeeper-docs map [--base <ref>] [--json <file>]     impact map: per target verdict, required and review
 //                                                  items, automatic regeneration, edit drafts, recapture
 //                                                  commands, checks and what is left by hand (writes nothing)
-//   wb-docs apply [--base <ref>]                   run the autofix commands that apply to this change
-//   wb-docs drafts [--base <ref>] [--out <file>]   edit drafts per file (old phrase → new phrase, pictures)
-//   wb-docs verify [--base <ref>]                  run the check commands one by one
-//   wb-docs check [--base <ref>] [--strict] [--json <file>]
+//   lanekeeper-docs apply [--base <ref>]                   run the autofix commands that apply to this change
+//   lanekeeper-docs drafts [--base <ref>] [--out <file>]   edit drafts per file (old phrase → new phrase, pictures)
+//   lanekeeper-docs verify [--base <ref>]                  run the check commands one by one
+//   lanekeeper-docs check [--base <ref>] [--strict] [--json <file>]
 //                                                  gate: exit 1 while a required item is unmet; --json
 //                                                  writes counts · suites · failures (quality parser json)
 //
 // The change is the merge-base with the base (docs_sync.base, default main) up to the working tree,
 // uncommitted and untracked files included. --base release takes the newest tag matching
-// docs_sync.release_tag. With project.docs_sync.targets set, wb-quality knows a kind `docs`
-// (category gate) that runs `wb-docs check --base <docs_sync.quality_base>`.
+// docs_sync.release_tag. With project.docs_sync.targets set, lanekeeper-quality knows a kind `docs`
+// (category gate) that runs `lanekeeper-docs check --base <docs_sync.quality_base>`.
 import fs from 'node:fs'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
+import { projectRel } from '../lib/naming.mjs'
 
 const libDir = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..', 'lib')
 const imp = (f) => import(pathToFileURL(path.join(libDir, f)).href)
@@ -87,7 +88,7 @@ function collect(base) {
 
 function loadAcks() {
   if (!cfg.ackFile) return []
-  try { return JSON.parse(fs.readFileSync(path.join(root, cfg.ackFile), 'utf8')).acks || [] } catch { return [] }
+  try { return JSON.parse(fs.readFileSync(path.join(root, projectRel(root, cfg.ackFile)), 'utf8')).acks || [] } catch { return [] }
 }
 
 const level = (l) => (l ? t(`docs.level.${l}`) : '-')

@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// wb-waves — wave and lane ledger, progress board, resume report.
+// lanekeeper-waves — wave and lane ledger, progress board, resume report.
 //
-//   wb-waves init-wave <wave> [--title T] [--base-ref REF]
-//   wb-waves lane <wave> <lane> [--task T] [--model M] [--brief FILE] [--todo TEXT]...
-//   wb-waves status <wave> <lane> pending|running|review|blocked|failed|done [--note N]
-//   wb-waves todo <wave> <lane> add TEXT | done ID | reopen ID
-//   wb-waves verify <wave> <lane> NAME pass|fail|skip [--detail D]
-//   wb-waves note <wave> <lane> TEXT
-//   wb-waves return <wave> <lane> [--reason R]      a reviewer sent the lane back
-//   wb-waves board [--json]                         wave / lane table
-//   wb-waves statusline                             one line for subagentStatusLine
-//   wb-waves metrics [--lane L] [--json]            runs, tokens and models per lane
-//   wb-waves resume [--json] [--stale-min N] [--prompt WAVE/LANE]
-//   wb-waves handoff check [--json]                   progress.md lines against the target, archive files
-//   wb-waves handoff archive "<summary>" [--from FILE] append FILE (default: the whole progress.md) to the monthly archive
-//   wb-waves handoff migrate [--force]                move an oversized progress.md to the archive, write a fresh one
+//   lanekeeper-waves init-wave <wave> [--title T] [--base-ref REF]
+//   lanekeeper-waves lane <wave> <lane> [--task T] [--model M] [--brief FILE] [--todo TEXT]...
+//   lanekeeper-waves status <wave> <lane> pending|running|review|blocked|failed|done [--note N]
+//   lanekeeper-waves todo <wave> <lane> add TEXT | done ID | reopen ID
+//   lanekeeper-waves verify <wave> <lane> NAME pass|fail|skip [--detail D]
+//   lanekeeper-waves note <wave> <lane> TEXT
+//   lanekeeper-waves return <wave> <lane> [--reason R]      a reviewer sent the lane back
+//   lanekeeper-waves board [--json]                         wave / lane table
+//   lanekeeper-waves statusline                             one line for subagentStatusLine
+//   lanekeeper-waves metrics [--lane L] [--json]            runs, tokens and models per lane
+//   lanekeeper-waves resume [--json] [--stale-min N] [--prompt WAVE/LANE]
+//   lanekeeper-waves handoff check [--json]                   progress.md lines against the target, archive files
+//   lanekeeper-waves handoff archive "<summary>" [--from FILE] append FILE (default: the whole progress.md) to the monthly archive
+//   lanekeeper-waves handoff migrate [--force]                move an oversized progress.md to the archive, write a fresh one
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -35,7 +35,7 @@ const { args, t, print } = ctx
 const [cmd, a, b, c, d] = args._
 
 const need = (n) => {
-  if (args._.length < n + 1) ctx.fail('usage', { usage: `wb-waves ${cmd || '<command>'} …` }, 2)
+  if (args._.length < n + 1) ctx.fail('usage', { usage: `lanekeeper-waves ${cmd || '<command>'} …` }, 2)
 }
 
 const COMMANDS = {
@@ -59,7 +59,7 @@ const COMMANDS = {
     const sd = ctx.needState()
     if (c === 'add') print(t('waves.todo_added', { id: W.addTodo(sd, a, b, d).id }))
     else if (c === 'done' || c === 'reopen') print(t('waves.todo_set', { id: W.setTodo(sd, a, b, d, c === 'done').id, state: c }))
-    else ctx.fail('usage', { usage: 'wb-waves todo <wave> <lane> add TEXT | done ID | reopen ID' }, 2)
+    else ctx.fail('usage', { usage: 'lanekeeper-waves todo <wave> <lane> add TEXT | done ID | reopen ID' }, 2)
   },
   verify() {
     need(4)
@@ -174,12 +174,12 @@ const COMMANDS = {
       print(t('handoff.cli.migrated', { ...vars, to: r.to, lines: r.lines }))
       return print(t('handoff.cli.rewrite', vars))
     }
-    ctx.fail('usage', { usage: 'wb-waves handoff check|archive "<summary>" [--from FILE]|migrate [--force]' }, 2)
+    ctx.fail('usage', { usage: 'lanekeeper-waves handoff check|archive "<summary>" [--from FILE]|migrate [--force]' }, 2)
   },
 }
 
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-waves <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-waves <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 await guarded(ctx, () => COMMANDS[cmd]())

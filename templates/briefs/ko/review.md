@@ -1,5 +1,5 @@
-<!-- wb-brief v1 type=review lane={{lane}} template=review implementer={{implementer}} role=verifier -->
-<!-- 표지: type 은 라우팅 작업 종류(wb-route tasks), lane 은 레인 이름, role=verifier 는 검수 레인 표식이다(부하가 높으면 이 레인의 무거운 실행부터 멈춘다). 적대적 리뷰는 type=adversarial 로 바꾼다(implementer 와 다른 모델로 라우팅). {{…}} 자리를 모두 채워야 디스패치된다. -->
+<!-- lanekeeper-brief v1 type=review lane={{lane}} template=review implementer={{implementer}} role=verifier -->
+<!-- 표지: type 은 라우팅 작업 종류(lanekeeper-route tasks), lane 은 레인 이름, role=verifier 는 검수 레인 표식이다(부하가 높으면 이 레인의 무거운 실행부터 멈춘다). 적대적 리뷰는 type=adversarial 로 바꾼다(implementer 와 다른 모델로 라우팅). {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}}
 
 ## 기준

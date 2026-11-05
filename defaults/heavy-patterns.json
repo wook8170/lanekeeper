@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "_comment": "Pattern groups for commands that must run inside a wb-slot. machine.slots.heavy.patterns and machine.slots.browser.patterns name the groups that need each kind of slot. Each regex is matched, case-insensitively, against one simple command: its program name (without directory) followed by its arguments, separated by single spaces. Single-file test runs are deliberately not matched.",
+  "_comment": "Pattern groups for commands that must run inside a lanekeeper-slot. machine.slots.heavy.patterns and machine.slots.browser.patterns name the groups that need each kind of slot. Each regex is matched, case-insensitively, against one simple command: its program name (without directory) followed by its arguments, separated by single spaces. Single-file test runs are deliberately not matched.",
   "groups": {
     "full-test": [
       "^(npm|pnpm|yarn|bun)( (-r|--recursive|-w|--workspaces|--if-present))*( run)? test(:all|:unit)?( --\\S+)*$",

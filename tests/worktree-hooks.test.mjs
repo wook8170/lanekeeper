@@ -16,25 +16,25 @@ process.env.GIT_CONFIG_NOSYSTEM = '1'
 const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...a], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
 function fixture() {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-wth-')))
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-wth-')))
   const repo = path.join(base, 'repo')
   fs.mkdirSync(repo)
   git(repo, 'init', '-q', '-b', 'main')
   git(repo, 'commit', '-q', '--allow-empty', '-m', 'i')
   const home = path.join(base, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
+  const env = { PATH: process.env.PATH, HOME: home, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
   const settings = path.join(repo, '.claude', 'settings.local.json')
   const read = () => JSON.parse(fs.readFileSync(settings, 'utf8'))
   const project = (obj) => {
-    fs.mkdirSync(path.join(repo, '.wb'), { recursive: true })
-    fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify(obj))
+    fs.mkdirSync(path.join(repo, '.lanekeeper'), { recursive: true })
+    fs.writeFileSync(path.join(repo, '.lanekeeper', 'config.json'), JSON.stringify(obj))
   }
   return { base, repo, env, settings, read, project, cleanup: () => fs.rmSync(base, { recursive: true, force: true }) }
 }
 
-const ROOT_A = '/opt/plugins/wb/0.1.0'
-const ROOT_B = '/opt/plugins/wb/0.2.0'
+const ROOT_A = '/opt/plugins/lanekeeper/0.1.0'
+const ROOT_B = '/opt/plugins/lanekeeper/0.2.0'
 
 test('off by default: a session start writes nothing', () => {
   const f = fixture()
@@ -50,12 +50,12 @@ test('turned on: both hooks are written to the main checkout settings.local.json
   const msg = JSON.parse(sessionSync({ cwd: f.repo }, f.env, ROOT_A))
   assert.match(msg.systemMessage, /Registered the Claude Code worktree hooks/)
   const s = f.read()
-  assert.equal(s.hooks.WorktreeCreate[0].hooks[0].command, `"${ROOT_A}/bin/wb-worktree" hook-create`)
-  assert.equal(s.hooks.WorktreeRemove[0].hooks[0].command, `"${ROOT_A}/bin/wb-worktree" hook-remove`)
+  assert.equal(s.hooks.WorktreeCreate[0].hooks[0].command, `"${ROOT_A}/bin/lanekeeper-worktree" hook-create`)
+  assert.equal(s.hooks.WorktreeRemove[0].hooks[0].command, `"${ROOT_A}/bin/lanekeeper-worktree" hook-remove`)
   assert.equal(status(f.repo, ROOT_A).state, 'on')
-  // ignored either by an existing rule or by the line wb adds to .git/info/exclude
+  // ignored either by an existing rule or by the line lanekeeper adds to .git/info/exclude
   assert.doesNotThrow(() => git(f.repo, 'check-ignore', '-q', '.claude/settings.local.json'))
-  assert.equal(git(f.repo, 'status', '--porcelain'), '?? .wb/', 'settings.local.json is not shown as untracked')
+  assert.equal(git(f.repo, 'status', '--porcelain'), '?? .lanekeeper/', 'settings.local.json is not shown as untracked')
   assert.equal(sessionSync({ cwd: f.repo }, f.env, ROOT_A), '', 'second start changes nothing')
   f.cleanup()
 })
@@ -72,7 +72,7 @@ test('a plugin update moves the root: the next session start re-points the comma
   f.cleanup()
 })
 
-test('turned off again: only the wb entries are removed, other settings and hooks stay', () => {
+test('turned off again: only the lanekeeper entries are removed, other settings and hooks stay', () => {
   const f = fixture()
   fs.mkdirSync(path.dirname(f.settings), { recursive: true })
   fs.writeFileSync(f.settings, JSON.stringify({ permissions: { allow: ['Bash(ls)'] }, hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo stop' }] }] } }))
@@ -85,7 +85,7 @@ test('turned off again: only the wb entries are removed, other settings and hook
   f.cleanup()
 })
 
-test('another WorktreeCreate hook already present: wb does not add a second one', () => {
+test('another WorktreeCreate hook already present: lanekeeper does not add a second one', () => {
   const f = fixture()
   fs.mkdirSync(path.dirname(f.settings), { recursive: true })
   const other = { hooks: { WorktreeCreate: [{ hooks: [{ type: 'command', command: 'my-vcs-create' }] }] } }
@@ -107,10 +107,10 @@ test('init: the worktree question is no by default; yes writes the setting and r
   const f = fixture()
   initProject(f.repo, { kind: 'other', language: 'en' }, f.env, ROOT_A)
   assert.equal(fs.existsSync(f.settings), false)
-  assert.equal(JSON.parse(fs.readFileSync(path.join(f.repo, '.wb', 'config.json'), 'utf8')).worktree, undefined)
+  assert.equal(JSON.parse(fs.readFileSync(path.join(f.repo, '.lanekeeper', 'config.json'), 'utf8')).worktree, undefined)
   const g = fixture()
   const actions = initProject(g.repo, { kind: 'other', language: 'en', worktreeHook: true }, g.env, ROOT_A)
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(g.repo, '.wb', 'config.json'), 'utf8')).worktree, { hook: true })
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(g.repo, '.lanekeeper', 'config.json'), 'utf8')).worktree, { hook: true })
   assert.ok(actions.some((a) => a.type === 'worktreeHook'))
   assert.equal(status(g.repo, ROOT_A).state, 'on')
   f.cleanup()
@@ -126,30 +126,30 @@ test('init keeps an existing config and says how to turn the hooks on', () => {
   f.cleanup()
 })
 
-test('CLI: wb-config init --worktree-hook yes, then wb-worktree hooks status and sync', async () => {
+test('CLI: lanekeeper-config init --worktree-hook yes, then lanekeeper-worktree hooks status and sync', async () => {
   const { fileURLToPath } = await import('node:url')
   const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const f = fixture()
   const run = (bin, ...a) => execFileSync(process.execPath, [path.join(ROOT, 'bin', bin), ...a], { cwd: f.repo, env: f.env, encoding: 'utf8' })
-  run('wb-config', 'init', '--kind', 'other', '--lang', 'en', '--worktree-hook', 'yes')
-  const st = JSON.parse(run('wb-worktree', 'hooks', 'status', '--json'))
+  run('lanekeeper-config', 'init', '--kind', 'other', '--lang', 'en', '--worktree-hook', 'yes')
+  const st = JSON.parse(run('lanekeeper-worktree', 'hooks', 'status', '--json'))
   assert.equal(st.setting, true)
   assert.equal(st.state, 'on')
-  assert.ok(f.read().hooks.WorktreeCreate[0].hooks[0].command.includes(path.join(ROOT, 'bin', 'wb-worktree')))
+  assert.ok(f.read().hooks.WorktreeCreate[0].hooks[0].command.includes(path.join(ROOT, 'bin', 'lanekeeper-worktree')))
   f.project({ version: 1, worktree: { hook: false } })
-  assert.equal(JSON.parse(run('wb-worktree', 'hooks', 'sync', '--json')).state, 'off')
+  assert.equal(JSON.parse(run('lanekeeper-worktree', 'hooks', 'sync', '--json')).state, 'off')
   assert.equal(f.read().hooks, undefined)
   f.cleanup()
 })
 
-test('wb-config validate prints a translated fix line on a settings error (config.fix)', async () => {
+test('lanekeeper-config validate prints a translated fix line on a settings error (config.fix)', async () => {
   const { fileURLToPath } = await import('node:url')
   const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
   const f = fixture()
-  fs.writeFileSync(path.join(f.env.WB_HOME, 'machine.json'), JSON.stringify({ lanes: { max: 0 } }))
+  fs.writeFileSync(path.join(f.env.LANEKEEPER_HOME, 'machine.json'), JSON.stringify({ lanes: { max: 0 } }))
   for (const [lang, re] of [['en_US.UTF-8', /How to fix: /], ['ko_KR.UTF-8', /고치는 법: /]]) {
     try {
-      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'wb-config'), 'validate'], { cwd: f.repo, env: { ...f.env, LANG: lang }, encoding: 'utf8' })
+      execFileSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-config'), 'validate'], { cwd: f.repo, env: { ...f.env, LANG: lang }, encoding: 'utf8' })
       assert.fail('validate should fail')
     } catch (e) {
       assert.equal(e.status, 1)

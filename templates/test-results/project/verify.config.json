@@ -12,7 +12,7 @@
       "adapter": "vitest",
       "kind": "unit",
       "suite": "app",
-      "cmd": "npx vitest run --reporter=default --reporter=json --outputFile.json={file}",
+      "cmd": "./node_modules/.bin/vitest run --reporter=default --reporter=json --outputFile.json={file}",
       "slot": "heavy"
     },
     {
@@ -20,8 +20,8 @@
       "adapter": "playwright",
       "kind": "e2e",
       "suite": "e2e",
-      "cmd": "npx playwright test --reporter=list,json",
-      "env": { "WB_E2E_REPORT_DIR": "{dir}/e2e", "PLAYWRIGHT_JSON_OUTPUT_NAME": "{file}" },
+      "cmd": "./node_modules/.bin/playwright test --reporter=list,json",
+      "env": { "LANEKEEPER_E2E_REPORT_DIR": "{dir}/e2e", "PLAYWRIGHT_JSON_OUTPUT_NAME": "{file}" },
       "slot": "heavy,browser"
     }
   ],

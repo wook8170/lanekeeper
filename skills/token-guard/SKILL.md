@@ -4,7 +4,7 @@ description: Show or manage the token guard (official five-hour and seven-day us
 argument-hint: "status | on | off | calibrate --five <n> [--seven <n>] [--at HH:MM] | calibrate --check | calibrate [<weighted tokens>]"
 ---
 
-# wb token guard
+# Lanekeeper token guard
 
 A hook works out the usage percentage and speaks only when the stage rises: at the first stage it asks for shorter waves, at the middle stage for a handoff after every wave, at the last stage for a final handoff, a desktop notification and a wait. Stages are `personal.token_guard.stages` (default 90, 95, 99).
 
@@ -18,8 +18,8 @@ How the percentage is found:
 
 Commands:
 
-- `status` (default): `wb-token status` shows the official value (fetch time, fresh or not, last 8 characters of the account, reset times), the estimate now with what was added, and where the ratio comes from.
-- `on` / `off`: `wb-token on` / `wb-token off`
+- `status` (default): `lanekeeper-token status` shows the official value (fetch time, fresh or not, last 8 characters of the account, reset times), the estimate now with what was added, and where the ratio comes from.
+- `on` / `off`: `lanekeeper-token on` / `lanekeeper-token off`
 - `calibrate --five <n> [--seven <n>] [--at HH:MM]`: adds the percentages the user reads in `/usage` as a calibration point (`--at` = when they were read; default now). Use it when the user tells you the app's numbers.
 - `calibrate --check`: lists the calibration points of the same window and the rate between them.
 - `calibrate [<n>]`: sets the fallback budget. Without a number it uses the current weighted usage of the window.

@@ -7,9 +7,9 @@
 // markup tags (or CSS selectors, for style sheets) differs between the old and new text.
 // Text, attribute and property edits pass.
 // A decision is a file in the decisions folder (paths.decisions) with the marker
-//   <!-- wb-decision v1 status=decided kind=mockup scope=src/list/**,src/shared/Table.tsx -->
-// whose scope covers the file (no scope = every UI file). `wb-decide new --kind mockup
-// --scope …` writes it as status=pending, which does not unlock; `wb-decide answer` turns it
+//   <!-- lanekeeper-decision v1 status=decided kind=mockup scope=src/list/**,src/shared/Table.tsx -->
+// whose scope covers the file (no scope = every UI file). `lanekeeper-decide new --kind mockup
+// --scope …` writes it as status=pending, which does not unlock; `lanekeeper-decide answer` turns it
 // to decided. A hand-written marker without status counts as decided. Not a safety hook: fail-open.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -19,7 +19,7 @@ import { hookMain } from '../../../lib/runtime.mjs'
 import { globToRe, expandBraces } from '../safety/common.mjs'
 
 const STYLE_RE = /\.(css|scss|sass|less)$/i
-const DECISION_RE = /<!--\s*wb-decision\s+v\d+\b([^>]*?)-->/g
+const DECISION_RE = /<!--\s*(?:lanekeeper|wb)-decision\s+v\d+\b([^>]*?)-->/g
 
 const match = (file, globs) => globs.flatMap(expandBraces).some((g) => globToRe(g).test(file) || (g.startsWith('**/') && globToRe(g.slice(3)).test(file)))
 
@@ -88,7 +88,7 @@ export function handle(input, env = process.env) {
   if (mockupDecisions(dir).some((d) => !d.scope.length || match(rel, d.scope))) return null
   const t = translator(resolved.effective.language)
   const reason = [
-    `[wb] ${t('safety.blocked')}: ${t('mockup.why', { file: rel })}`,
+    `[lanekeeper] ${t('safety.blocked')}: ${t('mockup.why', { file: rel })}`,
     `${t('safety.fix')}: ${t('mockup.fix', { dir: path.relative(root, dir) || '.', file: rel })}`,
     `${t('safety.help')}: ${t('mockup.where')}`,
   ].join('\n')

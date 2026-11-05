@@ -23,8 +23,8 @@ const tko = translator('ko')
 const ten = translator('en')
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
 const project = (fx, obj) => {
-  fs.mkdirSync(path.join(fx.repo, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, ...obj }))
+  fs.mkdirSync(path.join(fx.repo, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, ...obj }))
 }
 const withEnv = (fx, extra = {}) => ({ ...fx.env, LANG: 'ko_KR.UTF-8', ...extra })
 const MAP = [
@@ -73,49 +73,49 @@ test('style: fillTemplate fills known names and leaves the rest', () => {
   assert.equal(S.fillTemplate('{{a}} {{ b }} {{c}}', { a: '1', b: '2' }), '1 2 {{c}}')
 })
 
-test('wb-style brief: {{style}} follows style.map for the owned files (ko and en templates)', () => {
+test('lanekeeper-style brief: {{style}} follows style.map for the owned files (ko and en templates)', () => {
   const fx = makeEnv()
   project(fx, { style: { map: MAP } })
   for (const lang of ['ko', 'en']) {
-    const r = bin('wb-style', ['brief', 'docs', '--owned', 'docs/a.md', '--var', 'lane=l8', '--lang', lang], withEnv(fx), fx.repo)
+    const r = bin('lanekeeper-style', ['brief', 'docs', '--owned', 'docs/a.md', '--var', 'lane=l8', '--lang', lang], withEnv(fx), fx.repo)
     assert.equal(r.status, 0, r.stderr)
     const tr = translator(lang)
     assert.ok(r.stdout.includes(tr('style.report.line')), 'report style line is in the brief')
     assert.ok(!r.stdout.includes('{{style}}'))
     assert.ok(r.stdout.includes('{{title}}'), 'other placeholders stay')
-    const m = bin('wb-style', ['brief', 'docs', '--owned', 'apps/a/screens/X.tsx,docs/b.md', '--lang', lang], withEnv(fx), fx.repo)
+    const m = bin('lanekeeper-style', ['brief', 'docs', '--owned', 'apps/a/screens/X.tsx,docs/b.md', '--lang', lang], withEnv(fx), fx.repo)
     assert.ok(m.stdout.includes(tr('style.haeyo.line')) && m.stdout.includes(tr('style.report.line')), 'mixed owned files list both')
   }
   fx.cleanup()
 })
 
-test('wb-style: of, text, rules and error exits', () => {
+test('lanekeeper-style: of, text, rules and error exits', () => {
   const fx = makeEnv()
   project(fx, { style: { map: MAP } })
   const env = withEnv(fx)
-  const of = bin('wb-style', ['of', 'docs/x.md', 'src/y.ts', '--json'], env, fx.repo)
+  const of = bin('lanekeeper-style', ['of', 'docs/x.md', 'src/y.ts', '--json'], env, fx.repo)
   const rows = JSON.parse(of.stdout)
   assert.equal(rows[0].style, 'report')
   assert.equal(rows[1].style, null)
-  assert.equal(bin('wb-style', ['text', 'apps/a/screens/b.tsx'], env, fx.repo).stdout.trim(), tko('style.haeyo.line'))
-  assert.match(bin('wb-style', ['rules', 'haeyo'], env, fx.repo).stdout, /해요체/)
-  assert.equal(bin('wb-style', ['rules', 'zzz'], env, fx.repo).status, 2)
-  assert.equal(bin('wb-style', ['brief', 'nope'], env, fx.repo).status, 2)
-  assert.equal(bin('wb-style', [], env, fx.repo).status, 2)
+  assert.equal(bin('lanekeeper-style', ['text', 'apps/a/screens/b.tsx'], env, fx.repo).stdout.trim(), tko('style.haeyo.line'))
+  assert.match(bin('lanekeeper-style', ['rules', 'haeyo'], env, fx.repo).stdout, /해요체/)
+  assert.equal(bin('lanekeeper-style', ['rules', 'zzz'], env, fx.repo).status, 2)
+  assert.equal(bin('lanekeeper-style', ['brief', 'nope'], env, fx.repo).status, 2)
+  assert.equal(bin('lanekeeper-style', [], env, fx.repo).status, 2)
   fx.cleanup()
 })
 
-test('wb-style: a filled brief passes wb-check brief when every placeholder is given', () => {
+test('lanekeeper-style: a filled brief passes lanekeeper-check brief when every placeholder is given', () => {
   const fx = makeEnv()
   project(fx, { style: { map: MAP } })
   const vars = ['lane', 'title', 'worktree', 'branch', 'base_sha', 'read_first', 'goal', 'owned_files', 'acceptance', 'report_path', 'trailer']
   const args = ['brief', 'impl', '--owned', 'docs/a.md']
   for (const v of vars) args.push('--var', `${v}=${v === 'base_sha' ? 'abc1234' : `x-${v}`}`)
-  const r = bin('wb-style', args, withEnv(fx), fx.repo)
+  const r = bin('lanekeeper-style', args, withEnv(fx), fx.repo)
   assert.equal(r.status, 0, r.stderr)
   const file = path.join(fx.base, 'brief.md')
   fs.writeFileSync(file, r.stdout)
-  const c = bin('wb-check', ['brief', file], withEnv(fx), fx.repo)
+  const c = bin('lanekeeper-check', ['brief', file], withEnv(fx), fx.repo)
   assert.equal(c.status, 0, c.stdout + c.stderr)
   fx.cleanup()
 })
@@ -182,29 +182,29 @@ test('catalog: validateCatalog reports empty text, missing paths and unknown cod
 })
 
 test('catalog: rules/catalog.<lang>.md is up to date with catalog.json', () => {
-  for (const lang of ['ko', 'en']) assert.equal(read(`rules/catalog.${lang}.md`), R.renderMarkdown(rules, lang, translator(lang)), `run: wb-rules render --write (${lang})`)
+  for (const lang of ['ko', 'en']) assert.equal(read(`rules/catalog.${lang}.md`), R.renderMarkdown(rules, lang, translator(lang)), `run: lanekeeper-rules render --write (${lang})`)
   assert.match(read('rules/catalog.ko.md'), /### 레인은 자기 브랜치에만 커밋 \(`lane-own-branch`\)/)
 })
 
-test('wb-rules and wb-explain code: show the rule, why, place and recovery', () => {
+test('lanekeeper-rules and lanekeeper-explain code: show the rule, why, place and recovery', () => {
   const fx = makeEnv()
   const env = withEnv(fx)
-  const show = bin('wb-rules', ['show', 'no-pattern-kill'], env, fx.repo)
+  const show = bin('lanekeeper-rules', ['show', 'no-pattern-kill'], env, fx.repo)
   assert.equal(show.status, 0)
   assert.match(show.stdout, /왜:/)
   assert.match(show.stdout, /어디서 지키나:.*kill-guard/)
   assert.match(show.stdout, /막혔을 때:/)
-  const code = bin('wb-explain', ['code', 'safety.git.lane_commit', '--lang', 'en'], env, fx.repo)
+  const code = bin('lanekeeper-explain', ['code', 'safety.git.lane_commit', '--lang', 'en'], env, fx.repo)
   assert.equal(code.status, 0)
   assert.match(code.stdout, /lane-own-branch/)
   assert.match(code.stdout, /Fix:/)
-  const js = JSON.parse(bin('wb-explain', ['code', 'safety.kill.pattern', '--json'], env, fx.repo).stdout)
+  const js = JSON.parse(bin('lanekeeper-explain', ['code', 'safety.kill.pattern', '--json'], env, fx.repo).stdout)
   assert.equal(js.rule.id, 'no-pattern-kill')
-  assert.equal(bin('wb-rules', ['show', 'nope'], env, fx.repo).status, 1)
-  assert.equal(bin('wb-explain', ['code', 'nope.nope'], env, fx.repo).status, 1)
-  assert.equal(bin('wb-rules', ['check'], env, fx.repo).status, 0)
-  assert.match(bin('wb-rules', ['list', '--group', 'git'], env, fx.repo).stdout, /lane-own-branch/)
-  assert.equal(bin('wb-rules', ['bogus'], env, fx.repo).status, 2)
+  assert.equal(bin('lanekeeper-rules', ['show', 'nope'], env, fx.repo).status, 1)
+  assert.equal(bin('lanekeeper-explain', ['code', 'nope.nope'], env, fx.repo).status, 1)
+  assert.equal(bin('lanekeeper-rules', ['check'], env, fx.repo).status, 0)
+  assert.match(bin('lanekeeper-rules', ['list', '--group', 'git'], env, fx.repo).stdout, /lane-own-branch/)
+  assert.equal(bin('lanekeeper-rules', ['bogus'], env, fx.repo).status, 2)
   fx.cleanup()
 })
 
@@ -251,7 +251,7 @@ test('explain: gate lock, dead lane, failed lane, review lane and full lanes', (
     W.setStatus(state, 'w1', lane, status, '', T0)
     const wt = path.join(fx.base, `wt-${lane}`)
     fs.mkdirSync(wt)
-    upsertLane(state, { id: lane, branch: `wb/x/${lane}`, worktree: wt, integration: 'main' })
+    upsertLane(state, { id: lane, branch: `lanekeeper/x/${lane}`, worktree: wt, integration: 'main' })
   }
   const items = run(T0 + 60 * 60e3).items
   const byId = Object.fromEntries(items.map((i) => [i.id, i]))
@@ -294,25 +294,25 @@ test('explain: every item id has what, why and fix text in ko and en, and a know
 test('explain: itemLines and summary are plain text with a fix line', () => {
   const lines = X.itemLines({ id: 'limit', level: 'wait', vars: { model: 'opus', until: '10:00', scope: '5h' }, rule: 'model-routing' }, tko)
   assert.match(lines[0], /^\[기다림\] opus 모델/)
-  assert.ok(lines.some((l) => l.includes('해결:')) && lines.some((l) => l.includes('wb-rules show model-routing')))
+  assert.ok(lines.some((l) => l.includes('해결:')) && lines.some((l) => l.includes('lanekeeper-rules show model-routing')))
   assert.equal(X.summary([], tko), tko('xp.clear'))
   assert.match(X.summary([{ level: 'block' }, { level: 'wait' }, { level: 'wait' }], ten), /Blocked: 1, waiting: 2, notes: 0/)
 })
 
-test('wb-explain: process output in ko; links from explain.links', () => {
+test('lanekeeper-explain: process output in ko; links from explain.links', () => {
   const fx = makeEnv()
   project(fx, { explain: { links: [{ title: 'Guide', href: 'docs/guide.md' }, { title: 'More', href: 'docs/more.md' }] } })
   const env = withEnv(fx)
-  const r = bin('wb-explain', [], env, fx.repo)
+  const r = bin('lanekeeper-explain', [], env, fx.repo)
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /막힌 것 0건/)
-  const j = JSON.parse(bin('wb-explain', ['--json'], env, fx.repo).stdout)
+  const j = JSON.parse(bin('lanekeeper-explain', ['--json'], env, fx.repo).stdout)
   assert.ok(Array.isArray(j.items))
-  const l = bin('wb-explain', ['links'], env, fx.repo).stdout
+  const l = bin('lanekeeper-explain', ['links'], env, fx.repo).stdout
   assert.match(l, /Guide\tdocs\/guide\.md/)
   assert.match(l, /More\tdocs\/more\.md/)
   const none = makeEnv()
-  assert.match(bin('wb-explain', ['links'], withEnv(none), none.repo).stdout, /explain\.links/)
+  assert.match(bin('lanekeeper-explain', ['links'], withEnv(none), none.repo).stdout, /explain\.links/)
   fx.cleanup()
   none.cleanup()
 })
@@ -402,24 +402,24 @@ test('work: progress line text (ko and en)', () => {
   assert.match(K.renderProgress(K.progressFrom([]), tko), /레인 없음/)
 })
 
-test('wb-work: plan and progress from the ledger', () => {
+test('lanekeeper-work: plan and progress from the ledger', () => {
   const fx = makeEnv()
   const env = withEnv(fx)
-  const plan = bin('wb-work', ['plan', '로그인이', '안', '돼요'], env, fx.repo)
+  const plan = bin('lanekeeper-work', ['plan', '로그인이', '안', '돼요'], env, fx.repo)
   assert.equal(plan.status, 0, plan.stderr)
   assert.match(plan.stdout, /요청 종류: 고장·오류/)
   assert.match(plan.stdout, /\(모델 \w+\)/)
-  const js = JSON.parse(bin('wb-work', ['plan', 'add a filter', '--json'], env, fx.repo).stdout)
+  const js = JSON.parse(bin('lanekeeper-work', ['plan', 'add a filter', '--json'], env, fx.repo).stdout)
   assert.equal(js.kind, 'feature')
-  assert.equal(bin('wb-work', ['plan'], env, fx.repo).status, 2)
-  assert.match(bin('wb-work', ['progress'], env, fx.repo).stdout, /1\/7 요청 확인 · 레인 없음/)
+  assert.equal(bin('lanekeeper-work', ['plan'], env, fx.repo).status, 2)
+  assert.match(bin('lanekeeper-work', ['progress'], env, fx.repo).stdout, /1\/7 요청 확인 · 레인 없음/)
   const state = stateDir(fx.repo)
   fs.mkdirSync(state, { recursive: true })
   W.initWave(state, { id: 'w1' })
   W.addLane(state, 'w1', { lane: 'a', task: 'impl-multi', model: 'opus' })
   W.setStatus(state, 'w1', 'a', 'running', '')
-  assert.match(bin('wb-work', ['progress'], env, fx.repo).stdout, /3\/7 구현 중 · 진행 1/)
-  assert.equal(JSON.parse(bin('wb-work', ['progress', '--json'], env, fx.repo).stdout).counts.running, 1)
+  assert.match(bin('lanekeeper-work', ['progress'], env, fx.repo).stdout, /3\/7 구현 중 · 진행 1/)
+  assert.equal(JSON.parse(bin('lanekeeper-work', ['progress', '--json'], env, fx.repo).stdout).counts.running, 1)
   assert.equal(boardRows(state).length, 1)
   fx.cleanup()
 })
@@ -451,12 +451,12 @@ test('decide: slug rules and path pattern', () => {
   assert.equal(D.decisionPath('/p', 'docs/decisions/{date}-{slug}.md', { date: '2026-10-17', slug: 'x' }), '/p/docs/decisions/2026-10-17-x.md')
 })
 
-test('wb-decide: new, list, answer; refuses duplicates, bad input and double answers; never commits', () => {
+test('lanekeeper-decide: new, list, answer; refuses duplicates, bad input and double answers; never commits', () => {
   const fx = makeEnv()
   const env = withEnv(fx)
   const head = () => git(fx.repo, 'rev-parse', 'HEAD')
   const before = head()
-  const mk = (slug, ...extra) => bin('wb-decide', ['new', slug, '--title', '저장 방식', '--question', '무엇으로 저장할까요?', '--option', 'A=파일', '--option', 'B=DB', ...extra], env, fx.repo)
+  const mk = (slug, ...extra) => bin('lanekeeper-decide', ['new', slug, '--title', '저장 방식', '--question', '무엇으로 저장할까요?', '--option', 'A=파일', '--option', 'B=DB', ...extra], env, fx.repo)
   const c = mk('storage', '--recommend', 'A')
   assert.equal(c.status, 0, c.stderr)
   assert.match(c.stdout, /결정 요청을 만들었어요: docs\/decisions\/\d{4}-\d\d-\d\d-storage\.md/)
@@ -464,26 +464,26 @@ test('wb-decide: new, list, answer; refuses duplicates, bad input and double ans
   assert.notEqual(mk('storage').status, 0, 'duplicate')
   assert.equal(mk('bad slug').status, 2)
   assert.equal(mk('x', '--recommend', 'Z').status, 2)
-  assert.equal(bin('wb-decide', ['new', 'y', '--title', 't', '--question', 'q', '--option', 'A=1'], env, fx.repo).status, 2, 'one option')
-  assert.equal(bin('wb-decide', ['new', 'y', '--title', 't'], env, fx.repo).status, 2, 'no question')
-  const pend = bin('wb-decide', ['list', '--pending'], env, fx.repo)
+  assert.equal(bin('lanekeeper-decide', ['new', 'y', '--title', 't', '--question', 'q', '--option', 'A=1'], env, fx.repo).status, 2, 'one option')
+  assert.equal(bin('lanekeeper-decide', ['new', 'y', '--title', 't'], env, fx.repo).status, 2, 'no question')
+  const pend = bin('lanekeeper-decide', ['list', '--pending'], env, fx.repo)
   assert.match(pend.stdout, /결정 대기\t.*storage\.md\t저장 방식/)
-  assert.equal(bin('wb-decide', ['answer', 'storage'], env, fx.repo).status, 2, 'no choice')
-  const a = bin('wb-decide', ['answer', 'storage', '--choice', 'A. 파일', '--note', '단순함'], env, fx.repo)
+  assert.equal(bin('lanekeeper-decide', ['answer', 'storage'], env, fx.repo).status, 2, 'no choice')
+  const a = bin('lanekeeper-decide', ['answer', 'storage', '--choice', 'A. 파일', '--note', '단순함'], env, fx.repo)
   assert.equal(a.status, 0, a.stderr)
-  assert.match(bin('wb-decide', ['list', '--pending'], env, fx.repo).stdout, /결정을 기다리는 것이 없어요/)
-  assert.match(bin('wb-decide', ['list'], env, fx.repo).stdout, /결정됨/)
-  assert.notEqual(bin('wb-decide', ['answer', 'storage', '--choice', 'B'], env, fx.repo).status, 0, 'already decided')
-  assert.notEqual(bin('wb-decide', ['answer', 'nothing', '--choice', 'B'], env, fx.repo).status, 0)
-  assert.equal(JSON.parse(bin('wb-decide', ['list', '--json'], env, fx.repo).stdout)[0].status, 'decided')
+  assert.match(bin('lanekeeper-decide', ['list', '--pending'], env, fx.repo).stdout, /결정을 기다리는 것이 없어요/)
+  assert.match(bin('lanekeeper-decide', ['list'], env, fx.repo).stdout, /결정됨/)
+  assert.notEqual(bin('lanekeeper-decide', ['answer', 'storage', '--choice', 'B'], env, fx.repo).status, 0, 'already decided')
+  assert.notEqual(bin('lanekeeper-decide', ['answer', 'nothing', '--choice', 'B'], env, fx.repo).status, 0)
+  assert.equal(JSON.parse(bin('lanekeeper-decide', ['list', '--json'], env, fx.repo).stdout)[0].status, 'decided')
   assert.equal(head(), before, 'no commit was made')
   fx.cleanup()
 })
 
-test('wb-decide: path comes from project.paths.decisions', () => {
+test('lanekeeper-decide: path comes from project.paths.decisions', () => {
   const fx = makeEnv()
   project(fx, { paths: { decisions: 'adr/{slug}.md' } })
-  const r = bin('wb-decide', ['new', 'x', '--title', 't', '--question', 'q', '--option', 'A=1', '--option', 'B=2'], withEnv(fx), fx.repo)
+  const r = bin('lanekeeper-decide', ['new', 'x', '--title', 't', '--question', 'q', '--option', 'A=1', '--option', 'B=2'], withEnv(fx), fx.repo)
   assert.equal(r.status, 0, r.stderr)
   assert.ok(fs.existsSync(path.join(fx.repo, 'adr', 'x.md')))
   fx.cleanup()
@@ -497,12 +497,12 @@ test('skills: work, explain, writing-style, decide exist with matching front mat
     const m = /^---\nname: (.+)\ndescription: (.+)\n---\n/.exec(body)
     assert.ok(m, name)
     assert.equal(m[1], name)
-    assert.ok(m[2].length > 60 && m[2].includes(`/wb:${name}`), `${name} description names its command`)
+    assert.ok(m[2].length > 60 && m[2].includes(`/lanekeeper:${name}`), `${name} description names its command`)
   }
 })
 
-test('skills: every wb tool a skill names exists in bin/', () => {
+test('skills: every lanekeeper tool a skill names exists in bin/', () => {
   for (const name of ['work', 'explain', 'writing-style', 'decide']) {
-    for (const m of read(`skills/${name}/SKILL.md`).matchAll(/`(wb-[a-z-]+)[ `]/g)) assert.ok(fs.existsSync(path.join(ROOT, 'bin', m[1])), `${name}: ${m[1]}`)
+    for (const m of read(`skills/${name}/SKILL.md`).matchAll(/`(lanekeeper-[a-z-]+)[ `]/g)) assert.ok(fs.existsSync(path.join(ROOT, 'bin', m[1])), `${name}: ${m[1]}`)
   }
 })

@@ -7,7 +7,7 @@
 //        [--only=<stage>,…] [--runs-dir <dir>] [--out <xlsx> | --out-template <tpl>] [--cases-dir <dir>] [--ledger-priority P0] [--no-slot]
 //        [--lang=ko|en]   language of the [verify] lines and the workbook result line (default en)
 //
-// Heavy stages (every stage unless "slot": "none") run inside `wb-slot --kind <slot> --`, so only a few
+// Heavy stages (every stage unless "slot": "none") run inside `lanekeeper-slot --kind <slot> --`, so only a few
 // heavy commands run at a time on the machine. --no-slot runs them directly.
 // Stage and gate shape: see verify.config.json next to this file.
 import fs from 'node:fs'
@@ -34,16 +34,16 @@ export function parseArgs(argv) {
 const MSG = {
   en: {
     noPython: '[verify] workbook skipped: python3 was not found. Install Python 3.8+ (macOS: brew install python3; Debian/Ubuntu: sudo apt install python3 python3-openpyxl). Elsewhere: python3 -m pip install openpyxl',
-    noOpenpyxl: '[verify] workbook skipped: the openpyxl module is missing. Install it with: sudo apt install python3-openpyxl (Debian/Ubuntu), or python3 -m pip install openpyxl. Where pip into the system Python is blocked (Homebrew, Debian 12+, Ubuntu 24.04): python3 -m venv ~/.wb/venv && ~/.wb/venv/bin/pip install openpyxl, then export WB_PYTHON=$HOME/.wb/venv/bin/python3',
-    rawKept: (dir) => `[verify] raw results are kept in ${dir}; build the workbook later with: wb-test-report build --results-dir ${dir}. The workbook is optional for the gate: when every stage passes, the gate pass stamp is still written.`,
-    noGateScript: (name) => `[verify] package.json has no script "${name}" (gate.script in .wb/verify.config.json). Add that script, point gate.script at an existing one, or list the commands in gate.steps ([{ "name": "test", "cmd": "npm test" }]).`,
+    noOpenpyxl: '[verify] workbook skipped: the openpyxl module is missing. Install it with: sudo apt install python3-openpyxl (Debian/Ubuntu), or python3 -m pip install openpyxl. Where pip into the system Python is blocked (Homebrew, Debian 12+, Ubuntu 24.04): python3 -m venv ~/.lanekeeper/venv && ~/.lanekeeper/venv/bin/pip install openpyxl, then export LANEKEEPER_PYTHON=$HOME/.lanekeeper/venv/bin/python3',
+    rawKept: (dir) => `[verify] raw results are kept in ${dir}; build the workbook later with: lanekeeper-test-report build --results-dir ${dir}. The workbook is optional for the gate: when every stage passes, the gate pass stamp is still written.`,
+    noGateScript: (name) => `[verify] package.json has no script "${name}" (gate.script in .lanekeeper/verify.config.json). Add that script, point gate.script at an existing one, or list the commands in gate.steps ([{ "name": "test", "cmd": "npm test" }]).`,
     done: (dir, failed) => `[verify] results folder ${dir} · failed stages ${failed.length ? failed.join(', ') : 'none'}`,
   },
   ko: {
     noPython: '[verify] 엑셀 생성을 건너뜁니다: python3 가 없습니다. Python 3.8 이상을 설치하십시오(macOS: brew install python3, Debian·Ubuntu: sudo apt install python3 python3-openpyxl). 그 밖의 환경은 python3 -m pip install openpyxl 을 실행하십시오.',
-    noOpenpyxl: '[verify] 엑셀 생성을 건너뜁니다: openpyxl 모듈이 없습니다. Debian·Ubuntu 는 sudo apt install python3-openpyxl, 그 밖은 python3 -m pip install openpyxl 로 설치하십시오. 시스템 Python 에 pip 설치가 막힌 환경(Homebrew·Debian 12 이상·Ubuntu 24.04)은 python3 -m venv ~/.wb/venv && ~/.wb/venv/bin/pip install openpyxl 을 실행하고 export WB_PYTHON=$HOME/.wb/venv/bin/python3 를 지정하십시오.',
-    rawKept: (dir) => `[verify] 원본 결과는 ${dir} 에 남습니다. 나중에 wb-test-report build --results-dir ${dir} 로 엑셀을 만드십시오. 엑셀은 게이트 통과의 조건이 아닙니다. 모든 단계가 통과하면 게이트 통과 표식은 그대로 남깁니다.`,
-    noGateScript: (name) => `[verify] package.json 에 "${name}" 스크립트가 없습니다(.wb/verify.config.json 의 gate.script). 그 스크립트를 추가하거나, gate.script 를 있는 스크립트로 바꾸거나, gate.steps 에 명령을 직접 적으십시오(예: [{ "name": "test", "cmd": "npm test" }]).`,
+    noOpenpyxl: '[verify] 엑셀 생성을 건너뜁니다: openpyxl 모듈이 없습니다. Debian·Ubuntu 는 sudo apt install python3-openpyxl, 그 밖은 python3 -m pip install openpyxl 로 설치하십시오. 시스템 Python 에 pip 설치가 막힌 환경(Homebrew·Debian 12 이상·Ubuntu 24.04)은 python3 -m venv ~/.lanekeeper/venv && ~/.lanekeeper/venv/bin/pip install openpyxl 을 실행하고 export LANEKEEPER_PYTHON=$HOME/.lanekeeper/venv/bin/python3 를 지정하십시오.',
+    rawKept: (dir) => `[verify] 원본 결과는 ${dir} 에 남습니다. 나중에 lanekeeper-test-report build --results-dir ${dir} 로 엑셀을 만드십시오. 엑셀은 게이트 통과의 조건이 아닙니다. 모든 단계가 통과하면 게이트 통과 표식은 그대로 남깁니다.`,
+    noGateScript: (name) => `[verify] package.json 에 "${name}" 스크립트가 없습니다(.lanekeeper/verify.config.json 의 gate.script). 그 스크립트를 추가하거나, gate.script 를 있는 스크립트로 바꾸거나, gate.steps 에 명령을 직접 적으십시오(예: [{ "name": "test", "cmd": "npm test" }]).`,
     done: (dir, failed) => `[verify] 결과 폴더 ${dir} · 실패 단계 ${failed.length ? failed.join(', ') : '없음'}`,
   },
 }
@@ -52,7 +52,7 @@ export const safeName = (n) => n.replace(/[^\w.-]+/g, '__')
 const fill = (s, vars) => s.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : `{${k}}`))
 const sh = (c, cwd) => { try { return execSync(c, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return '' } }
 
-export function pythonReady(py = process.env.WB_PYTHON || 'python3') {
+export function pythonReady(py = process.env.LANEKEEPER_PYTHON || process.env.WB_PYTHON || 'python3') {
   const r = spawnSync(py, ['-c', 'import sys, openpyxl; print(sys.version_info[0])'], { encoding: 'utf8' })
   return { ok: r.status === 0, python: r.error ? 'missing' : r.status === 0 ? 'ok' : 'noOpenpyxl' }
 }
@@ -80,7 +80,7 @@ export async function runVerify(o) {
   const runsDir = path.resolve(root, o.runsDir || path.join('test-results', 'runs'))
   const dir = path.join(runsDir, `${o.name}-${stamp(started)}`)
   fs.mkdirSync(path.join(dir, 'logs'), { recursive: true })
-  const slotBin = process.env.WB_SLOT_BIN || path.join(HERE, '..', '..', '..', 'bin', 'wb-slot')
+  const slotBin = process.env.LANEKEEPER_SLOT_BIN || process.env.WB_SLOT_BIN || path.join(HERE, '..', '..', '..', 'bin', 'lanekeeper-slot')
   const slotOn = o.slot && fs.existsSync(slotBin)
   const wrapFor = (kind) => (cmd) => slotWrap(cmd, kind, { slotBin, enabled: slotOn })
   const manifest = {
@@ -141,7 +141,7 @@ export async function runVerify(o) {
     if (o.ledgerPriority) args.push('--ledger-priority', o.ledgerPriority)
     if (o.out) args.push('--out', path.resolve(root, o.out))
     else if (o.outTemplate) args.push('--out-template', o.outTemplate)
-    const r = spawnSync(process.env.WB_PYTHON || 'python3', args, { cwd: root, stdio: o.echo === false ? 'pipe' : 'inherit', encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
+    const r = spawnSync(process.env.LANEKEEPER_PYTHON || process.env.WB_PYTHON || 'python3', args, { cwd: root, stdio: o.echo === false ? 'pipe' : 'inherit', encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } })
     report = { status: r.status ?? 1, skipped: false, stdout: r.stdout }
   }
   if (o.echo !== false) console.log(`\n${msg.done(dir, failed)}`)

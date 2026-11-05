@@ -14,4 +14,4 @@
 - 최종 보고: 무엇을 바꿨고 무엇을 검증했는지, 무엇이 남았는지.
 - 서브에이전트 지시문. 지시가 짧으면 에이전트가 헤매서 비용이 더 든다. 보고는 파일로 받고 필요한 줄만 읽는다.
 
-끄려면 `wb-terse off` 또는 `/wb:terse off` 를 쓴다.
+끄려면 `lanekeeper-terse off` 또는 `/lanekeeper:terse off` 를 쓴다.

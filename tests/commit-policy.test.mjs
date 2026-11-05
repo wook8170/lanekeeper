@@ -13,10 +13,10 @@ import { resolveConfig } from '../lib/config.mjs'
 function setup(policy, briefText) {
   const f = makeFixture()
   if (policy) {
-    // .wb/config.json is committed, so every worktree carries it
+    // .lanekeeper/config.json is committed, so every worktree carries it
     f.projectConfig({ version: 1, lanes: { commit: policy } })
-    fs.mkdirSync(path.join(f.wt.l1, '.wb'), { recursive: true })
-    fs.copyFileSync(path.join(f.repo, '.wb', 'config.json'), path.join(f.wt.l1, '.wb', 'config.json'))
+    fs.mkdirSync(path.join(f.wt.l1, '.lanekeeper'), { recursive: true })
+    fs.copyFileSync(path.join(f.repo, '.lanekeeper', 'config.json'), path.join(f.wt.l1, '.lanekeeper', 'config.json'))
   }
   if (briefText !== undefined) {
     const brief = path.join(f.base, 'l1.md')
@@ -28,8 +28,8 @@ function setup(policy, briefText) {
 const commit = (f) => f.judge('git commit -m x', { cwd: f.wt.l1, agent: 'agent-l1' })
 
 test('briefAllowsCommit: the marker attribute or a plain "commit allowed" line', () => {
-  assert.equal(briefAllowsCommit('<!-- wb-brief v1 type=impl-multi lane=l1 commit=allowed -->'), true)
-  assert.equal(briefAllowsCommit('<!-- wb-brief v1 type=impl-multi lane=l1 commit=no -->\n커밋 허용'), false, 'the marker wins')
+  assert.equal(briefAllowsCommit('<!-- lanekeeper-brief v1 type=impl-multi lane=l1 commit=allowed -->'), true)
+  assert.equal(briefAllowsCommit('<!-- lanekeeper-brief v1 type=impl-multi lane=l1 commit=no -->\n커밋 허용'), false, 'the marker wins')
   assert.equal(briefAllowsCommit('# 커밋 규칙\n- 커밋 허용 · main 병합 금지'), true)
   assert.equal(briefAllowsCommit('## Commit rules\n- Commit allowed.'), true)
   assert.equal(briefAllowsCommit('## 커밋 규칙\n- 커밋하지 않는다.'), false)
@@ -48,7 +48,7 @@ test('policy allowed (default): a lane commits on its own branch without a brief
 })
 
 test('policy on-instruction: no permission in the brief asks; permission allows; no brief asks', () => {
-  let f = setup('on-instruction', '<!-- wb-brief v1 type=impl-multi lane=l1 -->\n## 커밋 규칙\n- 자기 레인 브랜치에만 커밋한다.')
+  let f = setup('on-instruction', '<!-- lanekeeper-brief v1 type=impl-multi lane=l1 -->\n## 커밋 규칙\n- 자기 레인 브랜치에만 커밋한다.')
   try {
     const r = commit(f)
     assert.equal(r.decision, 'ask')
@@ -57,7 +57,7 @@ test('policy on-instruction: no permission in the brief asks; permission allows;
   } finally {
     f.cleanup()
   }
-  f = setup('on-instruction', '<!-- wb-brief v1 type=impl-multi lane=l1 commit=allowed -->\nwork')
+  f = setup('on-instruction', '<!-- lanekeeper-brief v1 type=impl-multi lane=l1 commit=allowed -->\nwork')
   try {
     assert.equal(commit(f).decision, 'allow')
   } finally {
@@ -84,7 +84,7 @@ test('policy value is checked by the schema', () => {
 })
 
 test('checkpoint follows the policy: skipped without permission, committed with it', () => {
-  let f = setup('on-instruction', '<!-- wb-brief v1 type=impl-multi lane=l1 -->\nwork')
+  let f = setup('on-instruction', '<!-- lanekeeper-brief v1 type=impl-multi lane=l1 -->\nwork')
   try {
     fs.writeFileSync(path.join(f.wt.l1, 'a.txt'), 'changed\n')
     const resolved = resolveConfig({ projectDir: f.wt.l1, env: f.env })
@@ -94,7 +94,7 @@ test('checkpoint follows the policy: skipped without permission, committed with 
   } finally {
     f.cleanup()
   }
-  f = setup('on-instruction', '<!-- wb-brief v1 type=impl-multi lane=l1 commit=allowed -->\nwork')
+  f = setup('on-instruction', '<!-- lanekeeper-brief v1 type=impl-multi lane=l1 commit=allowed -->\nwork')
   try {
     fs.writeFileSync(path.join(f.wt.l1, 'a.txt'), 'changed\n')
     const resolved = resolveConfig({ projectDir: f.wt.l1, env: f.env })

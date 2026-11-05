@@ -12,7 +12,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { resolveConfig, projectRoot, stateDir, wbHome } from '../../../lib/config.mjs'
+import { resolveConfig, projectRoot, stateDir, lanekeeperHome } from '../../../lib/config.mjs'
 import { ALLOW, DENY, combine, deny, formatReasons } from './common.mjs'
 import { parse } from './shell.mjs'
 import { judgeGit } from './git-guard.mjs'
@@ -36,7 +36,7 @@ export function buildContext(input, env = process.env, overrides = {}) {
     home: env.HOME || os.homedir(),
     env,
     projectRoot: root,
-    wbHome: wbHome(env),
+    lanekeeperHome: lanekeeperHome(env),
     stateDirs: sd ? [sd] : [],
     config: resolved.config,
     configErrors: resolved.errors,
@@ -80,7 +80,7 @@ export function judgeTool(input, ctx) {
   if (tool === 'Bash') return judgeCommand(String(ti.command || ''), ctx)
   if (tool === 'Skill') {
     const s = String(ti.skill || '').replace(/^\//, '')
-    return combine([s === 'wb:approve' || s === 'approve' ? deny('approve.model', {}) : null])
+    return combine([s === 'lanekeeper:approve' || s === 'approve' ? deny('approve.model', {}) : null])
   }
   if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) {
     const file = ti.file_path || ti.notebook_path

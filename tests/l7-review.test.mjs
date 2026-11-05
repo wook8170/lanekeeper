@@ -1,4 +1,4 @@
-// L7: /wb:review-lane — every one of the nine items with a passing and a failing sample,
+// L7: /lanekeeper:review-lane — every one of the nine items with a passing and a failing sample,
 // the return brief and the ledger record.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -27,9 +27,9 @@ Nothing open.
 function setup({ files = { 'src/a.ts': 'export const a = 2\n' }, config = {}, brief = null } = {}) {
   const fx = makeEnv()
   const { repo } = fx
-  fs.mkdirSync(path.join(repo, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify({ version: 1, ...config }))
-  fs.writeFileSync(path.join(repo, '.gitignore'), '.wb/briefs/\n')
+  fs.mkdirSync(path.join(repo, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, ...config }))
+  fs.writeFileSync(path.join(repo, '.gitignore'), '.lanekeeper/briefs/\n')
   git(repo, 'add', '.')
   git(repo, 'commit', '-q', '-m', 'config')
   git(repo, 'checkout', '-q', '-b', 'lane')
@@ -115,7 +115,7 @@ test('4 prefail: pass when recorded (ko or en); fail when not; skip for docs onl
   assert.equal(item(await docs.run(), 'prefail').status, 'skip')
 })
 
-const BRIEF = (owned, forbidden = '') => `<!-- wb-brief v1 type=impl-multi lane=l1 template=impl -->
+const BRIEF = (owned, forbidden = '') => `<!-- lanekeeper-brief v1 type=impl-multi lane=l1 template=impl -->
 # l1
 ## 범위
 - 소유 파일(이 밖은 고치지 않는다): ${owned}
@@ -201,7 +201,7 @@ test('9 terms: skip without a glossary or the check; fail grew or unqueued; pass
   fs.mkdirSync(path.join(s.repo, 'docs', 'glossary'), { recursive: true })
   fs.writeFileSync(path.join(s.repo, 'docs', 'glossary', 'terms.yaml'), 'terms: []\n')
   assert.equal(item(await s.run({ termsRunner: () => ({ status: 2 }) }), 'terms').code, 'terms.unavailable')
-  // the real runner: wb-check has no `terms` subcommand yet, so it is unavailable, not a failure
+  // the real runner: lanekeeper-check has no `terms` subcommand yet, so it is unavailable, not a failure
   assert.equal(item(await s.run({ termsRunner: undefined }), 'terms').code, 'terms.unavailable')
   assert.equal(item(await s.run({ termsRunner: () => ({ status: 1 }) }), 'terms').code, 'terms.grew')
   const nq = item(await s.run({ termsRunner: () => ({ status: 0, json: { new_terms: ['sync', 'rollup'], queued: ['sync'] } }) }), 'terms')
@@ -222,27 +222,27 @@ test('return brief: filled template passes the dispatch brief check (ko and en)'
     assert.match(text, /abcdef1234567/)
   }
   // numbered, never overwritten
-  assert.ok(fs.existsSync(path.join(fx.repo, '.wb', 'briefs', 'l3-return-1.md')))
-  assert.ok(fs.existsSync(path.join(fx.repo, '.wb', 'briefs', 'l3-return-2.md')))
+  assert.ok(fs.existsSync(path.join(fx.repo, '.lanekeeper', 'briefs', 'l3-return-1.md')))
+  assert.ok(fs.existsSync(path.join(fx.repo, '.lanekeeper', 'briefs', 'l3-return-2.md')))
 })
 
-test('wb-check lane: exit 1 with a return brief and a ledger return; exit 0 records done', () => {
+test('lanekeeper-check lane: exit 1 with a return brief and a ledger return; exit 0 records done', () => {
   const s = setup({ files: { 'src/a.ts': 'x\n', 'lib/b.ts': 'y\n' }, brief: BRIEF('`src/**`') })
-  const sd = path.join(git(s.repo, 'rev-parse', '--absolute-git-dir'), 'wb')
+  const sd = path.join(git(s.repo, 'rev-parse', '--absolute-git-dir'), 'lanekeeper')
   W.initWave(sd, { id: 'w1', title: 'w1' })
   W.addLane(sd, 'w1', { lane: 'l1' })
   W.setStatus(sd, 'w1', 'l1', 'review')
-  const r = bin('wb-check', ['lane', 'l1', '--head', s.head, '--report', s.report, '--brief', s.briefFile, '--wave', 'w1', '--record'], s.env, s.repo)
+  const r = bin('lanekeeper-check', ['lane', 'l1', '--head', s.head, '--report', s.report, '--brief', s.briefFile, '--wave', 'w1', '--record'], s.env, s.repo)
   assert.equal(r.status, 1, r.stderr)
   assert.match(r.stdout, /5\. Brief scope/)
-  const brief = fs.readFileSync(path.join(s.repo, '.wb', 'briefs', 'l1-return-1.md'), 'utf8')
+  const brief = fs.readFileSync(path.join(s.repo, '.lanekeeper', 'briefs', 'l1-return-1.md'), 'utf8')
   assert.match(brief, /lib\/b\.ts/)
   assert.ok(checkBrief(brief).ok)
   let lane = W.readWaves(sd).waves[0].lanes[0]
   assert.equal(lane.returns, 1)
   assert.equal(lane.verifications.at(-1).result, 'fail')
 
-  const ok = bin('wb-check', ['lane', 'l1', '--head', s.head, '--report', s.report, '--scope', 'src/**,lib/**', '--wave', 'w1', '--record', '--json'], s.env, s.repo)
+  const ok = bin('lanekeeper-check', ['lane', 'l1', '--head', s.head, '--report', s.report, '--scope', 'src/**,lib/**', '--wave', 'w1', '--record', '--json'], s.env, s.repo)
   assert.equal(ok.status, 0, ok.stdout)
   assert.equal(JSON.parse(ok.stdout).verdict, 'pass')
   lane = W.readWaves(sd).waves[0].lanes[0]

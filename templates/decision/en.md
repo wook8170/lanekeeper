@@ -1,4 +1,4 @@
-<!-- wb-decision v1 status=pending{{attrs}} -->
+<!-- lanekeeper-decision v1 status=pending{{attrs}} -->
 # {{title}}
 
 - Written: {{date}}
@@ -13,6 +13,6 @@
 {{recommend}}
 
 ## Decision
-<!-- wb:decision -->
+<!-- lanekeeper:decision -->
 Pending
-<!-- /wb:decision -->
+<!-- /lanekeeper:decision -->

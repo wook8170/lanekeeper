@@ -1,14 +1,14 @@
 # Rules
 
-wb keeps the 52 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
+Lanekeeper keeps the 52 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
 
 A hook gives one of three verdicts. Block: the command does not run. Ask: the user is asked whether to go on. Note: the command runs and the hook says what to do next.
 
-A block message has three lines: why it was blocked, how to fix it, and where to ask. To find the rule behind the code in a message (for example `safety.git.lane_commit`), run `wb-explain code <code>`. To see everything that is blocked right now, run `/wb:explain`.
+A block message has three lines: why it was blocked, how to fix it, and where to ask. To find the rule behind the code in a message (for example `safety.git.lane_commit`), run `lanekeeper-explain code <code>`. To see everything that is blocked right now, run `/lanekeeper:explain`.
 
 The rules are grouped in the order a new user usually meets them: git and branches, file and command safety, processes and environment, models and briefs, sessions and handoff, quality and documents, and planned rules.
 
-> This page is generated from `rules/catalog.json` with `wb-rules manual --write`. To change it, edit the catalog and generate it again.
+> This page is generated from `rules/catalog.json` with `lanekeeper-rules manual --write`. To change it, edit the catalog and generate it again.
 
 ## Rule list
 
@@ -24,7 +24,7 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 8 | Lane commits follow the project policy | `lane-commit-policy` | Git and branches |
 | 9 | Commands must be readable before they run | `resolvable-commands` | File and command safety |
 | 10 | Recursive delete only inside the project | `rm-inside-project` | File and command safety |
-| 11 | Agents do not edit protected paths or wb settings | `protected-paths` | File and command safety |
+| 11 | Agents do not edit protected paths or settings | `protected-paths` | File and command safety |
 | 12 | Only a person can grant | `human-only-approve` | File and command safety |
 | 13 | Blocked when the check cannot decide | `safety-fails-closed` | File and command safety |
 | 14 | Test data stays off protected data | `protected-data` | File and command safety |
@@ -64,7 +64,7 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 48 | Text search with rg | `rg-search` | Quality and documents |
 | 49 | Fix the root cause, not the symptom | `root-cause-fix` | Quality and documents |
 | 50 | No emoji in the product UI | `no-emoji-ui` | Quality and documents |
-| 51 | Install the code index when missing and go on | `codegraph-install` | Quality and documents |
+| 51 | Offer codegraph when missing; install on consent | `codegraph-install` | Quality and documents |
 | 52 | Screen words follow the glossary | `glossary-terms` | Planned |
 
 ## Git and branches
@@ -91,7 +91,7 @@ Which branches lanes and the main session may commit to, merge into and push. Th
 
 - Rule: Landing work on a protected branch such as main needs the owner's grant. A grant can be used once, within a time limit, and only for the commit named when it was given.
 - Why: Every piece of work builds on the protected branches. If an agent lands work by itself, unreviewed changes become the base for everyone.
-- If blocked: The owner types `/wb:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, type it again.
+- If blocked: The owner types `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, type it again.
 - Message codes: `safety.git.main_merge`, `safety.git.branch_protected`, `safety.grant.*`, `safety.stamp.*`, `safety.approve.*`
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`
 
@@ -99,9 +99,9 @@ Which branches lanes and the main session may commit to, merge into and push. Th
 
 - Rule: Nothing is merged while the gate is running.
 - Why: If the code changes during a gate run, nobody can tell which commit the result belongs to.
-- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to clear it with `wb-reap --gate-lock`.
+- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to clear it with `lanekeeper-reap --gate-lock`.
 - Message codes: `safety.git.gate_locked`
-- Enforced in: `hooks/scripts/safety/git-guard.mjs`, `bin/wb-test-report`
+- Enforced in: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
 
 ### 5. Destructive git commands need confirmation (`no-destructive-git`)
 
@@ -157,18 +157,18 @@ Blocks deletions that cannot be undone and commands that cannot be judged. Risky
 - Message codes: `safety.rm.*`
 - Enforced in: `hooks/scripts/safety/destructive.mjs`
 
-### 11. Agents do not edit protected paths or wb settings (`protected-paths`)
+### 11. Agents do not edit protected paths or settings (`protected-paths`)
 
-- Rule: Agents do not write protected paths, wb state files or wb settings files.
+- Rule: Agents do not write protected paths, Lanekeeper state files or Lanekeeper settings files.
 - Why: If an agent could edit the grant file or the settings, it could switch the safety rules off by itself.
-- If blocked: Change state files only with the `wb-*` commands. Settings are changed by the owner or with the owner's approval.
+- If blocked: Change state files only with the `lanekeeper-*` commands. Settings are changed by the owner or with the owner's approval.
 - Message codes: `safety.paths.*`
 - Related settings: `project.protected_paths`
 - Enforced in: `hooks/scripts/safety/paths.mjs`
 
 ### 12. Only a person can grant (`human-only-approve`)
 
-- Rule: `/wb:approve` works only when a person types it in the prompt.
+- Rule: `/lanekeeper:approve` works only when a person types it in the prompt.
 - Why: If an agent could create its own grant, the owner's grant would mean nothing.
 - If blocked: Tell the owner which action needs a grant and ask them to type it.
 - Message codes: `safety.approve.*`
@@ -178,7 +178,7 @@ Blocks deletions that cannot be undone and commands that cannot be judged. Risky
 
 - Rule: When a safety check cannot decide, or a settings file has an error, the call is blocked. When the safety hook, the dispatch guard or the ship gate hook itself fails to run or times out, Claude Code blocks the call (`onFailure: block`).
 - Why: Letting an unchecked command through switches the safety rules off exactly when they are needed.
-- If blocked: Run `/wb:doctor` to find the file and key with the error and fix it. Then check again with `wb-config validate`.
+- If blocked: Run `/lanekeeper:doctor` to find the file and key with the error and fix it. Then check again with `lanekeeper-config validate`.
 - Message codes: `safety.config.*`, `safety.internal`
 - Enforced in: `hooks/scripts/safety/pretool.mjs`, `hooks/scripts/safety/context.mjs`, `hooks/hooks.json`
 
@@ -205,10 +205,10 @@ Keeps lanes that share one machine away from each other's processes, ports and s
 
 ### 16. Lanes use their assigned ports (`lane-ports`)
 
-- Rule: A lane uses only the ports assigned to it. Ports come from `wb-port`.
+- Rule: A lane uses only the ports assigned to it. Ports come from `lanekeeper-port`.
 - Why: When two lanes use one port, one server does not start. A lane may also check another lane's server and take it for its own.
-- If blocked: Lease ports with `wb-port lease --lane <lane>` and start the server on them. On a clash, see who holds the port with `wb-port list`.
-- Enforced in: `bin/wb-port`, `lib/ports.mjs`
+- If blocked: Lease ports with `lanekeeper-port lease --lane <lane>` and start the server on them. On a clash, see who holds the port with `lanekeeper-port list`.
+- Enforced in: `bin/lanekeeper-port`, `lib/ports.mjs`
 
 ### 17. Browsers run without a window (`headless-browser`)
 
@@ -220,12 +220,12 @@ Keeps lanes that share one machine away from each other's processes, ports and s
 
 ### 18. Heavy runs go through a slot (`heavy-runs-in-slots`)
 
-- Rule: Full test runs, full builds, package installs and browser runs are wrapped in `wb-slot`.
+- Rule: Full test runs, full builds, package installs and browser runs are wrapped in `lanekeeper-slot`.
 - Why: When heavy runs overlap across lanes, the machine slows down. Tests then fail on time-outs even when nothing is broken.
-- If blocked: Run the same command as `wb-slot -- <command>`. When no slot is free, it waits its turn.
+- If blocked: Run the same command as `lanekeeper-slot -- <command>`. When no slot is free, it waits its turn.
 - Message codes: `safety.slot.*`
 - Related settings: `machine.slots`
-- Enforced in: `hooks/scripts/slots/slot-guard.mjs`, `bin/wb-slot`
+- Enforced in: `hooks/scripts/slots/slot-guard.mjs`, `bin/lanekeeper-slot`
 
 ## Models and briefs
 
@@ -235,45 +235,45 @@ Checks the model and the brief when a subagent is sent. The dispatch hook judges
 
 - Rule: A subagent runs on the model set for its task type. Denied models, models outside the fallback order and models below the minimum level are not used.
 - Why: Tasks need different levels of judgement. Design or review on a lower-level model misses defects that cost more to fix later. Adversarial review tries the highest grade in its chain first (opus by default) and picks a model other than the implementer's when one is left.
-- If blocked: Run again with the model that `wb-route resolve <task type>` names. If the usage limit leaves no allowed model, do not go below the minimum level; wait until the limit resets.
+- If blocked: Run again with the model that `lanekeeper-route resolve <task type>` names. If the usage limit leaves no allowed model, do not go below the minimum level; wait until the limit resets.
 - Message codes: `dispatch.model_*`, `dispatch.below_floor`, `dispatch.off_chain`, `dispatch.no_model`, `dispatch.type_*`, `dispatch.wait`
 - Related settings: `routing`
-- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-route`
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/lanekeeper-route`
 
 ### 20. Review uses a different model (`implementer-verifier-differ`)
 
 - Rule: Review and adversarial checks run on a model different from the one that implemented the work. If no other model is available, run the same model in a fresh conversation and say so in the report.
 - Why: A model that re-checks its own output tends to repeat the same mistake.
-- If blocked: See which model is allowed with `wb-route explain <task type> --implementer <model>` and run that model.
+- If blocked: See which model is allowed with `lanekeeper-route explain <task type> --implementer <model>` and run that model.
 - Message codes: `dispatch.differ_violation`, `dispatch.same_model`
-- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-route`
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/lanekeeper-route`
 
 ### 21. Lanes start from a brief (`brief-required`)
 
 - Rule: A lane starts from a written brief. The brief has the marker and the required sections: goal, scope, do-not, tests, report and commit.
 - Why: Spoken instructions lose the scope and the prohibitions. The lane then edits other lanes' files or leaves no report.
-- If blocked: See what is missing with `wb-check brief <file>`. Fill it in from the forms in `templates/briefs/` and start again.
+- If blocked: See what is missing with `lanekeeper-check brief <file>`. Fill it in from the forms in `templates/briefs/` and start again.
 - Message codes: `dispatch.brief_*`
 - Related settings: `dispatch.brief`
-- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-check`, `templates/briefs/ko/impl.md`
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/lanekeeper-check`, `templates/briefs/ko/impl.md`
 
 ### 22. A cap on lanes at the same time (`lane-cap`)
 
 - Rule: The number of lanes running at the same time stays within the cap (3 by default).
 - Why: Too many lanes raise the machine load, and tests fail on time-outs. The controller's review also falls behind.
-- If blocked: Land finished lanes and clean up their worktrees before opening a new one. See the running lanes with `/wb:lanes`.
+- If blocked: Land finished lanes and clean up their worktrees before opening a new one. See the running lanes with `/lanekeeper:lanes`.
 - Message codes: `dispatch.lanes_full`, `wt.lanes_full`
 - Related settings: `machine.lanes.max`
-- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/wb-worktree`
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `bin/lanekeeper-worktree`
 
 ### 23. Lanes follow the load tiers (`load-tiers`)
 
 - Rule: At or above the light-only threshold of the 1-minute load, no new lane starts for a task type with heavy runs (tests, builds, installs). At or above the hold-new-lanes threshold, no new lane starts. At or above the stop-heavy threshold, heavy runs of verifier lanes stop first. Runs that already hold a slot are not stopped.
 - Why: Starting more lanes on a loaded machine makes every lane's tests time out. Lanes without heavy runs, such as design, review and docs, add little load, so they can still start in the middle tier. Verification can wait for the executors without changing its result.
-- If blocked: Check the load and orphan processes with `wb-slot check`. List processes left in deleted lane folders with `wb-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. In the light-only tier start only light task types (`weight: light`) and dispatch the rest once the load drops.
+- If blocked: Check the load and orphan processes with `lanekeeper-slot check`. List processes left in deleted lane folders with `lanekeeper-slot reap --orphans`, and after checking stop exactly those PIDs with `--kill`. In the light-only tier start only light task types (`weight: light`) and dispatch the rest once the load drops.
 - Message codes: `dispatch.load_hold`, `dispatch.load_light_only`, `safety.slot.load_stop_heavy`
 - Related settings: `machine.load.tiers`, `routing.tasks.*.weight`
-- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/wb-slot`
+- Enforced in: `hooks/scripts/dispatch/dispatch-guard.mjs`, `hooks/scripts/slots/slot-guard.mjs`, `hooks/scripts/load/check.mjs`, `bin/lanekeeper-slot`
 
 ### 24. Lanes run only their own tests (`lane-test-scope`)
 
@@ -307,15 +307,15 @@ Lets work continue after a session ends or a usage limit stops it.
 
 - Rule: When a session starts, read `progress.md` from start to end. Rewrite the file whole at the end of each unit of work. It holds only the current state (300 lines or fewer by default). Finished content is appended to `docs/progress-archive/progress-<YYYY-MM>.md`.
 - Why: A new session that does not know the earlier conversation picks up from `progress.md` alone. If the file is out of date, finished work is done again or work in progress is missed. If old records pile up, the file grows until a new session reads only the beginning and misses the current state.
-- If blocked: Append the finished content to the archive (`wb-waves handoff archive "<summary>"` appends the whole current file). Then write goals and owner decisions, branches and servers, in progress, next steps, waiting for answers, system notes and resume commands into `progress.md` anew, and commit both files together. If the file has already grown too long, move it whole with `wb-waves handoff migrate` and then write it anew.
+- If blocked: Append the finished content to the archive (`lanekeeper-waves handoff archive "<summary>"` appends the whole current file). Then write goals and owner decisions, branches and servers, in progress, next steps, waiting for answers, system notes and resume commands into `progress.md` anew, and commit both files together. If the file has already grown too long, move it whole with `lanekeeper-waves handoff migrate` and then write it anew.
 - Related settings: `personal.handoff`
-- Enforced in: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`, `bin/wb-waves`
+- Enforced in: `hooks/scripts/handoff/session-start.mjs`, `hooks/scripts/handoff/stop-guard.mjs`, `skills/pickup/SKILL.md`, `bin/lanekeeper-waves`
 
 ### 28. Commit the record after each wave (`wave-checkpoint`)
 
 - Rule: When a wave ends, commit the progress record and tell the user to clear the conversation with `/clear`. The work-in-progress commit on a lane branch (checkpoint) follows the lane commit policy (`project.lanes.commit`).
 - Why: A long conversation hits the usage limit and the session stops. A record written early lets a new session continue from any point.
-- If blocked: Build the resume report with `/wb:resume` and clear the stale items first.
+- If blocked: Build the resume report with `/lanekeeper:resume` and clear the stale items first.
 - Related settings: `project.lanes.commit`
 - Enforced in: `hooks/scripts/checkpoint/checkpoint.mjs`, `skills/resume/SKILL.md`
 
@@ -323,7 +323,7 @@ Lets work continue after a session ends or a usage limit stops it.
 
 - Rule: When usage reaches 90%, 95% and 99%, follow the stage instructions. Usage is the higher of the official five-hour and seven-day figures, with an estimate of the local use since they were fetched. At 90%, make the units of work smaller. At 95%, write a handoff after every wave. At 99%, write the last handoff and wait.
 - Why: Stopping suddenly at the limit loses work that was not recorded.
-- If blocked: When the notice appears, finish the current step and update `progress.md`. Change the thresholds with `/wb:token-guard`.
+- If blocked: When the notice appears, finish the current step and update `progress.md`. Change the thresholds with `/lanekeeper:token-guard`.
 - Related settings: `personal.token_guard`
 - Enforced in: `hooks/scripts/token-guard/check.mjs`, `skills/token-guard/SKILL.md`
 
@@ -331,7 +331,7 @@ Lets work continue after a session ends or a usage limit stops it.
 
 - Rule: A session stopped by a usage limit is resumed automatically only in the default permission mode.
 - Why: If a session nobody is watching skips the permission prompts, risky actions can run without a check.
-- If blocked: See the schedule with `/wb:auto-retry status`. Raising the mode needs the user to go through the risk confirmation themselves.
+- If blocked: See the schedule with `/lanekeeper:auto-retry status`. Raising the mode needs the user to go through the risk confirmation themselves.
 - Related settings: `personal.auto_retry.permission_mode`
 - Enforced in: `hooks/scripts/auto-retry/detect.mjs`, `skills/auto-retry/SKILL.md`
 
@@ -339,7 +339,7 @@ Lets work continue after a session ends or a usage limit stops it.
 
 - Rule: Terse mode reduces output and tool calls. It does not reduce verification evidence or the final report.
 - Why: Terse mode is for saving tokens. It does not allow reporting results that were not checked.
-- If blocked: Turn it off with `/wb:terse off`.
+- If blocked: Turn it off with `/lanekeeper:terse off`.
 - Enforced in: `hooks/scripts/terse/session-start.mjs`, `skills/terse/SKILL.md`, `rules/terse.ko.md`
 
 ### 32. Output follows the language setting (`output-language`)
@@ -354,9 +354,9 @@ Lets work continue after a session ends or a usage limit stops it.
 
 - Rule: With `personal.report.viewer` set to `remote`, results are never pointed to with `localhost` addresses, local paths or local file attachments. Anything to show is published as an artifact, images are embedded as base64 `data:` URIs and captures are taken at 2x.
 - Why: A user on another device cannot open this machine's addresses or files. A 1x capture blurs the text, so screen differences cannot be checked by eye.
-- If blocked: Build the HTML with the images inside using `wb-art report`, publish it as an artifact and give the link. Update it by publishing from the same file path.
+- If blocked: Build the HTML with the images inside using `lanekeeper-art report`, publish it as an artifact and give the link. Update it by publishing from the same file path.
 - Related settings: `personal.report.viewer`, `personal.session_rules.remote`
-- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/remote-viewer.ko.md`, `bin/wb-art`
+- Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/remote-viewer.ko.md`, `bin/lanekeeper-art`
 
 ### 34. Report implemented and deployed apart (`report-accuracy`)
 
@@ -382,79 +382,79 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 - Rule: When a feature is added, changed or removed, its tests are updated in the same change. A defect that cannot be fixed now is marked pending and recorded, without lowering the test.
 - Why: A change without tests, a test that still checks a removed feature and an expectation that differs from the behavior all cause trouble in the next change.
-- If blocked: Update the tests as the brief's test rules say. Record a defect you cannot fix with `wb-defects add`.
-- Enforced in: `templates/briefs/ko/impl.md`, `bin/wb-defects`, `bin/wb-cases`
+- If blocked: Update the tests as the brief's test rules say. Record a defect you cannot fix with `lanekeeper-defects add`.
+- Enforced in: `templates/briefs/ko/impl.md`, `bin/lanekeeper-defects`, `bin/lanekeeper-cases`
 
 ### 37. Test results saved as a workbook (`test-results-workbook`)
 
 - Rule: Test results are saved as a workbook and committed. A report cannot be closed without it.
 - Why: "It passed" alone cannot show later what was checked and how many cases ran.
-- If blocked: Create the workbook with `/wb:test-report` and check it with `wb-check test-results`.
-- Enforced in: `bin/wb-test-report`, `bin/wb-check`, `skills/test-report/SKILL.md`
+- If blocked: Create the workbook with `/lanekeeper:test-report` and check it with `lanekeeper-check test-results`.
+- Enforced in: `bin/lanekeeper-test-report`, `bin/lanekeeper-check`, `skills/test-report/SKILL.md`
 
 ### 38. Design review reaches high 0 before implementation (`design-adversarial-review`)
 
 - Rule: When a design document is ready, a reviewer from a different context than its author (a strong model, read-only) reviews it adversarially before implementation. The reviewer checks the code the design cites, sorts findings into high, medium and low with `path:line` evidence and a direction for the fix, and ends with the line "high N". The design is revised in numbered revisions (rev 2, rev 3 …); each marks its changed paragraphs and carries a reconciliation table (finding → accepted or not → where applied, with the reason when not), and is reviewed again. A revision that only fixes high findings may be re-reviewed on those findings plus its new risks. Implementation starts at high 0. Owner decisions are collected and confirmed separately. Screen designs and mockups are checked on the nine axes of the adversarial UX check. After implementation, one more adversarial review reads the code and checks the design's invariants.
 - Why: A design that reads well still causes rework when it disagrees with the code it cites. Its author rarely questions their own assumptions.
-- If blocked: Run `/wb:design-adversarial`, fix the high findings in a new revision and review again. Write the reason for each finding not accepted in the reconciliation table.
+- If blocked: Run `/lanekeeper:design-adversarial`, fix the high findings in a new revision and review again. Write the reason for each finding not accepted in the reconciliation table.
 - Enforced in: `skills/design-adversarial/SKILL.md`, `skills/work/SKILL.md`
 
 ### 39. Required checks pass before ship verification (`ship-precheck`)
 
 - Rule: Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass. For a product with screens, right before the ship verdict a checker from a different context than the implementer checks the screens the version changed: a persona's real tasks done end to end, headless in an isolated stack, with 2x captures, on all nine axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors, accessibility with narrow width and dark theme, design system visual comparison). An open blocker or high finding stops the ship; findings that change a screen are confirmed by the owner before they are fixed. Then the ship verdict (verifying-production-readiness) runs.
 - Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision. Lane tests and the design lint baseline do not catch wording a first-time user misreads, a dead end, or visual violations such as touching spacing and tight line height.
-- If blocked: Run `/wb:ship-verify`. `wb-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `wb-quality accept` in their own terminal.
+- If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `lanekeeper-quality accept` in their own terminal.
 - Message codes: `dispatch.ship_precheck`
-- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/wb-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
 ### 40. Reserve numbers first (`number-reservation`)
 
 - Rule: Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.
 - Why: If parallel lanes use the same number, the merge conflicts and the numbers must be reassigned.
-- If blocked: Take a number with `wb-number reserve <series> --lane <lane>`. If two files already clash, renumber the one created later.
+- If blocked: Take a number with `lanekeeper-number reserve <series> --lane <lane>`. If two files already clash, renumber the one created later.
 - Related settings: `project.numbers`
-- Enforced in: `bin/wb-number`, `lib/numbers.mjs`
+- Enforced in: `bin/lanekeeper-number`, `lib/numbers.mjs`
 
 ### 41. Remove finished lane worktrees (`worktree-cleanup`)
 
 - Rule: A finished lane worktree is merged into its target branch and then removed. Before removal, the processes started in it are stopped by PID.
 - Why: Processes left in an old worktree keep using the CPU. If work continues in a leftover folder, the handoff record splits in two.
-- If blocked: See what to clean up with `wb-reap` and remove the worktree with `wb-worktree remove <lane>`.
-- Enforced in: `bin/wb-worktree`, `bin/wb-reap`, `skills/resume/SKILL.md`
+- If blocked: See what to clean up with `lanekeeper-reap` and remove the worktree with `lanekeeper-worktree remove <lane>`.
+- Enforced in: `bin/lanekeeper-worktree`, `bin/lanekeeper-reap`, `skills/resume/SKILL.md`
 
 ### 42. Owner decisions are written down (`owner-decisions-recorded`)
 
 - Rule: What the owner decides is kept as a decision record (`docs/decisions/`).
 - Why: A decision made only in conversation is unknown to the next session, so the same question is asked again.
-- If blocked: Use `/wb:decide` to put the question, get the answer and write the record.
+- If blocked: Use `/lanekeeper:decide` to put the question, get the answer and write the record.
 - Related settings: `project.paths.decisions`
-- Enforced in: `skills/decide/SKILL.md`, `bin/wb-decide`
+- Enforced in: `skills/decide/SKILL.md`, `bin/lanekeeper-decide`
 
 ### 43. Writing style per file kind (`style-per-file`)
 
 - Rule: Documents and screen text use the style set for each file kind (`style.map`). Report-style documents keep no trace of the writing, no hype or metaphors, no unsupported judgments and no developer slang, and pass the three final-check questions.
 - Why: Without separate styles for screen text and reports, the text in one product reads inconsistently.
-- If blocked: See the style of a file with `wb-style of <file>` and fix the text by the rules from `wb-style rules <style>`.
+- If blocked: See the style of a file with `lanekeeper-style of <file>` and fix the text by the rules from `lanekeeper-style rules <style>`.
 - Related settings: `project.style.map`
-- Enforced in: `skills/writing-style/SKILL.md`, `bin/wb-style`, `templates/briefs/ko/docs.md`
+- Enforced in: `skills/writing-style/SKILL.md`, `bin/lanekeeper-style`, `templates/briefs/ko/docs.md`
 
 ### 44. Mockup before a screen structure change (`mockup-first`)
 
 - Rule: A change to the structure of a screen shows a mockup and gets a decision before it is implemented.
 - Why: If the structure is rejected after implementation, the work starts over.
-- If blocked: Show the mockup as an artifact. Create a decision record with `wb-decide new <name> --kind mockup --scope <paths>`, record the choice with `wb-decide answer` and commit it. The record scope must include the files you change.
+- If blocked: Show the mockup as an artifact. Create a decision record with `lanekeeper-decide new <name> --kind mockup --scope <paths>`, record the choice with `lanekeeper-decide answer` and commit it. The record scope must include the files you change.
 - Message codes: `mockup.*`
 - Related settings: `project.mockup`
-- Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/wb-decide`
+- Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/lanekeeper-decide`
 
 ### 45. Finished work is reported as an artifact (`report-artifact`)
 
-- Rule: A report made with `/wb:report` publishes its result as an artifact. A project that keeps test result workbooks also has its newest workbook checked.
+- Rule: A report made with `/lanekeeper:report` publishes its result as an artifact. A project that keeps test result workbooks also has its newest workbook checked.
 - Why: A report given only in words cannot be checked from elsewhere, and its evidence such as captures and figures is not kept.
-- If blocked: Publish the report with the artifact tool. If artifacts are not available, build an HTML file with the images inside using `wb-art report`. To turn this check off, set `personal.report.artifact_check` to `false`.
+- If blocked: Publish the report with the artifact tool. If artifacts are not available, build an HTML file with the images inside using `lanekeeper-art report`. To turn this check off, set `personal.report.artifact_check` to `false`.
 - Message codes: `artifact.*`
 - Related settings: `personal.report.artifact_check`
-- Enforced in: `hooks/scripts/report/artifact-check.mjs`, `bin/wb-art`, `skills/report/SKILL.md`
+- Enforced in: `hooks/scripts/report/artifact-check.mjs`, `bin/lanekeeper-art`, `skills/report/SKILL.md`
 
 ### 46. Code flow through the code index (`codegraph-first`)
 
@@ -468,16 +468,16 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 - Rule: codegraph is not called again for a path that has no index. Every new worktree is queued for indexing when it is created.
 - Why: Most index tool errors came from new worktrees that had no index yet. Calling the same path again only added cost.
-- If blocked: Continue with grep and Read. See the indexing progress with `wb-index status`; once the index exists, calls work again in the same session. Queue a path yourself with `wb-index add <path>`.
+- If blocked: Continue with grep and Read. See the indexing progress with `lanekeeper-index status`; once the index exists, calls work again in the same session. Queue a path yourself with `lanekeeper-index add <path>`.
 - Message codes: `safety.codegraph.*`
 - Related settings: `project.codegraph.auto_index`
-- Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/wb-index`
+- Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/lanekeeper-index`
 
 ### 48. Text search with rg (`rg-search`)
 
 - Rule: Recursive text search uses `rg` instead of `grep -r`. Sources with many Korean comments are searched with `rg -a`. Nothing is blocked; a note is added.
 - Why: `grep -r` walks node_modules and build output too, so it is slow and the results are mixed. grep takes Korean sources for binary files and leaves out matches.
-- If blocked: Run the same search with `rg`. Install it with `brew install ripgrep` when it is missing. To turn the note off, set `personal.search.rg_hint` to `false`.
+- If blocked: Run the same search with `rg`. When rg is missing, show the user the install command `brew install ripgrep` and install it only after the user agrees. To turn the note off, set `personal.search.rg_hint` to `false`.
 - Related settings: `personal.search.rg_hint`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `lib/search.mjs`
 
@@ -485,7 +485,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 - Rule: A symptom is not hidden with a stopgap or a workaround; the root cause is fixed. When it cannot be fixed now, the report says so and why.
 - Why: A defect patched over comes back under other conditions, and by then the original cause is harder to find.
-- If blocked: Write a test that reproduces the cause first, then fix until it passes. A defect that cannot be fixed now goes into the defect register (`wb-defects`).
+- If blocked: Write a test that reproduces the cause first, then fix until it passes. A defect that cannot be fixed now goes into the defect register (`lanekeeper-defects`).
 - Related settings: `personal.session_rules.conduct`
 - Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
@@ -497,11 +497,11 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.session_rules.conduct`
 - Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 51. Install the code index when missing and go on (`codegraph-install`)
+### 51. Offer codegraph when missing; install on consent (`codegraph-install`)
 
-- Rule: When codegraph is not installed, it is installed and initialised and the work goes on, without stopping to ask the user. Queries in a worktree pass that worktree's path as `projectPath`.
+- Rule: When codegraph is not installed, the agent does not install it on its own. It shows the user the install command once and installs and initialises it only when the user agrees. Queries in a worktree pass that worktree's path as `projectPath`.
 - Why: Following call flow with text search alone multiplies the searches. Without `projectPath` a worktree query returns an empty result.
-- If blocked: Install with `brew install codegraph` and run `codegraph init .` inside `wb-slot`. Where it cannot be installed, go on with grep and Read and report why.
+- If blocked: When the user agrees, install with `brew install codegraph` and run `codegraph init .` inside `lanekeeper-slot`. When the user declines or it cannot be installed, go on with `rg` and Read.
 - Related settings: `project.codegraph.nudge`
 - Enforced in: `hooks/scripts/codegraph/session-start.mjs`, `rules/codegraph-install.ko.md`
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-token — token guard.
+// lanekeeper-token — token guard.
 //
-//   wb-token status                       official usage, estimate, calibration, stage
-//   wb-token on | off                     switch (personal.token_guard.enabled)
-//   wb-token calibrate --five <n> [--seven <n>] [--at HH:MM]
+//   lanekeeper-token status                       official usage, estimate, calibration, stage
+//   lanekeeper-token on | off                     switch (personal.token_guard.enabled)
+//   lanekeeper-token calibrate --five <n> [--seven <n>] [--at HH:MM]
 //                                         add the percentages /usage shows as a calibration point
-//   wb-token calibrate --check            list the calibration points and the rate between them
-//   wb-token calibrate [<weighted>]       set the fallback budget; no value = current weighted usage
+//   lanekeeper-token calibrate --check            list the calibration points and the rate between them
+//   lanekeeper-token calibrate [<weighted>]       set the fallback budget; no value = current weighted usage
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'

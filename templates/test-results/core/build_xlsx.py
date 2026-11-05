@@ -350,11 +350,11 @@ def build_xlsx(model, out):
                 rerun_pass(model, s['kind'], s['name']) if s['kind'] else sum(1 for t in model['tests'] if t.get('flakyByRerun')),
                 secs(s['durationMs']), pass_rate(s), STATUS_KO.get(s['status'], s['status']), s.get('source', '')]
 
-    def suite_sheet(wb, title, kinds):
+    def suite_sheet(book, title, kinds):
         suites = [s for s in model['suites'] if s['kind'] in kinds]
         if not suites:
             return
-        ws = wb.create_sheet(title)
+        ws = book.create_sheet(title)
         rows = [suite_row(s) for s in sorted(suites, key=lambda s: (s['status'] != 'failed', s['name']))]
         tot = totals(suites, T('sum.total'))
         rows.append([T('sum.total'), T('sum.n_suites', n=len(suites))] + suite_row(tot)[2:7] + [sum(r[7] or 0 for r in rows)] + suite_row(tot)[8:11] + [''])
@@ -362,8 +362,8 @@ def build_xlsx(model, out):
         count_fill(ws, 5, 2, last - 2, FAIL)
         count_fill(ws, 7, 2, last - 2, WARN)
 
-    wb = Workbook()
-    ws = wb.active
+    book = Workbook()
+    ws = book.active
     ws.title = T('sheet.summary')
     m = model['meta']
     ws['A1'] = T('sum.title', name=m.get('name', ''))
@@ -430,27 +430,27 @@ def build_xlsx(model, out):
     ws.column_dimensions['A'].width = 18
 
     for kind in ('unit', 'integration', 'e2e'):
-        suite_sheet(wb, T('sheet.' + kind), (kind,))
+        suite_sheet(book, T('sheet.' + kind), (kind,))
 
     e2e = [t for t in model['tests'] if t['kind'] in ('e2e', 'uistab')]
     if e2e:
-        w = wb.create_sheet(T('sheet.e2e_detail'))
+        w = book.create_sheet(T('sheet.e2e_detail'))
         rows = [[KIND_KO[t['kind']], t['project'], '%s:%s' % (t['file'], t['line']) if t['line'] else t['file'],
                  ' · '.join(t.get('caseIds') or []), t['name'], STATUS_KO.get(t['status'], t['status']),
                  ' → '.join(STATUS_KO.get(a, a) for a in t['attempts']), STATUS_KO.get(t['rerun'], t['rerun']),
                  secs(t['durationMs']), t['error']] for t in e2e]
         table(w, [T('col.' + k) for k in ('kind', 'project', 'file_line', 'case_id', 'test_name', 'result', 'attempts', 'rerun_result', 'seconds', 'error')],
               [10, 12, 34, 16, 70, 10, 18, 12, 12, 60], rows, status_cols=(6, 8))
-    suite_sheet(wb, T('sheet.uistab'), ('uistab',))
+    suite_sheet(book, T('sheet.uistab'), ('uistab',))
 
     if model['gate']:
-        w = wb.create_sheet(T('sheet.gate'))
+        w = book.create_sheet(T('sheet.gate'))
         rows = [[i, g['step'], g['cmd'], STATUS_KO.get(g['status'], g['status']), g['exit'], secs(g['durationMs']), g['detail'], g['log']]
                 for i, g in enumerate(model['gate'], 1)]
         table(w, [T('col.' + k) for k in ('order', 'step', 'command', 'result', 'exit_code', 'seconds', 'fail_detail', 'log')],
               [6, 22, 34, 10, 10, 12, 70, 50], rows, status_cols=(4,))
 
-    w = wb.create_sheet(T('sheet.failures'))
+    w = book.create_sheet(T('sheet.failures'))
     fails = [t for t in model['tests'] if t['status'] == 'failed']
     rows = [[KIND_KO.get(t['kind'], t['kind']), t['project'] or t['suite'], t['name'],
              '%s:%s' % (t['file'], t['line']) if t['line'] else t['file'], t['error'], t['log'],
@@ -465,7 +465,7 @@ def build_xlsx(model, out):
     else:
         w['A1'] = T('fail.none')
 
-    w = wb.create_sheet(T('sheet.flaky'))
+    w = book.create_sheet(T('sheet.flaky'))
     fl = [t for t in model['tests'] if t['status'] == 'flaky' or t.get('flakyByRerun')]
     rows = [[KIND_KO.get(t['kind'], t['kind']), t['project'] or t['suite'], t['name'],
              '%s:%s' % (t['file'], t['line']) if t['line'] else t['file'],
@@ -479,7 +479,7 @@ def build_xlsx(model, out):
         w['A1'] = T('flaky.none', rerun=T('flaky.rerun_given') if m.get('rerunSources') else T('flaky.rerun_absent'))
 
     if m.get('ledgerCompared'):
-        w = wb.create_sheet(T('sheet.ledger'))
+        w = book.create_sheet(T('sheet.ledger'))
         if model['ledger']:
             rows = [[r['kind'], r['caseId'], r['priority'], r['module'], r['ledger'], STATUS_KO.get(r['actual'], r['actual']),
                      r['detail'], r['scenario']] for r in model['ledger']]
@@ -489,19 +489,19 @@ def build_xlsx(model, out):
             w['A1'] = T('ledger.none', n=m.get('ledgerCases', 0))
 
     if model['coverage']:
-        w = wb.create_sheet(T('sheet.coverage'))
+        w = book.create_sheet(T('sheet.coverage'))
         pct = lambda x: x.get('pct') if isinstance(x, dict) else None  # noqa: E731
         rows = [[c['area'], pct(c['lines']), pct(c['statements']), pct(c['branches']), pct(c['functions']),
                  (c['lines'] or {}).get('total'), dt.datetime.fromtimestamp(c['mtime']).strftime('%Y-%m-%d %H:%M')] for c in model['coverage']]
         table(w, [T('col.' + k) for k in ('area', 'lines', 'statements', 'branches', 'functions', 'code_lines', 'measured_at')], [30, 10, 10, 10, 10, 12, 18], rows)
     if model['mutation']:
-        w = wb.create_sheet(T('sheet.mutation'))
+        w = book.create_sheet(T('sheet.mutation'))
         rows = [[x['area'], x['score'], x['killed'], x['timeout'], x['survived'], x['noCoverage'],
                  dt.datetime.fromtimestamp(x['mtime']).strftime('%Y-%m-%d %H:%M')] for x in model['mutation']]
         table(w, [T('col.' + k) for k in ('area', 'score', 'killed', 'timeout', 'survived', 'no_coverage', 'measured_at')], [30, 12, 10, 10, 10, 10, 18], rows)
 
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    wb.save(out)
+    book.save(out)
 
 
 def summary_json(model):

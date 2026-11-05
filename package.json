@@ -1,8 +1,8 @@
 {
-  "name": "wb-plugin",
-  "version": "0.1.5",
+  "name": "lanekeeper",
+  "version": "0.2.0",
   "private": true,
-  "description": "wb (Agent Workbench) Claude Code plugin",
+  "description": "Lanekeeper (Agent Workbench) Claude Code plugin",
   "license": "MIT",
   "type": "module",
   "engines": { "node": ">=18.19" },

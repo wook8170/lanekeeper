@@ -2,11 +2,11 @@
 // Stop: at the report stage, finished work must be published as an artifact and the
 // newest verification workbook must be in order. Blocks once per report.
 //
-// Report stage = the session ran /wb:report (Skill call or slash command). After the last
+// Report stage = the session ran /lanekeeper:report (Skill call or slash command). After the last
 // such point the transcript must show an artifact: an Artifact tool call (any tool whose
 // name contains "artifact"), or — when personal.report.artifact_fallback is "html-file" —
-// a `wb-art report` command. When the project keeps test result workbooks (a verify
-// config or a results folder exists), `wb-check test-results` must also pass.
+// a `lanekeeper-art report` command. When the project keeps test result workbooks (a verify
+// config or a results folder exists), `lanekeeper-check test-results` must also pass.
 // Off with personal.report.artifact_check = false. Not a safety hook: fail-open.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -14,9 +14,10 @@ import { resolveConfig, projectRoot, getPath } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { dataDir, hookMain, safeId } from '../../../lib/runtime.mjs'
 import { checkTestResults, resultPaths, VERIFY_CONFIG } from '../../../lib/testresults.mjs'
+import { projectRel } from '../../../lib/naming.mjs'
 
-const REPORT_SKILL = /^(wb:)?report$/
-const REPORT_CMD = /<command-name>\s*\/?wb:report\s*<\/command-name>|^\s*\/wb:report\b/m
+const REPORT_SKILL = /^(lanekeeper:)?report$/
+const REPORT_CMD = /<command-name>\s*\/?lanekeeper:report\s*<\/command-name>|^\s*\/lanekeeper:report\b/m
 
 function entries(file) {
   let raw = ''
@@ -59,7 +60,7 @@ export function scan(list) {
       for (const b of contentOf(e)) {
         if (b.type !== 'tool_use') continue
         if (/artifact/i.test(b.name || '')) artifact = true
-        if (b.name === 'Bash' && /\bwb-art\s+report\b/.test(String(b.input?.command || ''))) htmlFile = true
+        if (b.name === 'Bash' && /\blanekeeper-art\s+report\b/.test(String(b.input?.command || ''))) htmlFile = true
       }
     }
   }
@@ -89,14 +90,14 @@ export function handle(input, env = process.env) {
   if (!published) problems.push(t('artifact.missing', { fallback: rep.artifact_fallback === 'none' ? '' : t('artifact.fallback') }))
 
   const { resultsBase } = resultPaths(root, resolved.config)
-  if (fs.existsSync(path.join(root, VERIFY_CONFIG)) || fs.existsSync(resultsBase)) {
+  if (fs.existsSync(path.join(root, projectRel(root, VERIFY_CONFIG))) || fs.existsSync(resultsBase)) {
     const r = checkTestResults(root, resolved.config)
     if (!r.ok) problems.push(t('artifact.xlsx', { items: r.items.filter((i) => i.level === 'fail').map((i) => i.id).join(', ') }))
   }
   if (!problems.length) return null
   fs.mkdirSync(path.dirname(mark), { recursive: true })
   fs.writeFileSync(mark, String(s.start))
-  return { decision: 'block', reason: `[wb] ${t('artifact.head')}\n- ${problems.join('\n- ')}` }
+  return { decision: 'block', reason: `[lanekeeper] ${t('artifact.head')}\n- ${problems.join('\n- ')}` }
 }
 
 hookMain(import.meta, (i, e) => handle(i, e))

@@ -60,9 +60,9 @@ test('1 denied: removed before anything else, next model in the chain is used', 
 test('1 denied: personal denied list survives a project that clears it (union)', () => {
   const fx = makeEnv()
   try {
-    fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied: ['fable'] }))
-    fs.mkdirSync(path.join(fx.repo, '.wb'))
-    fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, routing: { denied: [] } }))
+    fs.writeFileSync(path.join(fx.env.LANEKEEPER_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied: ['fable'] }))
+    fs.mkdirSync(path.join(fx.repo, '.lanekeeper'))
+    fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, routing: { denied: [] } }))
     const resolved = resolveConfig({ projectDir: fx.repo, env: fx.env })
     assert.deepEqual(resolved.config.routing.denied, ['fable'])
     assert.equal(resolveRoute(resolved.config.routing, 'review').model, 'opus')
@@ -218,23 +218,23 @@ test('explain: one line per step and the result, ko and en', () => {
   }
 })
 
-test('wb-route: resolve prints agent_param, exit 3 while waiting, explain trace', () => {
+test('lanekeeper-route: resolve prints agent_param, exit 3 while waiting, explain trace', () => {
   const fx = makeEnv()
   try {
-    fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied: ['fable'] }))
-    let r = bin('wb-route', ['resolve', 'design'], fx.env, fx.repo)
+    fs.writeFileSync(path.join(fx.env.LANEKEEPER_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied: ['fable'] }))
+    let r = bin('lanekeeper-route', ['resolve', 'design'], fx.env, fx.repo)
     assert.equal(r.status, 0, r.stderr)
     assert.equal(r.stdout.trim(), 'opus')
     recordLimit(path.join(fx.env.CLAUDE_PLUGIN_DATA, 'limits.json'), { model: '*', untilEpoch: Math.floor(Date.parse(FUTURE) / 1000) })
-    r = bin('wb-route', ['resolve', 'design'], fx.env, fx.repo)
+    r = bin('lanekeeper-route', ['resolve', 'design'], fx.env, fx.repo)
     assert.equal(r.status, 3)
-    r = bin('wb-route', ['explain', 'design', '--json'], fx.env, fx.repo)
+    r = bin('lanekeeper-route', ['explain', 'design', '--json'], fx.env, fx.repo)
     assert.equal(JSON.parse(r.stdout).error, 'wait')
-    r = bin('wb-route', ['check', 'review', '--model', 'haiku'], fx.env, fx.repo)
+    r = bin('lanekeeper-route', ['check', 'review', '--model', 'haiku'], fx.env, fx.repo)
     assert.equal(r.status, 1)
-    r = bin('wb-route', ['resolve', 'nope'], fx.env, fx.repo)
+    r = bin('lanekeeper-route', ['resolve', 'nope'], fx.env, fx.repo)
     assert.equal(r.status, 2)
-    r = bin('wb-route', ['tasks', '--json'], fx.env, fx.repo)
+    r = bin('lanekeeper-route', ['tasks', '--json'], fx.env, fx.repo)
     assert.deepEqual(JSON.parse(r.stdout).denied, ['fable'])
   } finally {
     fx.cleanup()

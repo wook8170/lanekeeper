@@ -97,5 +97,5 @@ export function formatReasons(lang, reasons) {
     lines.push(`${t('safety.fix')}: ${t(`safety.${r.code}.fix`, r.vars)}`)
   }
   lines.push(`${t('safety.help')}: ${t('safety.where')}`)
-  return `[wb] ${lines.join('\n')}`
+  return `[lanekeeper] ${lines.join('\n')}`
 }

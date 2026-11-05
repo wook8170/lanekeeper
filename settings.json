@@ -1,6 +1,6 @@
 {
   "subagentStatusLine": {
     "type": "command",
-    "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/wb-waves statusline"
+    "command": "\"${CLAUDE_PLUGIN_ROOT}\"/bin/lanekeeper-waves statusline"
   }
 }

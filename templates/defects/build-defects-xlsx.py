@@ -22,8 +22,8 @@ def main(argv):
         reg = json.load(f)
     with open(labels_file, encoding="utf-8") as f:
         labels = json.load(f)
-    wb = Workbook()
-    ws = wb.active
+    book = Workbook()
+    ws = book.active
     ws.title = labels.get("sheet", "defects")[:31]
     ws.append(labels["columns"])
     for c in ws[1]:
@@ -44,7 +44,7 @@ def main(argv):
     for i, w in enumerate(widths):
         ws.column_dimensions[chr(65 + i)].width = w
     ws.freeze_panes = "A2"
-    wb.save(out)
+    book.save(out)
     return 0
 
 

@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// UserPromptExpansion hook for /wb:approve.
+// UserPromptExpansion hook for /lanekeeper:approve.
 //
 // UserPromptExpansion fires only when a person types a slash command, so it is
 // the one place an owner grant can be created. The model cannot reach it: the
 // skill sets disable-model-invocation, and the PreToolUse guard denies the
-// Skill tool for wb:approve. (UserPromptSubmit is not used: it also fires for
+// Skill tool for lanekeeper:approve. (UserPromptSubmit is not used: it also fires for
 // subagent reports and messages from other sessions.)
 //
-//   /wb:approve merge-main [ref]   allow one merge of <ref> into a protected branch
-//   /wb:approve push-main  [ref]   allow one push of <ref> to a protected branch
-//   /wb:approve commit-main [ref]  allow one commit on a protected branch at <ref>
-//   /wb:approve status             show the current grant
-//   /wb:approve revoke             delete the current grant
+//   /lanekeeper:approve merge-main [ref]   allow one merge of <ref> into a protected branch
+//   /lanekeeper:approve push-main  [ref]   allow one push of <ref> to a protected branch
+//   /lanekeeper:approve commit-main [ref]  allow one commit on a protected branch at <ref>
+//   /lanekeeper:approve status             show the current grant
+//   /lanekeeper:approve revoke             delete the current grant
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -51,7 +51,7 @@ export function defaultRef(action, cwd, gitCfg) {
     return prot || null
   }
   // merge-main: the integration branch
-  const pattern = gitCfg.integration_branch_pattern || 'wb/*/int'
+  const pattern = gitCfg.integration_branch_pattern || 'lanekeeper/*/int'
   const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
   if (cur && matchAny(cur, [pattern])) return cur
   const all = (git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd) || '').split('\n').filter(Boolean)
@@ -64,10 +64,10 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   const root = projectRoot(cwd, env)
   const resolved = resolveConfig({ projectDir: root, env })
   const t = translator(resolved.effective.language)
-  const block = (key, vars) => ({ decision: 'block', reason: `[wb] ${t(key, vars)}` })
-  const context = (text) => ({ hookSpecificOutput: { hookEventName: 'UserPromptExpansion', additionalContext: `[wb] ${text}` } })
+  const block = (key, vars) => ({ decision: 'block', reason: `[lanekeeper] ${t(key, vars)}` })
+  const context = (text) => ({ hookSpecificOutput: { hookEventName: 'UserPromptExpansion', additionalContext: `[lanekeeper] ${text}` } })
 
-  if (input.command_name !== 'wb:approve') return null
+  if (input.command_name !== 'lanekeeper:approve') return null
   if (resolved.errors.length) return block('approve.config_broken', { file: resolved.errors[0].file, key: resolved.errors[0].path })
   const sd = stateDir(root)
   if (!sd) return block('approve.not_git', {})
@@ -94,7 +94,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   const ttl = gitCfg.owner_grant_ttl_min || 15
   const g = writeGrant(sd, { action, ref: useRef, head, ttlMin: ttl, now, session: input.session_id })
   const gateCmd = resolved.config.project?.gate?.command
-  const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'wb-gate-pass'}.json`) }) : ''
+  const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
   return context(t('approve.granted', { action, ref: useRef, head: head.slice(0, 9), ttl, expires: localTime(g.expires) }) + (stampNote ? ` ${stampNote}` : ''))
 }
 
@@ -107,7 +107,7 @@ if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.rea
     try {
       out = handleApprove(JSON.parse(raw || '{}'))
     } catch (e) {
-      out = { decision: 'block', reason: `[wb] /wb:approve: ${String(e?.message || e).slice(0, 200)}` }
+      out = { decision: 'block', reason: `[lanekeeper] /lanekeeper:approve: ${String(e?.message || e).slice(0, 200)}` }
     }
     if (out) process.stdout.write(`${JSON.stringify(out)}\n`)
     process.exit(0)

@@ -1,4 +1,4 @@
-<!-- wb-brief v1 type=adversarial lane={{lane}} template=design-adversarial implementer={{implementer}} role=verifier -->
+<!-- lanekeeper-brief v1 type=adversarial lane={{lane}} template=design-adversarial implementer={{implementer}} role=verifier -->
 <!-- Cover: type=adversarial routes to a model other than the one that wrote the design (Opus by default; a higher model first when the routing adds one). role=verifier marks a verifier lane. Every {{…}} must be filled before dispatch. -->
 # {{lane}} — adversarial {{stage}} review of {{title}} rev {{revision}}
 

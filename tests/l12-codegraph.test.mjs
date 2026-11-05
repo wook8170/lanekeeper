@@ -41,7 +41,7 @@ process.exit(2)
 `
 
 function fixture({ project = {}, fake = true } = {}) {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-cg-')))
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-cg-')))
   const repo = path.join(base, 'repo')
   fs.mkdirSync(path.join(repo, 'lib'), { recursive: true })
   git(repo, 'init', '-q', '-b', 'main')
@@ -49,10 +49,10 @@ function fixture({ project = {}, fake = true } = {}) {
   git(repo, 'add', '.')
   git(repo, 'commit', '-q', '-m', 'init')
   const home = path.join(base, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify({ load: { max: 100000 }, slots: { lease_dir: path.join(base, 'slots') } }))
-  fs.mkdirSync(path.join(repo, '.wb'))
-  fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify(project))
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(home, '.lanekeeper', 'machine.json'), JSON.stringify({ load: { max: 100000 }, slots: { lease_dir: path.join(base, 'slots') } }))
+  fs.mkdirSync(path.join(repo, '.lanekeeper'))
+  fs.writeFileSync(path.join(repo, '.lanekeeper', 'config.json'), JSON.stringify(project))
   const fakeBin = path.join(base, 'fakebin')
   fs.mkdirSync(fakeBin)
   fs.writeFileSync(path.join(fakeBin, 'codegraph'), FAKE, { mode: 0o755 })
@@ -60,13 +60,13 @@ function fixture({ project = {}, fake = true } = {}) {
   const env = {
     PATH: `${fakeBin}${path.delimiter}${process.env.PATH}`,
     HOME: home,
-    WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'),
+    LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'),
     CLAUDE_PLUGIN_DATA: path.join(base, 'data'),
     LANG: 'en_US.UTF-8',
     GIT_CONFIG_GLOBAL: '/dev/null',
     GIT_CONFIG_NOSYSTEM: '1',
     FAKE_CG_LOG: log,
-    ...(fake ? { WB_CODEGRAPH: path.join(fakeBin, 'codegraph') } : { WB_CODEGRAPH: 'off' }),
+    ...(fake ? { LANEKEEPER_CODEGRAPH: path.join(fakeBin, 'codegraph') } : { LANEKEEPER_CODEGRAPH: 'off' }),
   }
   const calls = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : [])
   const config = () => resolveConfig({ projectDir: repo, env }).config
@@ -180,14 +180,14 @@ test('deadpath: "not loaded" without projectPath blocks the next call without pr
 
 test('deadpath hook process: blocks the second call (ko text), passes when codegraph is not involved or input is broken', () => {
   const f = fixture()
-  const env = { ...f.env, LANG: 'ko_KR.UTF-8', WB_HOME: f.env.WB_HOME }
-  fs.writeFileSync(path.join(env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, language: 'ko' }))
+  const env = { ...f.env, LANG: 'ko_KR.UTF-8', LANEKEEPER_HOME: f.env.LANEKEEPER_HOME }
+  fs.writeFileSync(path.join(env.LANEKEEPER_HOME, 'personal.json'), JSON.stringify({ version: 1, language: 'ko' }))
   const run = (script, input) => spawnSync(process.execPath, [path.join(ROOT, 'hooks', 'scripts', 'codegraph', script)], { input: typeof input === 'string' ? input : JSON.stringify(input), env, encoding: 'utf8' })
   const first = run('deadpath.mjs', call(f.repo, 'p'))
   assert.equal(first.status, 0)
   assert.equal(first.stdout, '')
   // record without starting a real worker: queue is off for this check
-  fs.writeFileSync(path.join(f.repo, '.wb', 'config.json'), JSON.stringify({ codegraph: { auto_index: false } }))
+  fs.writeFileSync(path.join(f.repo, '.lanekeeper', 'config.json'), JSON.stringify({ codegraph: { auto_index: false } }))
   const rec = run('record.mjs', fail(f.repo, 'p'))
   assert.equal(rec.status, 0)
   assert.match(JSON.parse(rec.stdout).hookSpecificOutput.additionalContext, /색인이 없어요/)
@@ -209,7 +209,7 @@ test('deadpath hook process: blocks the second call (ko text), passes when codeg
 
 // ---- record: four classes in the metrics file ----------------------------
 
-test('record: every response lands in <main checkout>/.wb/metrics/codegraph.jsonl with its class, also from a worktree', () => {
+test('record: every response lands in <main checkout>/.lanekeeper/metrics/codegraph.jsonl with its class, also from a worktree', () => {
   const f = fixture()
   const lane = f.worktree('lane1')
   const ok = { hook_event_name: 'PostToolUse', session_id: 'm', cwd: lane, agent_id: 'a1', tool_name: 'mcp__codegraph__codegraph_callers', tool_input: { symbol: 'x', projectPath: lane }, tool_response: [{ type: 'text', text: '## lib/a.mjs\ncreateWorktree' }] }
@@ -219,9 +219,9 @@ test('record: every response lands in <main checkout>/.wb/metrics/codegraph.json
   recordCall({ ...ok, hook_event_name: 'PostToolUseFailure', tool_input: { query: 'x' }, tool_response: undefined, error: 'No CodeGraph project is loaded' }, f.env, { queue: noStart })
   recordCall({ ...ok, hook_event_name: 'PostToolUseFailure', tool_response: undefined, error: 'Error: socket closed' }, f.env, { queue: noStart })
   recordCall({ ...ok, tool_response: { content: [{ type: 'text', text: '⚠️ Some files referenced below were edited since the last index sync\nx' }] } }, f.env, { queue: noStart })
-  const file = path.join(f.repo, '.wb', 'metrics', 'codegraph.jsonl')
+  const file = path.join(f.repo, '.lanekeeper', 'metrics', 'codegraph.jsonl')
   assert.ok(fs.existsSync(file))
-  assert.ok(!fs.existsSync(path.join(lane, '.wb', 'metrics')))
+  assert.ok(!fs.existsSync(path.join(lane, '.lanekeeper', 'metrics')))
   const rows = cg.readMetrics(file)
   assert.deepEqual(rows.map((r) => r.class), ['ok', 'empty', 'not_initialized', 'no_project', 'error', 'ok'])
   assert.deepEqual(rows.map((r) => r.stale), [false, false, false, false, false, true])
@@ -233,8 +233,8 @@ test('record: every response lands in <main checkout>/.wb/metrics/codegraph.json
   assert.deepEqual(s.counts, { ok: 2, empty: 1, not_initialized: 1, no_project: 1, error: 1 })
   assert.equal(s.error_rate, 0.5)
   // the metrics folder stays out of git status
-  assert.match(fs.readFileSync(path.join(f.repo, '.git', 'info', 'exclude'), 'utf8'), /^\.wb\/metrics\/$/m)
-  const cli = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-index'), 'metrics', '--json'], { cwd: lane, env: f.env, encoding: 'utf8' })
+  assert.match(fs.readFileSync(path.join(f.repo, '.git', 'info', 'exclude'), 'utf8'), /^\.lanekeeper\/metrics\/$/m)
+  const cli = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-index'), 'metrics', '--json'], { cwd: lane, env: f.env, encoding: 'utf8' })
   assert.equal(cli.status, 0, cli.stderr)
   assert.equal(JSON.parse(cli.stdout).total, 6)
   f.cleanup()
@@ -312,7 +312,7 @@ test('queue: one entry per checkout, nothing without codegraph or outside git', 
   assert.deepEqual(r, { queued: true, path: f.repo })
   assert.equal(cg.enqueue(f.repo, { env: f.env }).skipped, 'already')
   assert.equal(cg.enqueue(f.base, { env: f.env }).skipped, 'not-git')
-  assert.equal(cg.enqueue(f.repo, { env: { ...f.env, WB_CODEGRAPH: 'off' } }).skipped, 'missing')
+  assert.equal(cg.enqueue(f.repo, { env: { ...f.env, LANEKEEPER_CODEGRAPH: 'off' } }).skipped, 'missing')
   assert.equal(cg.autoQueue(f.repo, { config: { project: { codegraph: { auto_index: false } } }, env: f.env }).skipped, 'disabled')
   assert.equal(cg.readQueue(f.env).items.length, 1)
   assert.ok(cg.dequeue(f.repo, f.env))
@@ -379,7 +379,7 @@ test('worker: a broken copy falls back to init; a failing init is recorded; a se
 test('worker waits for the load threshold through the heavy slot', async () => {
   const f = fixture()
   cg.enqueue(f.repo, { env: f.env })
-  fs.writeFileSync(path.join(f.env.WB_HOME, 'machine.json'), JSON.stringify({ load: { max: 20 }, slots: { lease_dir: path.join(f.base, 'slots') } }))
+  fs.writeFileSync(path.join(f.env.LANEKEEPER_HOME, 'machine.json'), JSON.stringify({ load: { max: 20 }, slots: { lease_dir: path.join(f.base, 'slots') } }))
   const loads = [30, 25, 10]
   const waits = []
   const r = await cg.runWorker({ env: f.env, pollMs: 1, log: (k, v) => k === 'wait' && waits.push(v.reason), slotDeps: { now: () => Date.now(), loadavg: () => loads.shift() ?? 10, pidAlive: () => true, sleep: async () => {} } })
@@ -417,7 +417,7 @@ test('worktree create queues the new checkout; remove drops the index and the qu
   // auto_index off and codegraph missing both skip quietly
   const off = await wt.createWorktree({ ...ctx, config: { ...ctx.config, project: { ...ctx.config.project, codegraph: { auto_index: false } } } }, { id: 'l3' })
   assert.equal(off.index.skipped, 'disabled')
-  const missing = await wt.createWorktree({ ...ctx, env: { ...f.env, WB_CODEGRAPH: 'off' } }, { id: 'l4' })
+  const missing = await wt.createWorktree({ ...ctx, env: { ...f.env, LANEKEEPER_CODEGRAPH: 'off' } }, { id: 'l4' })
   assert.equal(missing.index.skipped, 'missing')
   f.cleanup()
 })
@@ -435,7 +435,7 @@ test('orphans: an index in a folder that is no longer a worktree is listed with 
   assert.deepEqual(s.orphans.map((o) => o.path), [left])
   assert.equal(s.orphans[0].bytes, 4)
   assert.deepEqual(s.indexed.map((i) => i.path), [live])
-  const cli = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-index'), 'orphans', '--apply', '--json'], { cwd: f.repo, env: f.env, encoding: 'utf8' })
+  const cli = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-index'), 'orphans', '--apply', '--json'], { cwd: f.repo, env: f.env, encoding: 'utf8' })
   assert.equal(cli.status, 0, cli.stderr)
   assert.equal(JSON.parse(cli.stdout).orphans[0].removed, true)
   assert.ok(!fs.existsSync(path.join(left, '.codegraph')))
@@ -450,20 +450,20 @@ test('doctor: index, queue and leftover checks appear only when codegraph is ins
   assert.deepEqual(ids(f.env).filter((x) => x.startsWith('codegraph')), ['codegraph:ok', 'codegraphIndex:warn', 'codegraphQueue:ok', 'codegraphOrphans:ok'])
   f.index(f.repo)
   assert.ok(ids(f.env).includes('codegraphIndex:ok'))
-  assert.deepEqual(ids({ ...f.env, WB_CODEGRAPH: 'off' }).filter((x) => x.startsWith('codegraph')), ['codegraph:warn'])
-  const out = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-config'), 'doctor'], { cwd: f.repo, env: f.env, encoding: 'utf8' })
+  assert.deepEqual(ids({ ...f.env, LANEKEEPER_CODEGRAPH: 'off' }).filter((x) => x.startsWith('codegraph')), ['codegraph:warn'])
+  const out = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-config'), 'doctor'], { cwd: f.repo, env: f.env, encoding: 'utf8' })
   assert.match(out.stdout, /codegraph index of this checkout: ok/)
   assert.match(out.stdout, /index queue: ok — waiting 0/)
   f.cleanup()
 })
 
-test('wb-index CLI: without codegraph it explains how to install and queues nothing; add/status/drop round trip', () => {
+test('lanekeeper-index CLI: without codegraph it explains how to install and queues nothing; add/status/drop round trip', () => {
   const f = fixture()
-  const run = (env, ...a) => spawnSync(process.execPath, [path.join(ROOT, 'bin', 'wb-index'), ...a], { cwd: f.repo, env, encoding: 'utf8' })
-  const missing = run({ ...f.env, WB_CODEGRAPH: path.join(f.base, 'nope') }, 'add')
+  const run = (env, ...a) => spawnSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-index'), ...a], { cwd: f.repo, env, encoding: 'utf8' })
+  const missing = run({ ...f.env, LANEKEEPER_CODEGRAPH: path.join(f.base, 'nope') }, 'add')
   assert.equal(missing.status, 3)
   assert.match(missing.stderr, /not installed/)
-  assert.equal(run({ ...f.env, WB_CODEGRAPH: 'off' }, 'add').status, 0)
+  assert.equal(run({ ...f.env, LANEKEEPER_CODEGRAPH: 'off' }, 'add').status, 0)
   assert.equal(cg.readQueue(f.env).items.length, 0)
   const add = run(f.env, 'add', '--no-start', '--json')
   assert.equal(add.status, 0, add.stderr)
@@ -492,7 +492,7 @@ test('wiring: hooks.json events and matchers, executables, catalog rules and mes
     assert.ok(!m.test('Bash'), `${ev} ${s}`)
   }
   assert.ok(find('SessionStart', 'session-start.mjs'))
-  for (const p of ['bin/wb-index', ...['nudge', 'deadpath', 'record', 'session-start'].map((s) => `hooks/scripts/codegraph/${s}.mjs`)]) {
+  for (const p of ['bin/lanekeeper-index', ...['nudge', 'deadpath', 'record', 'session-start'].map((s) => `hooks/scripts/codegraph/${s}.mjs`)]) {
     assert.ok(fs.statSync(path.join(ROOT, p)).mode & 0o111, p)
   }
   const rules = loadCatalog()
@@ -517,7 +517,7 @@ test('wiring: hooks.json events and matchers, executables, catalog rules and mes
 const realBin = cg.findBin({ PATH: process.env.PATH })
 test('real codegraph: an index copied from the main checkout opens in a new worktree and sync adds only the changes', { skip: !realBin && 'codegraph not installed' }, async () => {
   const f = fixture()
-  const env = { ...f.env, WB_CODEGRAPH: realBin, PATH: process.env.PATH }
+  const env = { ...f.env, LANEKEEPER_CODEGRAPH: realBin, PATH: process.env.PATH }
   const lane = f.worktree('lane-real')
   fs.writeFileSync(path.join(lane, 'lib', 'b.mjs'), 'export function laneOnlyThing() { return 2 }\n')
   cg.enqueue(f.repo, { env })

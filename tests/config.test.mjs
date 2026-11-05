@@ -6,17 +6,17 @@ import path from 'node:path'
 import { resolveConfig, explain, mergeSources, getPath, ruleFor } from '../lib/config.mjs'
 
 function sandbox({ personal, routing, machine, project } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-cfg-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-cfg-'))
   const home = path.join(dir, 'home')
   const repo = path.join(dir, 'repo')
   fs.mkdirSync(home, { recursive: true })
-  fs.mkdirSync(path.join(repo, '.wb'), { recursive: true })
+  fs.mkdirSync(path.join(repo, '.lanekeeper'), { recursive: true })
   const w = (f, d) => d !== undefined && fs.writeFileSync(f, typeof d === 'string' ? d : JSON.stringify(d))
   w(path.join(home, 'personal.json'), personal)
   w(path.join(home, 'routing.json'), routing)
   w(path.join(home, 'machine.json'), machine)
-  w(path.join(repo, '.wb', 'config.json'), project)
-  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: home, PATH: process.env.PATH }
+  w(path.join(repo, '.lanekeeper', 'config.json'), project)
+  const env = { HOME: dir, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: home, PATH: process.env.PATH }
   return { dir, home, repo, env, resolve: () => resolveConfig({ projectDir: repo, env }) }
 }
 
@@ -89,7 +89,7 @@ test('union: protected branches, protected paths and protected ports', () => {
   assert.deepEqual(r.config.project.protected_paths, ['secrets/**'])
   assert.deepEqual(r.config.machine.ports.protected, [{ name: 'api', port: 8080 }])
   // non-union siblings in the same object still merge normally
-  assert.equal(r.config.project.git.gate_stamp, 'wb-gate-pass')
+  assert.equal(r.config.project.git.gate_stamp, 'lanekeeper-gate-pass')
 })
 
 test('min: caps take the smallest non-default value', () => {
@@ -151,7 +151,7 @@ test('schema: invalid JSON is reported, not thrown', () => {
   const r = sandbox({ project: '{ not json' }).resolve()
   assert.equal(r.errors.length, 1)
   assert.equal(r.errors[0].code, 'json')
-  assert.match(r.errors[0].file, /\.wb\/config\.json$/)
+  assert.match(r.errors[0].file, /\.lanekeeper\/config\.json$/)
 })
 
 test('schema: unknown keys are warnings, version must be 1', () => {

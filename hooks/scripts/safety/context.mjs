@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { procListeners } from '../../../lib/procs.mjs'
+import { stateInfo } from '../../../lib/naming.mjs'
 
 function run(bin, args, { cwd, env, timeout = 4000 } = {}) {
   try {
@@ -28,7 +29,7 @@ export const realGit = {
     const commonDir = path.resolve(t.cwd, common)
     const branch = gitIn(t, ['symbolic-ref', '-q', '--short', 'HEAD']) || null
     const head = gitIn(t, ['rev-parse', '-q', '--verify', 'HEAD']) || null
-    return { top, gitDir, commonDir, stateDir: path.join(commonDir, 'wb'), branch, head, linked: path.resolve(gitDir) !== path.resolve(commonDir) }
+    return { top, gitDir, commonDir, stateDir: stateInfo(commonDir).dir, branch, head, linked: path.resolve(gitDir) !== path.resolve(commonDir) }
   },
   revParse(t, ref) {
     return gitIn(t, ['rev-parse', '-q', '--verify', `${ref}^{commit}`]) || null

@@ -53,7 +53,7 @@ Checked: <journeys> journeys × <edge states> edge states = <cells> cells, not c
 
 Severity: blocker · high · medium · low (definitions in the skill). Axis: ① to ⑨ (① logic errors ② information consistency ③ user context ④ flow context ⑤ first-time user getting lost ⑥ the next action ⑦ way out of errors and exceptions ⑧ accessibility, narrow width, dark theme ⑨ design system visual comparison), more than one when a finding sits on several. Every axis has a line in the axes table, with "checked, no finding" when it has none. Status: `open` (found, owner has not decided) · `confirmed` (owner wants it fixed) · `fixed` (fix merged and checked again by a fresh checker) · `declined` (owner decided not to fix; keep the reason).
 
-## counts.json (for `wb-quality record ux-adversarial --from`)
+## counts.json (for `lanekeeper-quality record ux-adversarial --from`)
 
 One test = one cell of the check matrix (journey × edge state, or screen × edge state for a screen-by-screen check).
 
@@ -75,7 +75,7 @@ The verdict is `failed` while `failed > 0`. The ship precheck compares each resu
   ],
   "detail": {
     "base": "<commit>",
-    "checker": { "agent": "wb:ux-adversary", "model": "<model>" },
+    "checker": { "agent": "lanekeeper:ux-adversary", "model": "<model>" },
     "bySeverity": { "blocker": 2, "high": 3, "medium": 5, "low": 4 },
     "byAxis": { "1": 1, "2": 2, "3": 1, "4": 2, "5": 2, "6": 1, "7": 1, "8": 1, "9": 3 },
     "findings": [

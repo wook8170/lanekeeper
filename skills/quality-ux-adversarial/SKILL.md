@@ -1,22 +1,22 @@
 ---
 name: quality-ux-adversarial
-description: Adversarial UX check before shipping. A checker in a context separate from the implementing session (agent wb:ux-adversary, on the model the routing picks; Opus by default) drives the running product headless and hunts for the places where a first-time user gets stuck, goes wrong or loses work, as a chosen persona doing real tasks end to end, on nine required axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors and exceptions, accessibility with narrow width and dark theme, design system visual comparison), with evidence (a capture now, a check against the real data, measured computed style or pixels), a severity, a fix in the project's design system and a capture of the fix injected into the DOM. It never edits product code. The main session reports the findings to the owner as an artifact with before and after captures side by side, fixes only what the owner confirms, then checks again, and records the result as kind ux-adversarial. Before a version ships, the screens it changed are checked this way next to the gate, database and e2e checks, and an open blocker or high finding blocks the ship. Use when the user runs /wb:quality-ux-adversarial, asks for an adversarial UX review or a UX red team before a release, when /wb:ship-verify reaches the changed-screen check, or when it warns that ux-adversarial was not done or has an open blocker or high finding.
+description: Adversarial UX check before shipping. A checker in a context separate from the implementing session (agent lanekeeper:ux-adversary, on the model the routing picks; Opus by default) drives the running product headless and hunts for the places where a first-time user gets stuck, goes wrong or loses work, as a chosen persona doing real tasks end to end, on nine required axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors and exceptions, accessibility with narrow width and dark theme, design system visual comparison), with evidence (a capture now, a check against the real data, measured computed style or pixels), a severity, a fix in the project's design system and a capture of the fix injected into the DOM. It never edits product code. The main session reports the findings to the owner as an artifact with before and after captures side by side, fixes only what the owner confirms, then checks again, and records the result as kind ux-adversarial. Before a version ships, the screens it changed are checked this way next to the gate, database and e2e checks, and an open blocker or high finding blocks the ship. Use when the user runs /lanekeeper:quality-ux-adversarial, asks for an adversarial UX review or a UX red team before a release, when /lanekeeper:ship-verify reaches the changed-screen check, or when it warns that ux-adversarial was not done or has an open blocker or high finding.
 ---
 
-# wb quality-ux-adversarial
+# Lanekeeper quality-ux-adversarial
 
 Two quality skills look at the product as a user does. Use both before a release when there is a user interface.
 
 | Skill | Question | Who | Pass |
 |---|---|---|---|
-| `/wb:quality-usability` | Can a beginner finish the main tasks? | beginner stand-ins, given only the goal | every P0 scenario done within 1.5 × the expected steps |
-| `/wb:quality-ux-adversarial` | Where does the product contradict itself, mislead, strand or lose a real person doing real work, and does it look the same everywhere? | an adversarial checker that knows the product's rules and tries to break them | no open blocker or high finding |
+| `/lanekeeper:quality-usability` | Can a beginner finish the main tasks? | beginner stand-ins, given only the goal | every P0 scenario done within 1.5 × the expected steps |
+| `/lanekeeper:quality-ux-adversarial` | Where does the product contradict itself, mislead, strand or lose a real person doing real work, and does it look the same everywhere? | an adversarial checker that knows the product's rules and tries to break them | no open blocker or high finding |
 
 Run usability first when both are due: its blockers are journeys that fail outright, this skill then looks for what goes wrong around the journeys that work.
 
 ## Rules
 
-1. Separate context. The checker is a subagent that did not take part in the implementation: agent `wb:ux-adversary` (routing task `adversarial`; pass the model that `wb-route resolve adversarial --implementer <model>` prints. That is `"opus"` by default. When your routing adds a higher model such as `"fable"`, it comes first unless it is the implementer's model). The main session does not check its own work.
+1. Separate context. The checker is a subagent that did not take part in the implementation: agent `lanekeeper:ux-adversary` (routing task `adversarial`; pass the model that `lanekeeper-route resolve adversarial --implementer <model>` prints. That is `"opus"` by default. When your routing adds a higher model such as `"fable"`, it comes first unless it is the implementer's model). The main session does not check its own work.
 2. No product code changes. The checker writes findings and fix proposals into its result folder and nothing else. The real fix is a separate lane after the owner confirms it.
 3. Every finding has, in this order: what the user goes through, in one sentence → steps to reproduce → evidence (a capture taken now, plus a check against the real data from the test database or API, or measured computed style or pixels) → severity → axis → fix proposal in the project's design system (its tokens, classes and components, by name) → a capture of the fix made by injecting DOM or CSS into the same page, with the injected code attached.
 4. Report to the owner, fix after confirmation. The main session publishes the findings as an artifact with the now and fix captures side by side. Fixes start only for the findings the owner confirms. After a fix is merged, the checker (a fresh run) checks those findings again.
@@ -67,36 +67,36 @@ The checker also marks each finding as a defect fix (restores the intended look 
 
 1. Settle the inputs with the user or from the project. Nothing below is built into the plugin:
    - target screens or features, and the version or commit;
-   - how to start the product in isolation (the project's e2e harness or dev stack), with lane ports from `wb-port lease --lane <id>`; never the owner's or protected ports, never the working database;
+   - how to start the product in isolation (the project's e2e harness or dev stack), with lane ports from `lanekeeper-port lease --lane <id>`; never the owner's or protected ports, never the working database;
    - the design system of record (`project.mockup.tokens_css`, and the specification documents the project names);
    - roles and test data the checker may create, and how to clean them up;
    - the other front-end implementation, if any;
    - the result folder (scratch, not committed) and the report language (`personal.language`).
 2. Write the brief from [references/brief.ko.md](references/brief.ko.md) or [references/brief.en.md](references/brief.en.md). Fill every `{{…}}`; the dispatch guard checks the cover, the sections and the model. One brief per checker; split a large product into areas (at most `machine.lanes.max` at once) and give each its own result folder.
-3. Dispatch `wb:ux-adversary` with the brief. Browser steps run through `wb-slot --kind browser -- …`. The checker writes `findings.md` (format in [references/findings.md](references/findings.md)), `now-<n>.png` and `fix-<n>.png` per finding, and the injected code per fix ([references/inject-capture.md](references/inject-capture.md)).
+3. Dispatch `lanekeeper:ux-adversary` with the brief. Browser steps run through `lanekeeper-slot --kind browser -- …`. The checker writes `findings.md` (format in [references/findings.md](references/findings.md)), `now-<n>.png` and `fix-<n>.png` per finding, and the injected code per fix ([references/inject-capture.md](references/inject-capture.md)).
 4. Read the report and spot-check it: open two or three captures, re-run one data check. A finding without evidence, or a fix proposal outside the design system, goes back to the checker.
 5. Report to the owner as an artifact, built from [references/artifact.md](references/artifact.md): counts by severity and axis first, then one card per finding with the now and fix captures side by side, the one-sentence user impact, the evidence and the proposal. Embed the images as `data:` URIs. Ask the owner which findings to fix; design changes are the owner's call.
 6. Record the result (counts in [references/findings.md](references/findings.md)):
 
-   `wb-quality record ux-adversarial --verdict passed|failed --from <counts.json>`
+   `lanekeeper-quality record ux-adversarial --verdict passed|failed --from <counts.json>`
 
    The verdict is failed while any blocker or high finding is open (not fixed and checked again, and not declined by the owner).
 7. Confirmed fixes go to implementation lanes with a brief. After they are merged, dispatch a fresh checker on those findings (and the screens around them), update the statuses and record again.
-8. Commit the result JSON, the workbook and the index. Captures stay in the scratch folder unless the owner wants them kept (`wb-art keep`).
+8. Commit the result JSON, the workbook and the index. Captures stay in the scratch folder unless the owner wants them kept (`lanekeeper-art keep`).
 
 ## Before a ship: the changed screens
 
-`/wb:ship-verify` runs this check on the screens the version changed, after the gate, database and e2e checks pass and before the production readiness verdict (`verifying-production-readiness`).
+`/lanekeeper:ship-verify` runs this check on the screens the version changed, after the gate, database and e2e checks pass and before the production readiness verdict (`verifying-production-readiness`).
 
 1. List the changed screens: the screen and style files changed since the previous released version (`git diff --name-only <previous tag>..HEAD` against the suite's `stale_paths`), mapped to the routes or flows that use them. A version without changed screens records the kind with zero cells and says so in the report.
-2. The checker is a fresh `wb:ux-adversary` in a context that did not build those screens. It starts the product in isolation (the project's e2e harness or an isolated stack, lane ports, never the working database), walks each changed flow headless in the browser and keeps 2x captures.
+2. The checker is a fresh `lanekeeper:ux-adversary` in a context that did not build those screens. It starts the product in isolation (the project's e2e harness or an isolated stack, lane ports, never the working database), walks each changed flow headless in the browser and keeps 2x captures.
 3. It works as described in "How the checker works": personas, real task scenarios end to end through each changed flow, one line per screen on what the person understood and is about to do, and all nine axes, axis ⑨ measured.
 4. Findings that need the screen to change are collected and put to the owner in one artifact (findings table and captures, viewable remotely). Fixes start only after the owner confirms them; then a fresh checker checks them again.
 5. An open blocker or high finding blocks the ship. Record the kind before the readiness verdict starts.
 
 ## Ship precheck
 
-`ux-adversarial` is in `quality.ship.advisory` by default. `wb-quality precheck` and the ship gate hook then warn, without blocking, when the kind has no result (not done before shipping), when its newest result failed (an open blocker or high finding), or when it is stale. To make it block, add `ux-adversarial` to `quality.ship.requires`; `/wb:init` does this for a project of kind `web-ui`; to drop the warning, set `quality.ship.advisory` to `[]`. Give the suite `stale_paths` for the screen code (for example `{ "category": "ux-adversarial", "stale_paths": ["src/ui/**"] }`) so a change outside the screens does not make the result stale.
+`ux-adversarial` is in `quality.ship.advisory` by default. `lanekeeper-quality precheck` and the ship gate hook then warn, without blocking, when the kind has no result (not done before shipping), when its newest result failed (an open blocker or high finding), or when it is stale. To make it block, add `ux-adversarial` to `quality.ship.requires`; `/lanekeeper:init` does this for a project of kind `web-ui`; to drop the warning, set `quality.ship.advisory` to `[]`. Give the suite `stale_paths` for the screen code (for example `{ "category": "ux-adversarial", "stale_paths": ["src/ui/**"] }`) so a change outside the screens does not make the result stale.
 
 ## Do not
 

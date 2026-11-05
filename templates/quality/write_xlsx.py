@@ -41,12 +41,12 @@ def main(spec_file, out):
 
     with open(spec_file, encoding='utf-8') as f:
         spec = json.load(f)
-    wb = Workbook()
-    wb.remove(wb.active)
+    book = Workbook()
+    book.remove(book.active)
     used = set()
     head_fill = PatternFill('solid', fgColor='E8E8ED')
     for s in spec.get('sheets', []):
-        ws = wb.create_sheet(sheet_name(s.get('name'), used))
+        ws = book.create_sheet(sheet_name(s.get('name'), used))
         cols = s.get('columns') or []
         ws.append([cell(c) for c in cols])
         for c in ws[1]:
@@ -66,9 +66,9 @@ def main(spec_file, out):
         ws.freeze_panes = 'A2'
         if cols and ws.max_row > 1:
             ws.auto_filter.ref = f'A1:{get_column_letter(len(cols))}{ws.max_row}'
-    if not wb.sheetnames:
-        wb.create_sheet('sheet')
-    wb.save(out)
+    if not book.sheetnames:
+        book.create_sheet('sheet')
+    book.save(out)
 
 
 if __name__ == '__main__':

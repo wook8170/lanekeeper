@@ -3,16 +3,16 @@
   "project_kind": "other",
   "git": {
     "protected_branches": ["main", "master", "release/*"],
-    "integration_branch_pattern": "wb/*/int",
-    "lane_branch_pattern": "wb/*/l*",
+    "integration_branch_pattern": "lanekeeper/*/int",
+    "lane_branch_pattern": "lanekeeper/*/l*",
     "worktree_root": "{repo}/../wt-{task}",
     "main_checkout": "auto",
     "feature_push": "ask",
-    "gate_stamp": "wb-gate-pass",
+    "gate_stamp": "lanekeeper-gate-pass",
     "owner_grant_ttl_min": 15
   },
   "paths": {
-    "briefs": ".wb/briefs/{lane}.md",
+    "briefs": ".lanekeeper/briefs/{lane}.md",
     "lane_reports": "{scratch_root}/reports/{lane}.md",
     "reports_final": "docs/reports/{date}/{slug}.md",
     "artifacts_temp": "{scratch_root}/art/{slug}/",
@@ -21,7 +21,7 @@
     "decisions": "docs/decisions/{date}-{slug}.md",
     "test_results": "docs/test-results/{date}/{name}-{HHMM}.xlsx",
     "test_runs_raw": "test-results/runs/{name}-{stamp}/",
-    "metrics": ".wb/metrics/",
+    "metrics": ".lanekeeper/metrics/",
     "e2e_ledger": "docs/e2e/"
   },
   "gate": { "command": "", "verify_all": "", "append_checks": [] },
@@ -88,7 +88,7 @@
     "autofix": [],
     "checks": [],
     "manual_items": [],
-    "ack_file": ".wb/docs-sync-acks.json",
+    "ack_file": ".lanekeeper/docs-sync-acks.json",
     "style": "",
     "fail_on": "required"
   }

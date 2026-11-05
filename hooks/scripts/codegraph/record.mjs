@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // PostToolUse · PostToolUseFailure(mcp codegraph): record every codegraph
 // response as ok · empty · not_initialized · no_project · error in
-// <main checkout>/<paths.metrics>/codegraph.jsonl (`wb-index metrics` sums it).
+// <main checkout>/<paths.metrics>/codegraph.jsonl (`lanekeeper-index metrics` sums it).
 //
 // A "not initialized" / "not loaded" response also marks the path dead for
 // this session (deadpath.mjs blocks the next call), queues the checkout for
@@ -62,7 +62,7 @@ export function handle(input, env = process.env) {
   if (!r?.notice) return null
   const t = translator(r.language)
   const event = input.hook_event_name === 'PostToolUseFailure' ? 'PostToolUseFailure' : 'PostToolUse'
-  return ctxOutput(event, `[wb] ${t('cg.dead_notice', { path: r.notice.path, queued: r.notice.queued ? t('cg.dead_queued') : '' })}`)
+  return ctxOutput(event, `[lanekeeper] ${t('cg.dead_notice', { path: r.notice.path, queued: r.notice.queued ? t('cg.dead_queued') : '' })}`)
 }
 
 hookMain(import.meta, handle)

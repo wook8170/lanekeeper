@@ -1,20 +1,20 @@
 # Configuration
 
-wb settings come in four file layers. Values the team decides together go in the project settings committed to the repository; machine specifics and personal preferences go in files under your home folder that are not committed. This page lists the files of each layer, how values are merged, and the default and meaning of every key.
+Lanekeeper settings come in four file layers. Values the team decides together go in the project settings committed to the repository; machine specifics and personal preferences go in files under your home folder that are not committed. This page lists the files of each layer, how values are merged, and the default and meaning of every key.
 
 ## 1. Settings layers
 
 | Layer | File | Tracked by git | Holds |
 |---|---|---|---|
 | Default | Plugin `defaults/config.json`, `machine.json`, `personal.json`, `routing.json` | Plugin repository | The default of every key |
-| Project | `<repository>/.wb/config.json` | Committed | Project kind, branch rules, storage paths, verification command, voice map |
-| Machine | `~/.wb/machine.json` | No | Lane count, run slots, load threshold, protected ports, lane port range |
-| Plugin settings screen | `/plugin configure wb@wb-plugin` | No | Message language, report detail. Read only when hooks run |
-| Personal | `~/.wb/routing.json`, `~/.wb/personal.json` | No | Model routing and denied models, language, report detail, automatic resume, handoff, token guard |
+| Project | `<repository>/.lanekeeper/config.json` | Committed | Project kind, branch rules, storage paths, verification command, voice map |
+| Machine | `~/.lanekeeper/machine.json` | No | Lane count, run slots, load threshold, protected ports, lane port range |
+| Plugin settings screen | `/plugin configure lanekeeper@lanekeeper` | No | Message language, report detail. Read only when hooks run |
+| Personal | `~/.lanekeeper/routing.json`, `~/.lanekeeper/personal.json` | No | Model routing and denied models, language, report detail, automatic resume, handoff, token guard |
 
-The top-level keys of the project file are the `project` namespace. `machine`, `personal` and `routing` sections in the same file are read as values of those namespaces. For example, a project lowers the lane count to 2 with `"machine": { "lanes": { "max": 2 } }` in `.wb/config.json`.
+The top-level keys of the project file are the `project` namespace. `machine`, `personal` and `routing` sections in the same file are read as values of those namespaces. For example, a project lowers the lane count to 2 with `"machine": { "lanes": { "max": 2 } }` in `.lanekeeper/config.json`.
 
-To use another folder than `~/.wb`, set the environment variable `WB_HOME`. Sample files are in the plugin's `examples/` folder.
+To use another folder than `~/.lanekeeper`, set the environment variable `LANEKEEPER_HOME`. Sample files are in the plugin's `examples/` folder.
 
 ## 2. How values are merged
 
@@ -29,17 +29,17 @@ Caps leave the default out so that a personal machine file can set a value above
 ## 3. Commands to check settings
 
 ```
-wb-config get <key>         merged value
-wb-config explain <key>     merge rule, applied layer, every layer that sets it
-wb-config validate          format check per file; exit code 1 on errors
-wb-config dump              the whole merged settings
-wb-config doctor            checks and where the main values come from
+lanekeeper-config get <key>         merged value
+lanekeeper-config explain <key>     merge rule, applied layer, every layer that sets it
+lanekeeper-config validate          format check per file; exit code 1 on errors
+lanekeeper-config dump              the whole merged settings
+lanekeeper-config doctor            checks and where the main values come from
 ```
 
 Unknown keys are ignored with a warning. A value of the wrong form is an error, and while a settings error exists the safety hooks block git changes, killing processes, deletion and browser runs.
 
 ```
-wb-config validate
+lanekeeper-config validate
 Settings are valid.
 ```
 
@@ -49,7 +49,7 @@ Defaults are written as JSON. Keys marked "reserved" are format-checked only; no
 
 ### 4.1 Model routing (`routing`)
 
-Kept in the personal file `~/.wb/routing.json`.
+Kept in the personal file `~/.lanekeeper/routing.json`.
 
 | Key | Default | Meaning | Example |
 |---|---|---|---|
@@ -79,7 +79,7 @@ To use one more model, add it to `routing.models` and put it at the front of the
 
 ### 4.2 Machine (`machine`)
 
-Kept in the personal file `~/.wb/machine.json`. Port numbers live only in this file.
+Kept in the personal file `~/.lanekeeper/machine.json`. Port numbers live only in this file.
 
 | Key | Default | Meaning | Example |
 |---|---|---|---|
@@ -96,7 +96,7 @@ Kept in the personal file `~/.wb/machine.json`. Port numbers live only in this f
 | `machine.slots.heavy.patterns` | `["full-test","e2e","typecheck-all","build","install","codegraph-index"]` | Pattern group names treated as heavy runs (`defaults/heavy-patterns.json`) | `["full-test","e2e"]` |
 | `machine.slots.browser.count` | `2` | Browser slots. Cap rule | `1` |
 | `machine.slots.browser.patterns` | `["chrome-headless","playwright","cdp"]` | Pattern group names treated as browser runs | `["playwright"]` |
-| `machine.slots.lease_dir` | `"~/.wb/run/slots"` | Folder of slot lease files | keep the default |
+| `machine.slots.lease_dir` | `"~/.lanekeeper/run/slots"` | Folder of slot lease files | keep the default |
 | `machine.slots.stale_after_min` | `90` | Leases not renewed for this many minutes are reclaimed | `120` |
 | `machine.slots.guard` | `"warn"` | Heavy commands run without a slot: `warn` shows a hint, `deny` blocks | `"deny"` |
 | `machine.ports.protected` | `[]` | Ports whose processes must not be stopped. Entries have `name`, `port`, `project`, `note`. Protected list rule | `[{"name":"my-api","port":8080,"project":"*"}]` |
@@ -104,12 +104,12 @@ Kept in the personal file `~/.wb/machine.json`. Port numbers live only in this f
 | `machine.ports.lane_range.step` | `20` | Ports taken by one lane | `10` |
 | `machine.ports.lane_range.per_lane` | `["web","web2","api","db","aux"]` | Port names lent to each lane | `["web","api"]` |
 | `machine.ports.lane_range.max_lanes` | `9` | Most lanes in the range | `6` |
-| `machine.ports.leases` | `"{git_common_dir}/wb/ports.json"` | Port lease ledger | keep the default |
+| `machine.ports.leases` | `"{git_common_dir}/lanekeeper/ports.json"` | Port lease ledger | keep the default |
 | `machine.servers` | `[]` | Servers to restart after integration. Entries have `name`, `port_ref`, `restart`, `verify_url_path` (skill reference) | `[{"name":"my-web","port_ref":"my-api","restart":"manual"}]` |
 
 ### 4.3 Personal (`personal`)
 
-Kept in the personal file `~/.wb/personal.json`. `language` and `report.chat_detail` can also be chosen on the plugin settings screen; the value in this file wins.
+Kept in the personal file `~/.lanekeeper/personal.json`. `language` and `report.chat_detail` can also be chosen on the plugin settings screen; the value in this file wins.
 
 | Key | Default | Meaning | Example |
 |---|---|---|---|
@@ -119,25 +119,25 @@ Kept in the personal file `~/.wb/personal.json`. `language` and `report.chat_det
 | `personal.report.viewer` | `"local"` | Where reports are read. `remote` builds them to open on a remote device (skill reference) | `"remote"` |
 | `personal.report.artifact_fallback` | `"html-file"` | What to use without the Artifact tool: `html-file` · `none` | `"none"` |
 | `personal.report.artifact_check` | `true` | Block once when the report stage ends without an artifact | `false` |
-| `personal.auto_retry.enabled` | `true` | Automatic resume after a usage limit | `false` |
+| `personal.auto_retry.enabled` | `false` | Automatic resume after a usage limit. Off until you turn it on (`lanekeeper-retry on`) | `true` |
 | `personal.auto_retry.permission_mode` | `"default"` | Permission mode of the resumed session: `default` · `acceptEdits` · `plan` · `bypassPermissions` | `"acceptEdits"` |
-| `personal.auto_retry.bypass_ack` | `false` | Record that the `bypassPermissions` risk was confirmed. Written by `wb-retry mode bypassPermissions --i-understand` | do not write by hand |
+| `personal.auto_retry.bypass_ack` | `false` | Record that the `bypassPermissions` risk was confirmed. Written by `lanekeeper-retry mode bypassPermissions --i-understand` | do not write by hand |
 | `personal.handoff.enabled` | `true` | `progress.md` handoff hooks | `false` |
 | `personal.handoff.inject` | `"summary"` | How much of `progress.md` goes in at session start. `summary` puts in the first section (at most 40 lines, 2,500 characters) and has the agent read the file; `full` the whole current state | `"full"` |
 | `personal.handoff.file` | `"progress.md"` | Handoff file path (relative to the repository) | `"docs/progress.md"` |
 | `personal.handoff.throttle_min` | `20` | Minutes before the same session is blocked again | `30` |
 | `personal.handoff.max_lines` | `300` | Line target of the handoff file (20 or more) | `200` |
 | `personal.handoff.archive_dir` | `"docs/progress-archive"` | Archive folder | `"docs/history"` |
-| `personal.checkpoint.enabled` | `true` | `wip(wb)` commits at a limit, a subagent stop or a compaction | `false` |
-| `personal.paths.scratch_root` | `"~/.wb-scratch/{project}"` | Scratch folder that is never committed. `{project}` is the repository folder name | `"~/scratch/{project}"` |
+| `personal.checkpoint.enabled` | `true` | `wip(lanekeeper)` commits at a limit, a subagent stop or a compaction | `false` |
+| `personal.paths.scratch_root` | `"~/.lanekeeper-scratch/{project}"` | Scratch folder that is never committed. `{project}` is the repository folder name | `"~/scratch/{project}"` |
 | `personal.token_guard.enabled` | `true` | Token guard | `false` |
 | `personal.token_guard.stages` | `[90,95,99]` | Stage thresholds (%) | `[85,95,99]` |
-| `personal.token_guard.budget` | `0` | Fallback budget (weighted tokens) used when there is no official usage. At 0 the 100% derived from the account's calibration is used; without one the guard is silent. Written by `wb-token calibrate <n>` | `250000000` |
+| `personal.token_guard.budget` | `0` | Fallback budget (weighted tokens) used when there is no official usage. At 0 the 100% derived from the account's calibration is used; without one the guard is silent. Written by `lanekeeper-token calibrate <n>` | `250000000` |
 | `personal.token_guard.window_hours` | `5` | Recent hours whose usage is added up for the fallback budget | `5` |
 | `personal.token_guard.fresh_min` | `10` | Minutes the official usage is used as it is. Older than that, an estimate of the local use since then is added | `5` |
 | `personal.token_guard.source` | `"auto"` | Usage source. `auto`: official value plus estimate, `official`: official value only, `local`: fallback budget only | `"official"` |
 | `personal.terse` | `false` | Terse mode in every repository without its own switch | `true` |
-| `personal.global_hooks` | `"defer"` | When the Claude Code settings (`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`) already hook the same kind (handoff, token guard, auto resume, terse), wb's hook of that kind stays off. `ignore` keeps it on | `"ignore"` |
+| `personal.global_hooks` | `"defer"` | When the Claude Code settings (`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`) already hook the same kind (handoff, token guard, auto resume, terse), Lanekeeper's hook of that kind stays off. `ignore` keeps it on | `"ignore"` |
 | `personal.search.rg_hint` | `true` | `rg` note on a recursive `grep -r` search (once per session, never blocks) | `false` |
 | `personal.session_rules.language` | `true` | With `personal.language` set to `ko` or `en`, add the output language rule at session start | `false` |
 | `personal.session_rules.remote` | `true` | With `personal.report.viewer` set to `remote`, add the remote viewer rule (artifacts, base64 images, 2x captures) at session start | `false` |
@@ -146,7 +146,7 @@ Kept in the personal file `~/.wb/personal.json`. `language` and `report.chat_det
 
 ### 4.4 Project (`project`)
 
-Kept at the top level of `.wb/config.json` in the repository. The path inside the file is the key name without `project.`.
+Kept at the top level of `.lanekeeper/config.json` in the repository. The path inside the file is the key name without `project.`.
 
 **Basics and git**
 
@@ -155,12 +155,12 @@ Kept at the top level of `.wb/config.json` in the repository. The path inside th
 | `project.version` | `1` | File format version | `1` |
 | `project.project_kind` | `"other"` | `web-ui` · `service` · `library` · `other`. With `web-ui`, changes to screen files count as screen changes | `"web-ui"` |
 | `project.git.protected_branches` | `["main","master","release/*"]` | Protected branches. Protected list rule | `["develop"]` |
-| `project.git.integration_branch_pattern` | `"wb/*/int"` | Name rule of integration branches | `"team/*/int"` |
-| `project.git.lane_branch_pattern` | `"wb/*/l*"` | Name rule of lane branches | `"team/*/l*"` |
+| `project.git.integration_branch_pattern` | `"lanekeeper/*/int"` | Name rule of integration branches | `"team/*/int"` |
+| `project.git.lane_branch_pattern` | `"lanekeeper/*/l*"` | Name rule of lane branches | `"team/*/l*"` |
 | `project.git.worktree_root` | `"{repo}/../wt-{task}"` | Lane worktree path. `{repo}` is the main checkout, `{task}` the lane name | `"{repo}/../lanes/{task}"` |
 | `project.git.main_checkout` | `"auto"` | Location of the main checkout (reserved) | keep the default |
 | `project.git.feature_push` | `"ask"` | Feature branch pushes from the main session: `ask` · `allow` · `deny` | `"allow"` |
-| `project.git.gate_stamp` | `"wb-gate-pass"` | File name of the gate pass stamp (`<git common dir>/wb/<name>.json`) | keep the default |
+| `project.git.gate_stamp` | `"lanekeeper-gate-pass"` | File name of the gate pass stamp (`<git common dir>/lanekeeper/<name>.json`) | keep the default |
 | `project.git.owner_grant_ttl_min` | `15` | Minutes an owner grant stays valid | `30` |
 
 **Storage paths (`project.paths`)**
@@ -169,7 +169,7 @@ Placeholders are `{lane}`, `{date}`, `{slug}`, `{name}`, `{HHMM}`, `{stamp}` and
 
 | Key | Default | Meaning | Example |
 |---|---|---|---|
-| `project.paths.briefs` | `".wb/briefs/{lane}.md"` | Briefs | `".wb/briefs/{lane}.md"` |
+| `project.paths.briefs` | `".lanekeeper/briefs/{lane}.md"` | Briefs | `".lanekeeper/briefs/{lane}.md"` |
 | `project.paths.lane_reports` | `"{scratch_root}/reports/{lane}.md"` | Lane report files (not committed) | keep the default |
 | `project.paths.reports_final` | `"docs/reports/{date}/{slug}.md"` | Final report text (committed) | `"docs/reports/{slug}.md"` |
 | `project.paths.artifacts_temp` | `"{scratch_root}/art/{slug}/"` | Throw-away captures and report HTML | keep the default |
@@ -178,7 +178,7 @@ Placeholders are `{lane}`, `{date}`, `{slug}`, `{name}`, `{HHMM}`, `{stamp}` and
 | `project.paths.decisions` | `"docs/decisions/{date}-{slug}.md"` | Decision records (committed) | keep the default |
 | `project.paths.test_results` | `"docs/test-results/{date}/{name}-{HHMM}.xlsx"` | Test result workbooks (committed). A `.json` of the same name comes with each | keep the default |
 | `project.paths.test_runs_raw` | `"test-results/runs/{name}-{stamp}/"` | Raw logs (not committed) | keep the default |
-| `project.paths.metrics` | `".wb/metrics/"` | codegraph response log | keep the default |
+| `project.paths.metrics` | `".lanekeeper/metrics/"` | codegraph response log | keep the default |
 | `project.paths.e2e_ledger` | `"docs/e2e/"` | Test case ledger and defect register | `"tests/ledger/"` |
 
 **Verification and documents**
@@ -217,7 +217,7 @@ Fields of each `quality.suites` entry:
 | Field | Meaning |
 |---|---|
 | `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ux-adversarial` · `ship`. The quality skills pick suites by category. Without it: the kind name when that is a category, otherwise `unit` |
-| `command` | Shell command to run. `{file}` becomes the result file, `{dir}` the raw folder, `{root}` the repository. Without it and without `steps`, the skill tests and records the kind with `wb-quality record` |
+| `command` | Shell command to run. `{file}` becomes the result file, `{dir}` the raw folder, `{root}` the repository. Without it and without `steps`, the skill tests and records the kind with `lanekeeper-quality record` |
 | `steps` | `[{ "name": "docs", "cmd": "…" }]`. Each step runs on its own and counts as one test |
 | `parser` | Result format: `vitest` · `jest` · `playwright` · `pytest` (JUnit XML) · `vitest-log` (sum of the `Tests` lines in the log) · `json` (a file with `counts`) · `exit` (exit code only) · `steps`. Default `steps` when steps are set, otherwise `exit` |
 | `result` | Result file path. Default `{dir}/result.json` (`result.xml` for pytest). A `*` in the last path part merges several files |
@@ -250,10 +250,10 @@ Fields of each `quality.suites` entry:
 | `project.docs_sync.shots.scripts` | `[]` | Capture scripts `[{ "file", "call_pattern", "key_pattern", "key_scope", "entry_functions", "image", "ref", "command" }]` | see the example file |
 | `project.docs_sync.shots.command` | `""` | Recapture command; `{keys}` becomes the scene keys | `"SCENES={keys} node scripts/capture.mjs"` |
 | `project.docs_sync.screen_registry` | `{}` | Screen list file `{ "file", "list", "sources", "id", "title" }`; shows the screens whose sources changed | `{"file":"e2e/screens.json","list":"screens"}` |
-| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs apply` runs the ones that apply | see the example file |
-| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs verify` runs them; an empty `when` always applies | see the example file |
+| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `lanekeeper-docs apply` runs the ones that apply | see the example file |
+| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `lanekeeper-docs verify` runs them; an empty `when` always applies | see the example file |
 | `project.docs_sync.manual_items` | `[]` | `[{ "when", "text" }]`. Shown at the end of the map as work left by hand | see the example file |
-| `project.docs_sync.ack_file` | `".wb/docs-sync-acks.json"` | Acknowledgements of required items left alone on purpose (`{ "acks": [ … ] }`) | keep the default |
+| `project.docs_sync.ack_file` | `".lanekeeper/docs-sync-acks.json"` | Acknowledgements of required items left alone on purpose (`{ "acks": [ … ] }`) | keep the default |
 | `project.docs_sync.style` | `""` | Writing-style note appended to the drafts | `"Short sentences; quote screen text exactly"` |
 | `project.docs_sync.fail_on` | `"required"` | What fails the gate: `required` · `review` (review items fail too) | `"review"` |
 
@@ -268,8 +268,8 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 | `project.codegraph.index_on_worktree` | none | Old name of `auto_index`, read as an alias for one release | do not use |
 | `project.slots.heavy` | `[]` | Extra regular expressions treated as heavy runs | `["^make all$"]` |
 | `project.slots.browser` | `[]` | Extra regular expressions treated as browser runs | `["^npm run shots$"]` |
-| `project.worktree.setup` | `""` | Setup command run inside a slot in a new lane worktree. It receives `WB_LANE` and `WB_PORT_<name>` | `"npm ci"` |
-| `project.worktree.hook` | `false` | Let wb also create the worktrees Claude Code makes | `true` |
+| `project.worktree.setup` | `""` | Setup command run inside a slot in a new lane worktree. It receives `LANEKEEPER_LANE` and `LANEKEEPER_PORT_<name>` | `"npm ci"` |
+| `project.worktree.hook` | `false` | Let Lanekeeper also create the worktrees Claude Code makes | `true` |
 | `project.protected_paths` | `[]` | Paths (globs) agents must not write. Protected list rule | `["db/prod/**"]` |
 | `project.protected_data.paths` | `[]` | Database files or folders tests must not write (globs, relative to the project or absolute, `~` allowed). Protected list rule | `["data/owner.db"]` |
 | `project.protected_data.ports` | `[]` | Database server ports tests must not write to. A psql or mysql write to one is blocked for a lane and needs confirmation in the main session | `[5432]` |
@@ -284,7 +284,7 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 "numbers": { "migration": { "dir": "db/migrations", "pattern": "^(\\d+)_", "width": 3, "start": 1 } }
 ```
 
-`wb-number reserve migration --lane l3` returns a number above the files in the folder and the live reservations.
+`lanekeeper-number reserve migration --lane l3` returns a number above the files in the folder and the live reservations.
 
 **Review, integration and explanations**
 
@@ -295,13 +295,13 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 | `project.integrate.rules` | see below | Conflict classes. Entries have `glob` and `kind` (`ledger` · `union` · `generated` · `code`). The first matching rule wins | `[{"glob":"**/*.snap","kind":"generated"}]` |
 | `project.integrate.regenerate` | `[]` | Commands that rebuild generated files after a conflict. Entries have `name`, `command`, `glob` | `[{"name":"lock","command":"npm install","glob":"**/package-lock.json"}]` |
 | `project.integrate.guards` | `[]` | Commands run on the merged tree. Any failure rolls the merge back | `[{"name":"typecheck","command":"npm run typecheck"}]` |
-| `project.explain.links` | `[]` | Training material shown by `wb-explain links`. Entries have `title`, `href` | `[{"title":"Team guide","href":"docs/guide.md"}]` |
+| `project.explain.links` | `[]` | Training material shown by `lanekeeper-explain links`. Entries have `title`, `href` | `[{"title":"Team guide","href":"docs/guide.md"}]` |
 
 The default `project.integrate.rules` are seven rules. `**/*.cases.json` and `**/defect-register.json` are ledgers (`ledger`), `**/hooks/hooks.json` is a registration file (`union`), and `**/*.xlsx`, `**/package-lock.json`, `**/pnpm-lock.yaml` and `**/yarn.lock` are generated (`generated`). A file no rule matches counts as code.
 
 ## 5. Examples
 
-**Project (`.wb/config.json`)**
+**Project (`.lanekeeper/config.json`)**
 
 ```json
 {
@@ -319,7 +319,7 @@ The default `project.integrate.rules` are seven rules. `**/*.cases.json` and `**
 }
 ```
 
-**Quality suites (`quality` in `.wb/config.json`)**
+**Quality suites (`quality` in `.lanekeeper/config.json`)**
 
 An example for a pnpm monorepo with unit tests, a test database, gate steps, e2e, UI stability and usability. The full file is [examples/quality-config.json](../../examples/quality-config.json) in the plugin.
 
@@ -335,7 +335,7 @@ An example for a pnpm monorepo with unit tests, a test database, gate steps, e2e
 }
 ```
 
-**Machine (`~/.wb/machine.json`)**
+**Machine (`~/.lanekeeper/machine.json`)**
 
 ```json
 {
@@ -353,15 +353,15 @@ An example for a pnpm monorepo with unit tests, a test database, gate steps, e2e
 
 With both files in place, `machine.lanes.max` is 2 by the cap rule, because the project's 2 is smaller than the machine file's 6.
 
-**Personal (`~/.wb/personal.json`)**
+**Personal (`~/.lanekeeper/personal.json`)**
 
 ```json
 {
   "version": 1,
   "language": "en",
   "report": { "chat_detail": "detailed", "viewer": "remote" },
-  "auto_retry": { "enabled": true, "permission_mode": "default" },
-  "paths": { "scratch_root": "~/.wb-scratch/{project}" }
+  "auto_retry": { "enabled": false, "permission_mode": "default" },
+  "paths": { "scratch_root": "~/.lanekeeper-scratch/{project}" }
 }
 ```
 
@@ -369,9 +369,9 @@ With both files in place, `machine.lanes.max` is 2 by the cap rule, because the 
 
 | Variable | Meaning |
 |---|---|
-| `WB_HOME` | Folder of the personal and machine settings (default `~/.wb`) |
-| `WB_PROJECT_DIR` | Sets the project root directly |
-| `WB_CODEGRAPH` | `off` turns off every codegraph feature. A path selects that executable |
-| `WB_SLOT_HELD` | Set by `wb-slot` for the command it runs. Do not set it yourself |
-| `WB_LOAD_FAKE` | A number used in place of the load average. For tests; leave it unset |
-| `WB_LANE`, `WB_PORT_<name>` | Lane name and ports passed to the `project.worktree.setup` command |
+| `LANEKEEPER_HOME` | Folder of the personal and machine settings (default `~/.lanekeeper`) |
+| `LANEKEEPER_PROJECT_DIR` | Sets the project root directly |
+| `LANEKEEPER_CODEGRAPH` | `off` turns off every codegraph feature. A path selects that executable |
+| `LANEKEEPER_SLOT_HELD` | Set by `lanekeeper-slot` for the command it runs. Do not set it yourself |
+| `LANEKEEPER_LOAD_FAKE` | A number used in place of the load average. For tests; leave it unset |
+| `LANEKEEPER_LANE`, `LANEKEEPER_PORT_<name>` | Lane name and ports passed to the `project.worktree.setup` command |

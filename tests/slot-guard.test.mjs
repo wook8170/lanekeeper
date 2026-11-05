@@ -1,4 +1,4 @@
-// slot-guard (PreToolUse Bash): heavy and browser commands outside wb-slot get
+// slot-guard (PreToolUse Bash): heavy and browser commands outside lanekeeper-slot get
 // a note (warn) or a block (deny); wrapped or light commands pass.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -13,13 +13,13 @@ import { patternGroups } from '../lib/heavy.mjs'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 function sandbox(machine = {}, project = {}) {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-guard-')))
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-guard-')))
   const home = path.join(base, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify(machine))
-  fs.mkdirSync(path.join(base, '.wb'))
-  fs.writeFileSync(path.join(base, '.wb', 'config.json'), JSON.stringify(project))
-  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), WB_PROJECT_DIR: base, LANG: 'en_US.UTF-8' }
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(home, '.lanekeeper', 'machine.json'), JSON.stringify(machine))
+  fs.mkdirSync(path.join(base, '.lanekeeper'))
+  fs.writeFileSync(path.join(base, '.lanekeeper', 'config.json'), JSON.stringify(project))
+  const env = { PATH: process.env.PATH, HOME: home, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'), LANEKEEPER_PROJECT_DIR: base, LANG: 'en_US.UTF-8' }
   const judge = (command) => judgeSlots({ tool_name: 'Bash', tool_input: { command }, cwd: base }, env)
   return { base, env, judge, cleanup: () => fs.rmSync(base, { recursive: true, force: true }) }
 }
@@ -60,10 +60,10 @@ const LIGHT = [
   'pnpm add left-pad',
   'npm run lint',
   'echo "pnpm -r test"',
-  'wb-slot --kind heavy -- pnpm -r test',
-  'wb-slot --kind heavy,browser -- npx playwright test',
-  "wb-slot --kind heavy -- sh -c 'cd web && pnpm install'",
-  'wb-slot status',
+  'lanekeeper-slot --kind heavy -- pnpm -r test',
+  'lanekeeper-slot --kind heavy,browser -- npx playwright test',
+  "lanekeeper-slot --kind heavy -- sh -c 'cd web && pnpm install'",
+  'lanekeeper-slot status',
 ]
 
 test('heavy and browser commands outside a slot are found, with the kinds they need', () => {
@@ -84,7 +84,7 @@ test('light commands, single-file tests and wrapped commands pass', () => {
 
 test('a wrapper holding the wrong kind is still reported', () => {
   const s = sandbox()
-  const r = s.judge('wb-slot --kind heavy -- npx playwright test')
+  const r = s.judge('lanekeeper-slot --kind heavy -- npx playwright test')
   assert.deepEqual(r.hits[0].missing, ['browser'])
   s.cleanup()
 })
@@ -93,13 +93,13 @@ test('warn (default): no decision, a note with the wrapped command for Claude', 
   const s = sandbox()
   const out = JSON.parse(runHook(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'pnpm -r test' }, cwd: s.base }), s.env))
   assert.equal(out.hookSpecificOutput.permissionDecision, undefined)
-  assert.match(out.hookSpecificOutput.additionalContext, /wb-slot --kind heavy -- sh -c 'pnpm -r test'/)
+  assert.match(out.hookSpecificOutput.additionalContext, /lanekeeper-slot --kind heavy -- sh -c 'pnpm -r test'/)
   s.cleanup()
 })
 
 test('deny: blocked with the three-part message, in both languages', () => {
   const s = sandbox({ slots: { guard: 'deny' } })
-  for (const [lang, re] of [['en_US.UTF-8', /Blocked: .*\nHow to fix: .*wb-slot.*\nWhere to ask: /], ['ko_KR.UTF-8', /막았습니다: .*\n이렇게 고치세요: .*wb-slot.*\n물어볼 곳: /]]) {
+  for (const [lang, re] of [['en_US.UTF-8', /Blocked: .*\nHow to fix: .*lanekeeper-slot.*\nWhere to ask: /], ['ko_KR.UTF-8', /막았습니다: .*\n이렇게 고치세요: .*lanekeeper-slot.*\n물어볼 곳: /]]) {
     const out = JSON.parse(runHook(JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'npm ci' }, cwd: s.base }), { ...s.env, LANG: lang }))
     assert.equal(out.hookSpecificOutput.permissionDecision, 'deny')
     assert.match(out.hookSpecificOutput.permissionDecisionReason, re)
@@ -130,7 +130,7 @@ test('every pattern compiles and every default group name exists', () => {
 test('hook process prints the note and exits 0', () => {
   const s = sandbox()
   const out = execFileSync(path.join(ROOT, 'hooks', 'scripts', 'slots', 'slot-guard.mjs'), { input: JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'pnpm install' }, cwd: s.base }), env: s.env, encoding: 'utf8' })
-  assert.match(JSON.parse(out).hookSpecificOutput.additionalContext, /wb-slot/)
+  assert.match(JSON.parse(out).hookSpecificOutput.additionalContext, /lanekeeper-slot/)
   s.cleanup()
 })
 
@@ -140,15 +140,15 @@ test('hooks.json wires the slot guard; worktree hooks are opt-in (not in hooks.j
   assert.equal(h.WorktreeCreate, undefined)
   assert.equal(h.WorktreeRemove, undefined)
   assert.ok(h.SessionStart.some((e) => e.hooks.some((x) => x.command.includes('worktree/session-sync.mjs'))))
-  for (const b of ['wb-slot', 'wb-port', 'wb-worktree', 'wb-reap']) assert.ok(fs.statSync(path.join(ROOT, 'bin', b)).mode & 0o111, b)
+  for (const b of ['lanekeeper-slot', 'lanekeeper-port', 'lanekeeper-worktree', 'lanekeeper-reap']) assert.ok(fs.statSync(path.join(ROOT, 'bin', b)).mode & 0o111, b)
 })
 
 test('messages used by the slot, port, worktree and reap commands exist in both locales', () => {
   const keys = new Set(['safety.slot.unwrapped.why', 'safety.slot.unwrapped.fix'])
-  const files = ['bin/wb-slot', 'bin/wb-port', 'bin/wb-worktree', 'bin/wb-reap', 'bin/wb-config', 'hooks/scripts/slots/slot-guard.mjs', 'hooks/scripts/worktree/session-sync.mjs'].map((f) => path.join(ROOT, f))
+  const files = ['bin/lanekeeper-slot', 'bin/lanekeeper-port', 'bin/lanekeeper-worktree', 'bin/lanekeeper-reap', 'bin/lanekeeper-config', 'hooks/scripts/slots/slot-guard.mjs', 'hooks/scripts/worktree/session-sync.mjs'].map((f) => path.join(ROOT, f))
   for (const f of files) for (const m of fs.readFileSync(f, 'utf8').matchAll(/\bt\('([a-z][a-z_.-]+)'/g)) keys.add(m[1])
   for (const m of fs.readFileSync(path.join(ROOT, 'lib', 'worktree.mjs'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)
-  for (const m of fs.readFileSync(path.join(ROOT, 'bin', 'wb-worktree'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)
+  for (const m of fs.readFileSync(path.join(ROOT, 'bin', 'lanekeeper-worktree'), 'utf8').matchAll(/WbError\('([a-z_.]+)'/g)) for (const p of ['why', 'fix']) keys.add(`${m[1]}.${p}`)
   for (const k of ['wthook.synced_on', 'wthook.synced_off', 'wthook.conflict', 'init.worktreeHook', 'init.worktreeHookKept']) keys.add(k)
   for (const c of ['no-lane', 'no-lease', 'unknown-name', 'problem.overlap', 'problem.too-high', 'problem.protected']) keys.add(`port.${c}`)
   for (const lang of ['ko', 'en']) {

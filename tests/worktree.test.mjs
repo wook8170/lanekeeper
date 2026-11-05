@@ -1,4 +1,4 @@
-// wb-worktree: lane worktrees from the integration HEAD, port leases,
+// lanekeeper-worktree: lane worktrees from the integration HEAD, port leases,
 // lanes.json in the format the safety hooks read, the lane limit, the setup
 // command inside a slot, and removal that stops at running processes.
 import { test } from 'node:test'
@@ -19,7 +19,7 @@ const git = (cwd, ...args) =>
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 
 function fixture({ machine = {}, project = {} } = {}) {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-wt-')))
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-wt-')))
   const repo = path.join(base, 'repo')
   fs.mkdirSync(repo)
   git(repo, 'init', '-q', '-b', 'main')
@@ -27,44 +27,44 @@ function fixture({ machine = {}, project = {} } = {}) {
   fs.writeFileSync(path.join(repo, '.worktreeinclude'), '.env\n')
   git(repo, 'add', '.')
   git(repo, 'commit', '-q', '-m', 'init')
-  git(repo, 'branch', 'wb/t/int')
+  git(repo, 'branch', 'lanekeeper/t/int')
   // the integration branch moves ahead of main
-  git(repo, 'checkout', '-q', 'wb/t/int')
+  git(repo, 'checkout', '-q', 'lanekeeper/t/int')
   fs.writeFileSync(path.join(repo, 'int.txt'), 'int\n')
   git(repo, 'add', '.')
   git(repo, 'commit', '-q', '-m', 'int work')
   git(repo, 'checkout', '-q', 'main')
   fs.writeFileSync(path.join(repo, '.env'), 'KEY=local\n')
   const home = path.join(base, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify({ load: { max: 100000 }, slots: { lease_dir: path.join(base, 'slots') }, ...machine }))
-  fs.mkdirSync(path.join(repo, '.wb'))
-  fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify(project))
-  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', WB_CODEGRAPH: 'off' }
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(home, '.lanekeeper', 'machine.json'), JSON.stringify({ load: { max: 100000 }, slots: { lease_dir: path.join(base, 'slots') }, ...machine }))
+  fs.mkdirSync(path.join(repo, '.lanekeeper'))
+  fs.writeFileSync(path.join(repo, '.lanekeeper', 'config.json'), JSON.stringify(project))
+  const env = { PATH: process.env.PATH, HOME: home, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', LANEKEEPER_CODEGRAPH: 'off' }
   const ctx = (extra = {}) => {
     const resolved = resolveConfig({ projectDir: repo, env })
     assert.deepEqual(resolved.errors, [])
     return { cwd: repo, env, resolved, config: resolved.config, portDeps: { listening: () => new Set() }, pollMs: 10, log: () => {}, ...extra }
   }
-  const lanes = () => JSON.parse(fs.readFileSync(path.join(repo, '.git', 'wb', 'lanes.json'), 'utf8'))
-  const leases = () => JSON.parse(fs.readFileSync(path.join(repo, '.git', 'wb', 'ports.json'), 'utf8')).leases
+  const lanes = () => JSON.parse(fs.readFileSync(path.join(repo, '.git', 'lanekeeper', 'lanes.json'), 'utf8'))
+  const leases = () => JSON.parse(fs.readFileSync(path.join(repo, '.git', 'lanekeeper', 'ports.json'), 'utf8')).leases
   return { base, repo, env, ctx, lanes, leases, cleanup: () => fs.rmSync(base, { recursive: true, force: true }) }
 }
 
 test('create: branches from the integration HEAD, leases ports, registers the lane, copies .worktreeinclude', async () => {
   const f = fixture()
   const r = await wt.createWorktree(f.ctx(), { id: 'l1' })
-  assert.equal(r.integration, 'wb/t/int')
-  assert.equal(r.branch, 'wb/t/l1')
+  assert.equal(r.integration, 'lanekeeper/t/int')
+  assert.equal(r.branch, 'lanekeeper/t/l1')
   assert.equal(r.worktree, path.join(f.base, 'wt-l1'))
-  assert.equal(r.baseSha, git(f.repo, 'rev-parse', 'wb/t/int'))
+  assert.equal(r.baseSha, git(f.repo, 'rev-parse', 'lanekeeper/t/int'))
   assert.equal(git(r.worktree, 'rev-parse', 'HEAD'), r.baseSha)
   assert.ok(fs.existsSync(path.join(r.worktree, 'int.txt')))
   assert.equal(fs.readFileSync(path.join(r.worktree, '.env'), 'utf8'), 'KEY=local\n')
   assert.deepEqual(r.copied, ['.env'])
   assert.equal(r.ports.web, 41000)
   // lanes.json keeps the shape the safety hooks read
-  assert.deepEqual(f.lanes(), { lanes: [{ id: 'l1', branch: 'wb/t/l1', worktree: r.worktree, integration: 'wb/t/int' }] })
+  assert.deepEqual(f.lanes(), { lanes: [{ id: 'l1', branch: 'lanekeeper/t/l1', worktree: r.worktree, integration: 'lanekeeper/t/int' }] })
   assert.deepEqual(f.leases().map((l) => [l.lane, l.block, l.worktree]), [['l1', 0, r.worktree]])
   f.cleanup()
 })
@@ -100,15 +100,15 @@ test('create: refuses past machine.lanes.max and leaves nothing behind', async (
 test('create: rejects bad ids and two integration branches without --integration', async () => {
   const f = fixture()
   await assert.rejects(wt.createWorktree(f.ctx(), { id: '../x' }), (e) => e.code === 'wt.bad_id')
-  git(f.repo, 'branch', 'wb/u/int')
+  git(f.repo, 'branch', 'lanekeeper/u/int')
   await assert.rejects(wt.createWorktree(f.ctx(), { id: 'l1' }), (e) => e.code === 'wt.integration_ambiguous')
-  const r = await wt.createWorktree(f.ctx(), { id: 'l1', integration: 'wb/u/int' })
-  assert.equal(r.branch, 'wb/u/l1')
+  const r = await wt.createWorktree(f.ctx(), { id: 'l1', integration: 'lanekeeper/u/int' })
+  assert.equal(r.branch, 'lanekeeper/u/l1')
   f.cleanup()
 })
 
 test('create: setup runs in the new worktree inside a heavy slot, with lane and port variables', async () => {
-  const f = fixture({ project: { worktree: { setup: 'echo "$WB_LANE $WB_PORT_WEB $WB_SLOT_HELD" > setup.out; ls "$SLOTS"/heavy > slots.out' } } })
+  const f = fixture({ project: { worktree: { setup: 'echo "$LANEKEEPER_LANE $LANEKEEPER_PORT_WEB $LANEKEEPER_SLOT_HELD" > setup.out; ls "$SLOTS"/heavy > slots.out' } } })
   const c = f.ctx()
   c.env = { ...c.env, SLOTS: path.join(f.base, 'slots') }
   const r = await wt.createWorktree(c, { id: 'l1' })
@@ -155,7 +155,7 @@ test('remove: refuses uncommitted changes unless --force; then releases ports an
   assert.equal(out.released.length, 1)
   assert.deepEqual(f.lanes().lanes, [])
   assert.deepEqual(f.leases(), [])
-  assert.ok(git(f.repo, 'branch', '--list', 'wb/t/l1'), 'branch kept unless --delete-branch')
+  assert.ok(git(f.repo, 'branch', '--list', 'lanekeeper/t/l1'), 'branch kept unless --delete-branch')
   f.cleanup()
 })
 
@@ -188,7 +188,7 @@ test('remove: finds a real process whose working directory is inside the worktre
 })
 
 function cli(f, args, input) {
-  return execFileSync(process.execPath, [path.join(ROOT, 'bin', 'wb-worktree'), ...args], { cwd: f.repo, env: f.env, encoding: 'utf8', input, stdio: ['pipe', 'pipe', 'pipe'] })
+  return execFileSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-worktree'), ...args], { cwd: f.repo, env: f.env, encoding: 'utf8', input, stdio: ['pipe', 'pipe', 'pipe'] })
 }
 
 test('WorktreeCreate / WorktreeRemove hooks: path on the last stdout line, no lane registration, cleanup', () => {
@@ -199,8 +199,8 @@ test('WorktreeCreate / WorktreeRemove hooks: path on the last stdout line, no la
   const p = lines[0]
   assert.equal(p, path.join(f.repo, '.claude', 'worktrees', 'bold-oak'))
   assert.equal(git(p, 'rev-parse', '--abbrev-ref', 'HEAD'), 'worktree-bold-oak')
-  assert.equal(git(p, 'rev-parse', 'HEAD'), git(f.repo, 'rev-parse', 'wb/t/int'))
-  assert.equal(fs.existsSync(path.join(f.repo, '.git', 'wb', 'lanes.json')), false)
+  assert.equal(git(p, 'rev-parse', 'HEAD'), git(f.repo, 'rev-parse', 'lanekeeper/t/int'))
+  assert.equal(fs.existsSync(path.join(f.repo, '.git', 'lanekeeper', 'lanes.json')), false)
   assert.equal(f.leases()[0].lane, 'bold-oak')
   cli(f, ['hook-remove'], JSON.stringify({ hook_event_name: 'WorktreeRemove', worktree_path: p, cwd: f.repo }))
   assert.equal(fs.existsSync(p), false)
@@ -221,11 +221,11 @@ test('WorktreeRemove hook: exits non-zero and keeps a folder that is not a workt
 test('CLI create / list / remove round trip with JSON output', () => {
   const f = fixture()
   const r = JSON.parse(cli(f, ['create', 'l1', '--no-setup', '--json']))
-  assert.equal(r.branch, 'wb/t/l1')
+  assert.equal(r.branch, 'lanekeeper/t/l1')
   const list = JSON.parse(cli(f, ['list', '--json']))
   assert.deepEqual(list.lanes.map((l) => [l.id, l.exists]), [['l1', true]])
   const gone = JSON.parse(cli(f, ['remove', 'l1', '--json', '--delete-branch']))
-  assert.equal(gone.branchDeleted, 'wb/t/l1')
+  assert.equal(gone.branchDeleted, 'lanekeeper/t/l1')
   f.cleanup()
 })
 
@@ -237,6 +237,6 @@ test('remove --delete-branch keeps a branch that has commits of its own', async 
   git(r.worktree, 'commit', '-q', '-m', 'lane work')
   const out = wt.removeWorktree(f.ctx({ procsIn: () => [] }), { target: 'l1', deleteBranch: true })
   assert.equal(out.branchDeleted, false)
-  assert.ok(git(f.repo, 'branch', '--list', 'wb/t/l1'))
+  assert.ok(git(f.repo, 'branch', '--list', 'lanekeeper/t/l1'))
   f.cleanup()
 })

@@ -26,9 +26,9 @@ test('ux-adversarial skill: frontmatter, the owner rules and every reference it 
   const text = read(`${SKILL}/SKILL.md`)
   const fm = frontmatter(text)
   assert.equal(fm.name, 'quality-ux-adversarial')
-  assert.match(fm.description, /\/wb:quality-ux-adversarial/)
+  assert.match(fm.description, /\/lanekeeper:quality-ux-adversarial/)
   for (const must of [
-    /wb:ux-adversary/, /fable/i, /opus/i, // separate context, model
+    /lanekeeper:ux-adversary/, /fable/i, /opus/i, // separate context, model
     /No product code changes/i,
     /what the user goes through, in one sentence/i, /computed style/i, /injecting DOM or CSS/i,
     /blocker/, /high/, /medium/, /low/,
@@ -41,15 +41,15 @@ test('ux-adversarial skill: frontmatter, the owner rules and every reference it 
     /headless/i, /2x/, /--hide-scrollbars/,
     /dark/i, /narrow/i, /keyboard only/i, /no permission/i, /empty state/i, /long names/i, /leaving before saving/i, /deep link/i,
     /other front-end implementation/i, /parity/i,
-    /wb-quality record ux-adversarial/, /quality\.ship\.advisory/, /quality\.ship\.requires/,
+    /lanekeeper-quality record ux-adversarial/, /quality\.ship\.advisory/, /quality\.ship\.requires/,
   ]) assert.match(text, must)
   for (const m of text.matchAll(/\]\((references\/[^)]+)\)/g)) assert.ok(fs.existsSync(path.join(ROOT, SKILL, m[1])), m[1])
   for (const f of ['brief.ko.md', 'brief.en.md', 'findings.md', 'artifact.md', 'inject-capture.md']) assert.ok(text.includes(`references/${f}`), f)
 })
 
 test('ux-adversarial skill and quality-usability point to each other', () => {
-  assert.match(read('skills/quality-usability/SKILL.md'), /\/wb:quality-ux-adversarial/)
-  assert.match(read(`${SKILL}/SKILL.md`), /\/wb:quality-usability/)
+  assert.match(read('skills/quality-usability/SKILL.md'), /\/lanekeeper:quality-ux-adversarial/)
+  assert.match(read(`${SKILL}/SKILL.md`), /\/lanekeeper:quality-usability/)
 })
 
 test('ux-adversary agent: read-only toward the product, no edit tool, writes only its result folder', () => {
@@ -64,7 +64,7 @@ test('ux-adversary agent: read-only toward the product, no edit tool, writes onl
   assert.match(text, /do not commit/i)
   assert.match(text, /headless/i)
   assert.match(text, /--hide-scrollbars/)
-  assert.equal(classify({ routing, subagentType: 'wb:ux-adversary' }).type, 'adversarial', 'the agent name routes as adversarial without a brief type')
+  assert.equal(classify({ routing, subagentType: 'lanekeeper:ux-adversary' }).type, 'adversarial', 'the agent name routes as adversarial without a brief type')
 })
 
 test('ux-adversarial briefs: pass the dispatch brief check once filled, route as adversarial, same outline ko/en', () => {
@@ -88,7 +88,7 @@ test('ux-adversarial briefs: pass the dispatch brief check once filled, route as
   assert.equal(outline[0], outline[1])
 })
 
-test('ux-adversarial references: counts format matches what wb-quality record reads', () => {
+test('ux-adversarial references: counts format matches what lanekeeper-quality record reads', () => {
   const text = read(`${SKILL}/references/findings.md`)
   const json = text.match(/```json\n([\s\S]*?)```/)[1]
   const j = JSON.parse(json)
@@ -104,7 +104,7 @@ test('ux-adversarial references: counts format matches what wb-quality record re
 test('ship-verify: changed-screen adversarial UX check before the readiness verdict, high blocks, remote report', () => {
   const text = read('skills/ship-verify/SKILL.md')
   assert.match(text, /Changed screens/)
-  assert.match(text, /\/wb:quality-ux-adversarial/)
+  assert.match(text, /\/lanekeeper:quality-ux-adversarial/)
   assert.match(text, /blocker or high finding stops here/i)
   assert.match(text, /owner before any fix/i)
   assert.match(text, /verifying-production-readiness/)
@@ -124,17 +124,17 @@ test('design-adversarial skill: code check, severities, revisions, high 0 gate, 
   const text = read(`${DSKILL}/SKILL.md`)
   const fm = frontmatter(text)
   assert.equal(fm.name, 'design-adversarial')
-  assert.match(fm.description, /\/wb:design-adversarial/)
+  assert.match(fm.description, /\/lanekeeper:design-adversarial/)
   for (const must of [
-    /wb:design-adversary/, /fable/i, /opus/i, /Read-only/i,
+    /lanekeeper:design-adversary/, /fable/i, /opus/i, /Read-only/i,
     /Check the code, not only the sentences/i, /path:line/, /`high N`/,
     /high/, /medium/, /low/,
     /rev 2, rev 3/, /reconciliation table/i, /not accepted/i, /reviewed again/i,
     /only fixes high findings/i, /new risk/i,
     /Implementation starts only when the newest revision has `high 0`/,
-    /Owner decisions/i, /\/wb:decide/,
-    /nine axes of `\/wb:quality-ux-adversarial`/,
-    /invariant/i, /\/wb:ship-verify/,
+    /Owner decisions/i, /\/lanekeeper:decide/,
+    /nine axes of `\/lanekeeper:quality-ux-adversarial`/,
+    /invariant/i, /\/lanekeeper:ship-verify/,
   ]) assert.match(text, must)
   for (const m of text.matchAll(/\]\((references\/[^)]+)\)/g)) assert.ok(fs.existsSync(path.join(ROOT, DSKILL, m[1])), m[1])
   const review = read(`${DSKILL}/references/review.md`)
@@ -152,7 +152,7 @@ test('design-adversary agent: read-only, no edit tool, routes as adversarial', (
   assert.match(text, /read-only/i)
   assert.match(text, /do not commit/i)
   assert.match(text, /path:line/)
-  assert.equal(classify({ routing, subagentType: 'wb:design-adversary' }).type, 'adversarial')
+  assert.equal(classify({ routing, subagentType: 'lanekeeper:design-adversary' }).type, 'adversarial')
 })
 
 test('design-adversarial briefs: pass the dispatch brief check once filled, same outline ko/en', () => {

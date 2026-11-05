@@ -59,8 +59,8 @@ test('officialUsage: reads the cache of the active account only, never other fie
     // explicit path
     const other = path.join(f.base, 'c.json')
     fs.copyFileSync(path.join(f.env.CLAUDE_CONFIG_DIR, '.claude.json'), other)
-    assert.equal(officialUsage({ env: { ...f.env, WB_CLAUDE_JSON: other } }).account, ACC_B)
-    assert.equal(officialUsage({ env: { ...f.env, WB_CLAUDE_JSON: path.join(f.base, 'missing.json') } }).snapshot, null)
+    assert.equal(officialUsage({ env: { ...f.env, LANEKEEPER_CLAUDE_JSON: other } }).account, ACC_B)
+    assert.equal(officialUsage({ env: { ...f.env, LANEKEEPER_CLAUDE_JSON: path.join(f.base, 'missing.json') } }).snapshot, null)
   } finally {
     f.cleanup()
   }
@@ -254,30 +254,30 @@ test('token guard hook speaks from the official cache without a budget', () => {
   }
 })
 
-test('wb-token: status shows the official value, the estimate and the calibration; calibrate --five/--seven adds a manual point; --check lists pairs', () => {
+test('lanekeeper-token: status shows the official value, the estimate and the calibration; calibrate --five/--seven adds a manual point; --check lists pairs', () => {
   const f = makeEnv()
   try {
     const now = Date.now()
     writeClaudeJson(f, { fetchedAt: now - H, five: 11, seven: 54, fiveReset: now + 2 * H, sevenReset: now + 100 * H })
     writeTranscript(f, 'a.jsonl', [out(now - 2.5 * H, 1000), out(now - 30 * 60e3, 1000)])
-    let r = bin('wb-token', ['status'], f.env, f.repo)
+    let r = bin('lanekeeper-token', ['status'], f.env, f.repo)
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /Official/)
     assert.match(r.stdout, /11%/)
     assert.match(r.stdout, /Estimate/)
     assert.match(r.stdout, /27441107/, 'last 8 characters of the account')
-    r = bin('wb-token', ['calibrate', '--five', '60', '--seven', '67'], f.env, f.repo)
+    r = bin('lanekeeper-token', ['calibrate', '--five', '60', '--seven', '67'], f.env, f.repo)
     assert.equal(r.status, 0, r.stderr)
     const h = readHistory(f.env, ACC_A)
     assert.deepEqual([h.at(-1).source, h.at(-1).five, h.at(-1).seven], ['manual', 60, 67])
-    r = bin('wb-token', ['calibrate', '--check'], f.env, f.repo)
+    r = bin('lanekeeper-token', ['calibrate', '--check'], f.env, f.repo)
     assert.equal(r.status, 0, r.stderr)
     assert.match(r.stdout, /official .* manual/)
-    assert.equal(bin('wb-token', ['calibrate', '--five', '150'], f.env, f.repo).status, 1)
-    assert.equal(bin('wb-token', ['calibrate', '--five', '20', '--at', 'soon'], f.env, f.repo).status, 1)
+    assert.equal(bin('lanekeeper-token', ['calibrate', '--five', '150'], f.env, f.repo).status, 1)
+    assert.equal(bin('lanekeeper-token', ['calibrate', '--five', '20', '--at', 'soon'], f.env, f.repo).status, 1)
     const d = new Date(now - 2 * 60e3)
     const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    r = bin('wb-token', ['calibrate', '--five=20', '--at', hm], f.env, f.repo)
+    r = bin('lanekeeper-token', ['calibrate', '--five=20', '--at', hm], f.env, f.repo)
     assert.equal(r.status, 0, r.stderr)
     const m = readHistory(f.env, ACC_A).find((s) => s.five === 20)
     assert.ok(m && Math.abs(m.at - (now - 2 * 60e3)) < 60e3, '--at sets the time of the point')

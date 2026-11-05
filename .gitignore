@@ -1,4 +1,4 @@
 node_modules/
-.wb/briefs/
+.lanekeeper/briefs/
 .DS_Store
 __pycache__/

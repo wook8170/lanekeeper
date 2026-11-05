@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-index — codegraph index queue.
+// lanekeeper-index — codegraph index queue.
 //
-//   wb-index add [<path>] [--no-start] [--json]   queue a checkout (default: this one) and start the worker
-//   wb-index run [--quiet]                         run queued jobs now, one at a time, then exit
-//   wb-index status [--json]                       queue, worker, recent results
-//   wb-index drop <path>                           take a path off the queue and delete its .codegraph
-//   wb-index orphans [--apply] [--json]            indexes left in folders that are no longer worktrees
-//   wb-index metrics [--days <n>] [--json]         codegraph responses by class (ok · empty · not initialized · not loaded · error)
+//   lanekeeper-index add [<path>] [--no-start] [--json]   queue a checkout (default: this one) and start the worker
+//   lanekeeper-index run [--quiet]                         run queued jobs now, one at a time, then exit
+//   lanekeeper-index status [--json]                       queue, worker, recent results
+//   lanekeeper-index drop <path>                           take a path off the queue and delete its .codegraph
+//   lanekeeper-index orphans [--apply] [--json]            indexes left in folders that are no longer worktrees
+//   lanekeeper-index metrics [--days <n>] [--json]         codegraph responses by class (ok · empty · not initialized · not loaded · error)
 //
 // Jobs run under nice inside a heavy slot, so they wait while the load is at or
 // above the threshold. A new checkout copies the index of another worktree of the
@@ -31,14 +31,14 @@ const root = projectRoot(process.cwd(), env)
 const resolved = resolveConfig({ projectDir: root, env })
 const t = translator(resolved.effective.language)
 const say = (s) => process.stdout.write(`${s}\n`)
-const err = (s) => process.stderr.write(`[wb-index] ${s}\n`)
+const err = (s) => process.stderr.write(`[lanekeeper-index] ${s}\n`)
 const asJson = (v) => say(JSON.stringify(v, null, 2))
 const stamp = () => new Date().toISOString().slice(0, 19)
 
 function needBin() {
   if (cg.findBin(env)) return true
   err(t('cg.missing'))
-  process.exit(env.WB_CODEGRAPH === 'off' ? 0 : 3)
+  process.exit(env.LANEKEEPER_CODEGRAPH === 'off' ? 0 : 3)
 }
 
 switch (cmd) {

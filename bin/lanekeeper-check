@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// wb-check — project checks. Each subcommand lives in its own lib module.
+// lanekeeper-check — project checks. Each subcommand lives in its own lib module.
 //
-//   wb-check brief <file|-> [--json]   brief marker, required sections and statements
+//   lanekeeper-check brief <file|-> [--json]   brief marker, required sections and statements
 //                                     (exit 1 = incomplete). Brief files it names
 //                                     (common briefs) are read as well.
-//   wb-check test-results [--json] [--require-pass]
+//   lanekeeper-check test-results [--json] [--require-pass]
 //                                     newest test result workbook exists and is committed;
 //                                     the ledger matches the run when a ledger exists (exit 1 = no)
-//   wb-check lane <lane> [--head SHA] [--base REF] [--report FILE] [--return FILE] [--brief FILE]
+//   lanekeeper-check lane <lane> [--head SHA] [--base REF] [--report FILE] [--return FILE] [--brief FILE]
 //                 [--lane-dir DIR] [--capture FILE]... [--captures-seen] [--serve-url URL --marker TEXT]
 //                 [--stage lane|integration|final] [--scope GLOB,...] [--wave W --record] [--json]
-//                                     the nine review items of /wb:review-lane (exit 1 = a fail;
+//                                     the nine review items of /lanekeeper:review-lane (exit 1 = a fail;
 //                                     a return brief is written for the lane)
 import fs from 'node:fs'
 import path from 'node:path'
@@ -25,7 +25,7 @@ const print = (s) => process.stdout.write(`${s}\n`)
 
 async function brief() {
   if (!target) {
-    print('usage: wb-check brief <file|->')
+    print('usage: lanekeeper-check brief <file|->')
     process.exit(2)
   }
   const { resolveConfig, projectRoot } = await imp('config.mjs')
@@ -37,7 +37,7 @@ async function brief() {
   try {
     raw = target === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(target, 'utf8')
   } catch (e) {
-    process.stderr.write(`[wb] ${t(e.code === 'ENOENT' ? 'brief.not_found' : 'brief.unreadable', { file: target, error: e.code || e.message })}\n`)
+    process.stderr.write(`[lanekeeper] ${t(e.code === 'ENOENT' ? 'brief.not_found' : 'brief.unreadable', { file: target, error: e.code || e.message })}\n`)
     process.exit(2)
   }
   const base = target === '-' ? process.cwd() : path.dirname(path.resolve(target))
@@ -82,7 +82,7 @@ async function lane() {
   const a = parseOptions(argv.slice(1), ['json', 'captures-seen', 'record'])
   const laneId = a._[0]
   if (!laneId) {
-    print('usage: wb-check lane <lane> [--head SHA] [--report FILE] …')
+    print('usage: lanekeeper-check lane <lane> [--head SHA] [--report FILE] …')
     process.exit(2)
   }
   const { resolveConfig, projectRoot, getPath } = await imp('config.mjs')
@@ -91,7 +91,7 @@ async function lane() {
   const W = await imp('waves.mjs')
   const root = projectRoot(process.cwd(), process.env)
   if (!W.ID_RE.test(String(laneId))) {
-    process.stderr.write(`[wb] ${translator(resolveConfig({ projectDir: root, env: process.env }).effective.language)('ledger.err.waves.bad_id', { kind: 'lane', id: laneId })}\n`)
+    process.stderr.write(`[lanekeeper] ${translator(resolveConfig({ projectDir: root, env: process.env }).effective.language)('ledger.err.waves.bad_id', { kind: 'lane', id: laneId })}\n`)
     process.exit(2)
   }
   const resolved = resolveConfig({ projectDir: root, env: process.env })
@@ -145,7 +145,7 @@ async function lane() {
     try {
       R.recordReview(root, String(a.wave), laneId, result, fails.map((i) => `${i.n}:${i.code}`).join(', ') || 'pass')
     } catch (e) {
-      process.stderr.write(`[wb] ${e.message}\n`)
+      process.stderr.write(`[lanekeeper] ${e.message}\n`)
     }
   }
   if (a.json) print(JSON.stringify({ ...result, brief }, null, 2))
@@ -160,7 +160,7 @@ async function lane() {
 
 const COMMANDS = { brief, 'test-results': testResults, lane }
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-check <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-check <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 await COMMANDS[cmd]()

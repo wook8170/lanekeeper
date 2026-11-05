@@ -22,7 +22,7 @@ export function run(input, env = process.env, pluginRoot = PLUGIN_ROOT) {
   if (!r.changed && r.state !== 'conflict') return ''
   const t = translator(resolved.effective.language)
   const key = r.state === 'conflict' ? 'wthook.conflict' : enabled ? 'wthook.synced_on' : 'wthook.synced_off'
-  return JSON.stringify({ systemMessage: `[wb] ${t(key, { file: r.file })}` })
+  return JSON.stringify({ systemMessage: `[lanekeeper] ${t(key, { file: r.file })}` })
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) {

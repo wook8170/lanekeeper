@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// wb-art — artifacts to keep or to throw away, and a one-file HTML report.
+// lanekeeper-art — artifacts to keep or to throw away, and a one-file HTML report.
 //
-//   wb-art keep <file>... --slug S [--json]     into paths.artifacts_keep (committed);
+//   lanekeeper-art keep <file>... --slug S [--json]     into paths.artifacts_keep (committed);
 //                                               a PNG over artifacts_keep_webp.over_kb becomes WebP
-//   wb-art temp <file>... --slug S [--json]     into paths.artifacts_temp (scratch, not committed)
-//   wb-art report --title T --md FILE [--image LABEL=FILE]... [--slug S] [--keep] [--out FILE]
+//   lanekeeper-art temp <file>... --slug S [--json]     into paths.artifacts_temp (scratch, not committed)
+//   lanekeeper-art report --title T --md FILE [--image LABEL=FILE]... [--slug S] [--keep] [--out FILE]
 //                                               one HTML file; images embedded as data: URIs
 //                                               (big PNG converted to WebP first)
-//   wb-art env                                  which PNG → WebP converter is available
+//   lanekeeper-art env                                  which PNG → WebP converter is available
 // Converter: cwebp, else Python Pillow. Without one a big PNG is copied as is with a warning.
 import fs from 'node:fs'
 import os from 'node:os'
@@ -29,7 +29,7 @@ const print = (s = '') => process.stdout.write(`${s}\n`)
 const [cmd, ...files] = args._
 const slug = String(args.slug || new Date().toISOString().slice(0, 10))
 if (!A.slugOk(slug)) {
-  process.stderr.write(`[wb] ${t('art.bad_slug', { slug })}\n`)
+  process.stderr.write(`[lanekeeper] ${t('art.bad_slug', { slug })}\n`)
   process.exit(2)
 }
 const webp = A.webpSettings(resolved.config)
@@ -39,14 +39,14 @@ function show(rows) {
   for (const r of rows) {
     const kb = (n) => `${Math.round(n / 1024)}KB`
     print(r.converted ? t('art.converted', { src: r.src, dest: r.dest, a: kb(r.bytesIn), b: kb(r.bytesOut) }) : t('art.copied', { src: r.src, dest: r.dest }))
-    if (r.warn) process.stderr.write(`[wb] ${t(`art.${r.warn}`, { over: webp.over_kb })}\n`)
+    if (r.warn) process.stderr.write(`[lanekeeper] ${t(`art.${r.warn}`, { over: webp.over_kb })}\n`)
   }
 }
 
 function needFiles() {
   const missing = files.filter((f) => !fs.existsSync(f))
   if (!files.length || missing.length) {
-    process.stderr.write(`[wb] ${t('art.no_files', { files: missing.join(', ') || '-' })}\n`)
+    process.stderr.write(`[lanekeeper] ${t('art.no_files', { files: missing.join(', ') || '-' })}\n`)
     process.exit(2)
   }
 }
@@ -62,7 +62,7 @@ const COMMANDS = {
   },
   report() {
     if (!args.title || !args.md || !fs.existsSync(String(args.md))) {
-      print('usage: wb-art report --title T --md FILE [--image LABEL=FILE]... [--keep] [--out FILE]')
+      print('usage: lanekeeper-art report --title T --md FILE [--image LABEL=FILE]... [--keep] [--out FILE]')
       process.exit(2)
     }
     const pairs = []
@@ -73,11 +73,11 @@ const COMMANDS = {
     })
     const missing = images.filter((im) => !fs.existsSync(im.file)).map((im) => im.file)
     if (missing.length) {
-      process.stderr.write(`[wb] ${t('art.no_files', { files: missing.join(', ') })}\n`)
+      process.stderr.write(`[lanekeeper] ${t('art.no_files', { files: missing.join(', ') })}\n`)
       process.exit(2)
     }
     const dir = A.artPath(root, resolved.config, args.keep ? 'artifacts_keep' : 'artifacts_temp', slug)
-    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-art-'))
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-art-'))
     const placed = A.placeFiles(images.map((im) => im.file), work, { webp })
     const html = A.buildReportHtml({
       title: String(args.title),
@@ -89,12 +89,12 @@ const COMMANDS = {
     const out = args.out ? path.resolve(String(args.out)) : path.join(dir, 'index.html')
     fs.mkdirSync(path.dirname(out), { recursive: true })
     fs.writeFileSync(out, html)
-    for (const r of placed) if (r.warn) process.stderr.write(`[wb] ${t(`art.${r.warn}`, { over: webp.over_kb })}\n`)
+    for (const r of placed) if (r.warn) process.stderr.write(`[lanekeeper] ${t(`art.${r.warn}`, { over: webp.over_kb })}\n`)
     const size = fs.statSync(out).size
     if (args.json) print(JSON.stringify({ file: out, bytes: size, images: placed.length }, null, 2))
     else print(t('art.report', { file: out, kb: Math.round(size / 1024), n: placed.length }))
     if (size > 16 * 1024 * 1024) {
-      process.stderr.write(`[wb] ${t('art.too_big')}\n`)
+      process.stderr.write(`[lanekeeper] ${t('art.too_big')}\n`)
       process.exit(1)
     }
   },
@@ -105,7 +105,7 @@ const COMMANDS = {
   },
 }
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-art <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-art <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 COMMANDS[cmd]()

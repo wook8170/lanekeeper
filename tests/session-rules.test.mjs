@@ -12,7 +12,7 @@ import { isRecursiveGrep } from '../lib/search.mjs'
 import { resolveConfig } from '../lib/config.mjs'
 import { parse } from '../hooks/scripts/safety/shell.mjs'
 
-const personal = (f, obj) => fs.writeFileSync(path.join(f.env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, ...obj }))
+const personal = (f, obj) => fs.writeFileSync(path.join(f.env.LANEKEEPER_HOME, 'personal.json'), JSON.stringify({ version: 1, ...obj }))
 const ctx = (out) => out?.hookSpecificOutput?.additionalContext || ''
 
 test('session rules: conduct by default; language only when set to ko or en; remote only for a remote viewer', () => {
@@ -63,15 +63,17 @@ test('session rule files: ko and en exist for every part with the same headings 
   }
 })
 
-test('codegraph session start: missing codegraph gives the install-and-go-on guidance; off stays silent', () => {
-  const f = makeEnv({ WB_CODEGRAPH: 'off' })
+test('codegraph session start: missing codegraph gives the ask-before-install guidance; off stays silent', () => {
+  const f = makeEnv({ LANEKEEPER_CODEGRAPH: 'off' })
   try {
     const text = ctx(cgStart({ cwd: f.repo, source: 'startup' }, f.env))
     assert.match(text, /codegraph init \./)
     assert.match(text, /projectPath/)
-    assert.match(text, /do not stop to ask/)
-    fs.mkdirSync(path.join(f.repo, '.wb'), { recursive: true })
-    fs.writeFileSync(path.join(f.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, codegraph: { nudge: 'off' } }))
+    assert.match(text, /Do not install it yourself/)
+    assert.match(text, /only after the user agrees/)
+    assert.doesNotMatch(text, /which codegraph \|\| brew install/)
+    fs.mkdirSync(path.join(f.repo, '.lanekeeper'), { recursive: true })
+    fs.writeFileSync(path.join(f.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, codegraph: { nudge: 'off' } }))
     assert.equal(cgStart({ cwd: f.repo, source: 'startup' }, f.env), null)
   } finally {
     f.cleanup()
@@ -83,7 +85,7 @@ test('rg hint (in the codegraph nudge process): recursive grep gets a note (rg -
   try {
     let sid = 0
     // a fresh session per call: the note shows once per session
-    const run = (command, env = f.env) => nudge({ tool_name: 'Bash', tool_input: { command }, cwd: f.repo, session_id: `s${++sid}` }, { WB_CODEGRAPH: 'off', ...env })
+    const run = (command, env = f.env) => nudge({ tool_name: 'Bash', tool_input: { command }, cwd: f.repo, session_id: `s${++sid}` }, { LANEKEEPER_CODEGRAPH: 'off', ...env })
     const binDir = path.join(f.base, 'bin')
     fs.mkdirSync(binDir)
     fs.writeFileSync(path.join(binDir, 'rg'), '#!/bin/sh\n')
@@ -94,13 +96,14 @@ test('rg hint (in the codegraph nudge process): recursive grep gets a note (rg -
     assert.match(ctx(run('grep --recursive foo .', withRg)), /rg/)
     assert.equal(run('grep foo file.txt', withRg), null)
     // the same session gets the note once
-    const once = (c) => nudge({ tool_name: 'Bash', tool_input: { command: c }, cwd: f.repo, session_id: 'same' }, { ...withRg, WB_CODEGRAPH: 'off' })
+    const once = (c) => nudge({ tool_name: 'Bash', tool_input: { command: c }, cwd: f.repo, session_id: 'same' }, { ...withRg, LANEKEEPER_CODEGRAPH: 'off' })
     assert.match(ctx(once('grep -r a .')), /rg/)
     assert.equal(once('grep -r b .'), null)
     assert.equal(run('rg foo', withRg), null)
     assert.equal(run('ls -la', withRg), null)
     // no rg on PATH: the note says how to install it
     assert.match(ctx(run('grep -r foo .', { ...f.env, PATH: path.join(f.base, 'empty') })), /brew install ripgrep/)
+    assert.match(ctx(run('grep -r foo .', { ...f.env, PATH: path.join(f.base, 'empty') })), /only when the user agrees/)
     // off by setting
     personal(f, { search: { rg_hint: false } })
     assert.equal(run('grep -r foo .', withRg), null)

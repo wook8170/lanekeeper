@@ -25,7 +25,7 @@ export function handle(input, env = process.env, deps = {}) {
   const sid = input.session_id || 'global'
   let util
   let est = null
-  if (env.WB_TOKEN_FAKE_UTIL !== undefined && env.WB_TOKEN_FAKE_UTIL !== '') util = Number(env.WB_TOKEN_FAKE_UTIL)
+  if (env.LANEKEEPER_TOKEN_FAKE_UTIL !== undefined && env.LANEKEEPER_TOKEN_FAKE_UTIL !== '') util = Number(env.LANEKEEPER_TOKEN_FAKE_UTIL)
   else {
     est = cachedEstimate({ env, cfg })
     if (est.util == null) return null

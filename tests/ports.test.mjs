@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import * as ports from '../lib/ports.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-port-')))
+const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-port-')))
 const none = { listening: () => new Set() }
 
 function cfg(machinePorts = {}) {
@@ -129,18 +129,18 @@ test('lookup by name: protected port, lane.<name> with and without a lease', () 
 })
 
 test('ledger path follows machine.ports.leases', () => {
-  assert.equal(ports.portsFile(cfg(), '/r/.git/wb'), '/r/.git/wb/ports.json')
-  assert.equal(ports.portsFile(cfg({ leases: '{git_common_dir}/other.json' }), '/r/.git/wb'), '/r/.git/other.json')
+  assert.equal(ports.portsFile(cfg(), '/r/.git/lanekeeper'), '/r/.git/lanekeeper/ports.json')
+  assert.equal(ports.portsFile(cfg({ leases: '{git_common_dir}/other.json' }), '/r/.git/lanekeeper'), '/r/.git/other.json')
 })
 
-test('wb-port CLI: get and list read machine settings', () => {
+test('lanekeeper-port CLI: get and list read machine settings', () => {
   const dir = tmp()
   const home = path.join(dir, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify({ ports: { protected: [{ name: 'owner-api', port: 5555, project: '*' }] } }))
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(home, '.lanekeeper', 'machine.json'), JSON.stringify({ ports: { protected: [{ name: 'owner-api', port: 5555, project: '*' }] } }))
   execFileSync('git', ['init', '-q', path.join(dir, 'repo')])
-  const env = { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
-  const run = (...a) => execFileSync(process.execPath, [path.join(ROOT, 'bin', 'wb-port'), ...a], { cwd: path.join(dir, 'repo'), env, encoding: 'utf8' })
+  const env = { PATH: process.env.PATH, HOME: home, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'), LANG: 'en_US.UTF-8', GIT_CONFIG_GLOBAL: '/dev/null' }
+  const run = (...a) => execFileSync(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-port'), ...a], { cwd: path.join(dir, 'repo'), env, encoding: 'utf8' })
   assert.equal(run('get', 'owner-api').trim(), '5555')
   const list = JSON.parse(run('list', '--json'))
   assert.equal(list.protected[0].port, 5555)

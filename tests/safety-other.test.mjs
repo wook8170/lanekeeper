@@ -18,7 +18,7 @@ before(() => {
 after(() => f.cleanup())
 beforeEach(() => {
   f.clearProjectConfig()
-  fs.rmSync(path.join(f.wbHome, 'machine.json'), { force: true })
+  fs.rmSync(path.join(f.lanekeeperHome, 'machine.json'), { force: true })
 })
 
 const d = (cmd, opts = {}) => f.judge(cmd, { cwd: f.repo, ...opts })
@@ -76,9 +76,9 @@ test('rm: broad recursive deletes are blocked', () => {
 test('rm: inside the project or a temp folder passes; outside asks; variables ask', () => {
   expect(d('rm -rf node_modules dist'), 'allow')
   expect(d('rm -rf ./build/'), 'allow')
-  expect(d('rm -rf /tmp/wb-test-dir'), 'allow')
+  expect(d('rm -rf /tmp/lanekeeper-test-dir'), 'allow')
   expect(d('rm file.txt'), 'allow')
-  expect(d('rm -rf /opt/wb-none/x'), 'ask', 'rm.outside')
+  expect(d('rm -rf /opt/lanekeeper-none/x'), 'ask', 'rm.outside')
   expect(d(`rm -rf ${path.join(f.base, 'elsewhere', 'x')}`), 'allow') // temp folder
   expect(d('rm -rf "$OUT"/'), 'ask', 'rm.dynamic')
   expect(d('cd "$X" && rm -rf build'), 'ask', 'rm.dynamic')
@@ -115,40 +115,40 @@ test('browser: headless runs pass', () => {
 })
 
 // ── paths, Skill ─────────────────────────────────────────────────────
-test('paths: wb state files cannot be written by tools or shell', () => {
+test('paths: lanekeeper state files cannot be written by tools or shell', () => {
   const grant = path.join(f.state, 'owner-grant.json')
   expect(d('', { tool: 'Write', input: { file_path: grant, content: '{}' } }), 'deny', 'paths.state')
   expect(d('', { tool: 'Edit', input: { file_path: path.join(f.state, 'lanes.json'), old_string: 'a', new_string: 'b' } }), 'deny', 'paths.state')
   expect(d(`echo '{}' > ${grant}`), 'deny', 'paths.state')
   expect(d(`cp /tmp/g.json ${grant}`), 'deny', 'paths.state')
-  expect(d(`python3 -c "open('.git/wb/owner-grant.json','w').write('x')"`), 'deny', 'paths.state')
-  expect(d(`tee .git/wb/wb-gate-pass.json < /tmp/x`), 'deny', 'paths.state')
+  expect(d(`python3 -c "open('.git/lanekeeper/owner-grant.json','w').write('x')"`), 'deny', 'paths.state')
+  expect(d(`tee .git/lanekeeper/lanekeeper-gate-pass.json < /tmp/x`), 'deny', 'paths.state')
   expect(d(`cat ${grant}`), 'allow')
 })
-test('paths: protected_paths block writes; a wb settings file asks', () => {
+test('paths: protected_paths block writes; a lanekeeper settings file asks', () => {
   f.projectConfig({ protected_paths: ['secrets/**', 'LICENSE'] })
   expect(d('', { tool: 'Write', input: { file_path: path.join(f.repo, 'secrets', 'k.txt'), content: 'x' } }), 'deny', 'paths.protected')
   expect(d('', { tool: 'Edit', input: { file_path: 'LICENSE', old_string: 'a', new_string: 'b' } }), 'deny', 'paths.protected')
   expect(d('echo x > secrets/k.txt'), 'deny', 'paths.protected')
   expect(d('sed -i "" s/a/b/ LICENSE'), 'deny', 'paths.protected')
   expect(d('', { tool: 'Write', input: { file_path: path.join(f.repo, 'src', 'a.ts'), content: 'x' } }), 'allow')
-  expect(d('', { tool: 'Write', input: { file_path: path.join(f.repo, '.wb', 'config.json'), content: '{}' } }), 'ask', 'paths.config')
-  expect(d('', { tool: 'Edit', input: { file_path: path.join(f.wbHome, 'machine.json'), old_string: 'a', new_string: 'b' } }), 'ask', 'paths.config')
+  expect(d('', { tool: 'Write', input: { file_path: path.join(f.repo, '.lanekeeper', 'config.json'), content: '{}' } }), 'ask', 'paths.config')
+  expect(d('', { tool: 'Edit', input: { file_path: path.join(f.lanekeeperHome, 'machine.json'), old_string: 'a', new_string: 'b' } }), 'ask', 'paths.config')
 })
-test('Skill: the model cannot call /wb:approve', () => {
-  expect(d('', { tool: 'Skill', input: { skill: 'wb:approve', args: 'merge-main' } }), 'deny', 'approve.model')
-  expect(d('', { tool: 'Skill', input: { skill: 'wb:doctor' } }), 'allow')
+test('Skill: the model cannot call /lanekeeper:approve', () => {
+  expect(d('', { tool: 'Skill', input: { skill: 'lanekeeper:approve', args: 'merge-main' } }), 'deny', 'approve.model')
+  expect(d('', { tool: 'Skill', input: { skill: 'lanekeeper:doctor' } }), 'allow')
 })
 
 // ── fail-closed ──────────────────────────────────────────────────────
 test('fail-closed: a settings error blocks guarded commands and leaves the rest alone', () => {
   f.projectConfig({ git: { feature_push: 'sometimes' } })
   for (const c of ['git push origin feature/x', 'git commit -m x', 'kill 1234', 'rm -rf build', 'google-chrome']) expect(d(c, { cwd: f.repo }), 'deny', 'config.broken')
-  for (const c of ['git status', 'ls -la', 'npm test', 'wb-config validate']) expect(d(c), 'allow')
+  for (const c of ['git status', 'ls -la', 'npm test', 'lanekeeper-config validate']) expect(d(c), 'allow')
   f.projectConfig('{ not json')
   expect(d('git commit -m x'), 'deny', 'config.broken')
   // the settings file itself can still be fixed (with confirmation)
-  expect(d('', { tool: 'Write', input: { file_path: path.join(f.repo, '.wb', 'config.json'), content: '{}' } }), 'ask', 'paths.config')
+  expect(d('', { tool: 'Write', input: { file_path: path.join(f.repo, '.lanekeeper', 'config.json'), content: '{}' } }), 'ask', 'paths.config')
 })
 test('fail-closed: an internal error blocks the call', () => {
   const out = runHook(JSON.stringify({ cwd: f.repo, tool_name: 'Bash', tool_input: { command: 'git push' } }), f.env, {
@@ -165,7 +165,7 @@ test('fail-closed: an internal error blocks the call', () => {
 test('union: no layer can drop protected branches, paths, ports or denied models set by another', () => {
   f.projectConfig({ git: { protected_branches: [] }, protected_paths: [], machine: { ports: { protected: [{ name: 'p', port: 3000 }] } }, routing: { denied: [] } })
   f.machine({ ports: { protected: [] } })
-  fs.writeFileSync(path.join(f.wbHome, 'routing.json'), JSON.stringify({ denied: ['fable'] }))
+  fs.writeFileSync(path.join(f.lanekeeperHome, 'routing.json'), JSON.stringify({ denied: ['fable'] }))
   const r = resolveConfig({ projectDir: f.repo, env: f.env })
   assert.deepEqual(r.errors, [])
   assert.ok(r.config.project.git.protected_branches.includes('main'))
@@ -173,7 +173,7 @@ test('union: no layer can drop protected branches, paths, ports or denied models
   assert.deepEqual(r.config.routing.denied, ['fable'])
   // and the guard uses the merged list
   expect(d('git commit -m x'), 'deny', 'grant.missing')
-  fs.rmSync(path.join(f.wbHome, 'routing.json'))
+  fs.rmSync(path.join(f.lanekeeperHome, 'routing.json'))
 })
 test('union: a project can add protected branches', () => {
   f.projectConfig({ git: { protected_branches: ['feature/*'] } })

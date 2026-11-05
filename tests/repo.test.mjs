@@ -10,9 +10,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
 const json = (p) => JSON.parse(read(p))
 
-test('plugin.json: name wb, MIT, userConfig options are well formed', () => {
+test('plugin.json: name lanekeeper, MIT, userConfig options are well formed', () => {
   const m = json('.claude-plugin/plugin.json')
-  assert.equal(m.name, 'wb')
+  assert.equal(m.name, 'lanekeeper')
   assert.equal(m.license, 'MIT')
   const allowed = new Set(['type', 'title', 'description', 'required', 'default', 'options', 'multiple', 'sensitive', 'min', 'max'])
   for (const [key, opt] of Object.entries(m.userConfig)) {
@@ -30,10 +30,10 @@ test('userConfig options match the settings schema enums', async () => {
   assert.deepEqual(m.userConfig.chat_detail.options, personalSchema.props.report.props.chat_detail.enum)
 })
 
-test('marketplace.json lists wb from the repository root', () => {
+test('marketplace.json lists lanekeeper from the repository root', () => {
   const mk = json('.claude-plugin/marketplace.json')
   assert.equal(mk.plugins.length, 1)
-  assert.equal(mk.plugins[0].name, 'wb')
+  assert.equal(mk.plugins[0].name, 'lanekeeper')
   assert.equal(mk.plugins[0].source, './')
 })
 
@@ -46,7 +46,7 @@ test('directory skeleton exists', () => {
   for (const d of ['hooks', 'hooks/scripts', 'skills', 'agents', 'bin', 'templates', 'rules', 'defaults', 'locales']) {
     assert.ok(fs.statSync(path.join(ROOT, d)).isDirectory(), d)
   }
-  assert.ok(fs.statSync(path.join(ROOT, 'bin', 'wb-config')).mode & 0o111, 'wb-config executable')
+  assert.ok(fs.statSync(path.join(ROOT, 'bin', 'lanekeeper-config')).mode & 0o111, 'lanekeeper-config executable')
 })
 
 test('locales ko and en have the same keys, and every task has a label', () => {
@@ -106,10 +106,16 @@ const PUBLIC_CONTACT_FILES = new Set([
 
 // Public GitHub install names (owner decision 2026-11-05): the plugin
 // repository, the combined marketplace repository and its marketplace name.
-// Allowed only in the READMEs and only as these exact strings.
+// Allowed only in the READMEs, the docs, the changelog, the privacy note and the
+// manifests (repository, homepage and support links for the directory listing),
+// and only as these exact strings.
 const PUBLIC_OWNER = ['wook', '8170'].join('')
-const PUBLIC_INSTALL = [`${PUBLIC_OWNER}/wb-plugin`, `${PUBLIC_OWNER}/claude-plugins`, `wb@${PUBLIC_OWNER}-plugins`]
-const PUBLIC_INSTALL_FILES = new Set(['README.md', 'README.ko.md'])
+// `wb@…` is the install name before the 0.2.0 rename, kept for the uninstall step.
+const PUBLIC_INSTALL = [`${PUBLIC_OWNER}/lanekeeper`, `${PUBLIC_OWNER}/claude-plugins`, `lanekeeper@${PUBLIC_OWNER}-plugins`, `wb@${PUBLIC_OWNER}-plugins`]
+const PUBLIC_INSTALL_FILES = new Set([
+  'README.md', 'README.ko.md', 'PRIVACY.md', 'CHANGELOG.md', 'docs/en/01-getting-started.md', 'docs/ko/01-getting-started.md',
+  '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
+])
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -158,7 +164,7 @@ test('README and SECURITY: English first with a language switch, Korean in *.ko.
   for (const f of ['README.md', 'README.ko.md']) {
     const head = read(f).split('\n').slice(0, 25).join('\n')
     assert.match(head, /claude plugin marketplace add \S+\/claude-plugins/, f)
-    assert.match(head, /claude plugin marketplace add \S+\/wb-plugin/, f)
+    assert.match(head, /claude plugin marketplace add \S+\/lanekeeper/, f)
     assert.match(head, /Node\.js 18\.19/, f)
     assert.match(head, /Claude Code 2\.1\.295/, f)
   }

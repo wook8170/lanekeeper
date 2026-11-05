@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
+### Changed
+- 플러그인 이름을 `wb` 에서 `lanekeeper` 로 바꿨다(표시 이름 「Lanekeeper — Agent Workbench」). 명령은 `/lanekeeper:*`, 도구 25개는 `bin/lanekeeper-*`, 설정 폴더는 `~/.lanekeeper` 와 `<repo>/.lanekeeper`, 공유 상태는 `<git 공용 폴더>/lanekeeper`, 환경 변수는 `LANEKEEPER_*`, 지시서·결정 표식은 `lanekeeper-brief`·`lanekeeper-decision` 이다. 기본 브랜치 이름은 `lanekeeper/*/int`·`lanekeeper/*/l*`, 게이트 표식은 `lanekeeper-gate-pass`, 자동 재개 작업의 이름은 `lanekeeper.auto-retry.<id>` 로 바뀌었다. 저장소 주소는 https://github.com/wook8170/lanekeeper 다
+- 옮기는 방법: `claude plugin uninstall wb@wb-plugin` 으로 옛 플러그인을 지우고 `claude plugin install lanekeeper@lanekeeper`(통합 마켓플레이스는 `lanekeeper@wook8170-plugins`)로 설치한다. 새 이름으로 바꾸려면 세션을 닫은 뒤 `mv ~/.wb ~/.lanekeeper`, 프로젝트마다 `git mv .wb .lanekeeper`, 저장소마다 `mv .git/wb .git/lanekeeper` 를 실행한다. `wb/…` 브랜치로 시작한 레인을 이어 쓰려면 `git.integration_branch_pattern`·`git.lane_branch_pattern` 을 `wb/*/int`·`wb/*/l*` 로 둔다
+- 자동 재개(`personal.auto_retry.enabled`)의 기본값을 `false` 로 바꿨다. 자동 재개는 launchd 에이전트나 systemd 사용자 타이머를 등록하므로, 사용자가 `lanekeeper-retry on` 으로 켤 때만 동작한다. 꺼져 있으면 세션을 시작할 때 도는 자동 재개 훅은 아무것도 더하지 않는다
+- codegraph·ripgrep 이 없을 때 Claude 에게 주는 안내를 바꿨다. 전에는 사용자에게 묻지 않고 설치하라고 했다. 이제는 설치 명령을 사용자에게 알리고, 동의를 받은 뒤에만 설치한다(규칙 `codegraph-install`, `rg-search` 의 복구 방법, 메시지 `search.rg_missing`)
+- 시험 결과를 모으는 설정 틀(`templates/test-results/project/verify.config.json`)의 명령을 `npx vitest`·`npx playwright` 에서 프로젝트에 설치된 `./node_modules/.bin/vitest`·`./node_modules/.bin/playwright` 로 바꿨다. 문서의 예시 명령도 `pnpm exec playwright test` 로 바꿨다
+
+### Added
+- 옛 이름 읽기(`lib/naming.mjs`): `~/.lanekeeper` 가 없으면 `~/.wb` 를, `<repo>/.lanekeeper/config.json` 이 없으면 `<repo>/.wb/config.json` 을, `<git 공용 폴더>/lanekeeper` 가 없으면 `<git 공용 폴더>/wb` 를 읽는다. `WB_*` 환경 변수는 같은 이름의 `LANEKEEPER_*` 가 없을 때 그 값으로 쓴다. 둘 다 있으면 새 이름을 쓴다. 파일은 옮기지 않으며, 옛 이름을 읽은 첫 세션에서 `rules/session-start` 훅이 한 번 알린다
+- `plugin.json` 에 디렉터리 등재에 쓰는 항목을 넣었다: `homepage`·`repository`·`icon`·`documentationUrl`·`supportUrl`·`privacyPolicyUrl`. 개인정보 처리에 관한 안내 `PRIVACY.md`(영문)를 더했다
+- README(영문·한국어)에 「What it runs, sends and fetches」·「실행하는 것 · 보내는 것 · 가져오는 것」 절을 더했다. 이벤트별 훅, `bin/` 도구, 외부 통신을 모두 적었다. `bin/` 이 있어 Claude Code 전용이라는 점도 적었다
+- 시험 `tests/naming.test.mjs`: 새 경로 우선, 옛 경로 대체, 1회 안내, 환경 변수 우선순위, 옛 표식 인식
+
 ## [0.1.5] - 2026-11-05
 
 ### Changed
@@ -17,7 +32,7 @@
 - 전역 git 설정이 없는 리눅스 CI 에서는 체크포인트 시험이 커밋 작성자를 찾지 못해 실패했다. 그래서 시험 `tests/safety-fixture.mjs` 가 작성자 정보를 직접 넣는다
 
 ### Added
-- 플러그인 아이콘 `.claude-plugin/icon.png`(1024px 정사각): 평행한 레인 세 줄과 관문 하나를 두 색으로 그렸다. 원본은 `.claude-plugin/icon.svg` 이고, PNG 는 `rsvg-convert -w 1024 -h 1024 .claude-plugin/icon.svg -o .claude-plugin/icon.png` 로 굽는다
+- 플러그인 아이콘(1024px 정사각 PNG, `.claude-plugin` 폴더): 평행한 레인 세 줄과 관문 하나를 두 색으로 그렸다. 원본은 같은 폴더의 SVG 이고, PNG 는 rsvg-convert 로 1024px 크기로 굽는다
 - GitHub Actions CI(`.github/workflows/ci.yml`): push·pull_request 마다 Node 18·20·22 와 ubuntu·macOS 조합으로 `npm test` 를 돌리고, 따로 `claude plugin validate --strict` 를 돌린다
 - 시험: 기본 라우팅이 opus·sonnet·haiku 만 쓰는지, 기본 부하 문턱 세 개가 서로 다르고 오름차순인지, README·SECURITY 의 언어 전환 줄과 첫 화면 설치 명령, 아이콘 규격
 

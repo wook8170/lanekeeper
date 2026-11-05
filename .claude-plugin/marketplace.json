@@ -1,12 +1,14 @@
 {
-  "name": "wb-plugin",
-  "description": "Marketplace for the wb (Agent Workbench) Claude Code plugin",
+  "name": "lanekeeper",
+  "description": "Marketplace for the Lanekeeper (Agent Workbench) Claude Code plugin",
   "owner": { "name": "윤결파파", "email": "wook81701@gmail.com" },
   "plugins": [
     {
-      "name": "wb",
+      "name": "lanekeeper",
       "source": "./",
-      "description": "Workbench for running parallel Claude Code agent lanes"
+      "displayName": "Lanekeeper — Agent Workbench",
+      "description": "Workbench for running parallel Claude Code agent lanes",
+      "version": "0.2.0"
     }
   ]
 }

@@ -1,4 +1,4 @@
-<!-- wb-brief v1 type=adversarial lane={{lane}} template=ux-adversarial implementer={{implementer}} role=verifier -->
+<!-- lanekeeper-brief v1 type=adversarial lane={{lane}} template=ux-adversarial implementer={{implementer}} role=verifier -->
 <!-- 표지: type=adversarial 은 구현 모델과 다른 모델로 라우팅한다(기본은 opus. 라우팅에 더 높은 모델을 넣었으면 그 모델을 먼저 쓴다). role=verifier 는 검수 레인 표식이다(부하가 높으면 이 레인의 무거운 실행부터 멈춘다). {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}} UX 적대 점검
 
@@ -36,7 +36,7 @@
 
 ## 시험 규칙
 - 전체 시험 스위트·전 패키지 typecheck·게이트는 돌리지 않는다(금지, 메인 세션이 취합한 뒤 한 번 돌린다).
-- 브라우저 단계는 `wb-slot --kind browser -- …` 로 실행한다. 1분 부하가 높은 동안은 실행이 슬롯에서 대기한다.
+- 브라우저 단계는 `lanekeeper-slot --kind browser -- …` 로 실행한다. 1분 부하가 높은 동안은 실행이 슬롯에서 대기한다.
 
 ## 보고 위치
 - {{result_dir}}/findings.md 에 발견 표·여정별 기록·파리티 결함·측정값을 쓰고, 캡처는 {{result_dir}}/caps/ 에 `now-<번호>.png`·`fix-<번호>.png`(번호는 발견 번호), 주입 코드는 {{result_dir}}/inject/<번호>.js 로 둔다. 같은 내용을 최종 응답으로도 반환한다.

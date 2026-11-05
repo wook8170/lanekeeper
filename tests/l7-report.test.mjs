@@ -1,4 +1,4 @@
-// L7: wb-art (WebP, report HTML), wb-defects export, mockup-first and artifact-check hooks.
+// L7: lanekeeper-art (WebP, report HTML), lanekeeper-defects export, mockup-first and artifact-check hooks.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -70,10 +70,10 @@ test('placeFiles: a PNG over 300KB becomes WebP, a small one stays PNG', () => {
   assert.equal(path.basename(none[0].dest), 'big.png')
 })
 
-test('wb-art keep: real conversion to WebP under docs/reports/artifacts/<slug>/', { skip: !realConverter && 'no cwebp or Pillow on this machine' }, () => {
+test('lanekeeper-art keep: real conversion to WebP under docs/reports/artifacts/<slug>/', { skip: !realConverter && 'no cwebp or Pillow on this machine' }, () => {
   const fx = makeEnv()
   const big = png(path.join(fx.base, 'after.png'), 400, 300, true)
-  const r = bin('wb-art', ['keep', big, '--slug', 'list-search', '--json'], fx.env, fx.repo)
+  const r = bin('lanekeeper-art', ['keep', big, '--slug', 'list-search', '--json'], fx.env, fx.repo)
   assert.equal(r.status, 0, r.stderr)
   const [row] = JSON.parse(r.stdout)
   assert.equal(row.converted, true)
@@ -81,25 +81,25 @@ test('wb-art keep: real conversion to WebP under docs/reports/artifacts/<slug>/'
   assert.ok(A.isWebp(fs.readFileSync(row.dest)))
 })
 
-test('wb-art temp goes to the scratch folder and never converts', () => {
+test('lanekeeper-art temp goes to the scratch folder and never converts', () => {
   const fx = makeEnv()
   const big = png(path.join(fx.base, 'x.png'), 400, 300, true)
-  const r = bin('wb-art', ['temp', big, '--slug', 's1', '--json'], fx.env, fx.repo)
+  const r = bin('lanekeeper-art', ['temp', big, '--slug', 's1', '--json'], fx.env, fx.repo)
   assert.equal(r.status, 0, r.stderr)
   const [row] = JSON.parse(r.stdout)
   assert.equal(row.converted, false)
-  assert.ok(row.dest.startsWith(path.join(fx.env.HOME, '.wb-scratch', 'repo', 'art', 's1')))
-  assert.equal(bin('wb-art', ['keep', path.join(fx.base, 'missing.png')], fx.env, fx.repo).status, 2)
+  assert.ok(row.dest.startsWith(path.join(fx.env.HOME, '.lanekeeper-scratch', 'repo', 'art', 's1')))
+  assert.equal(bin('lanekeeper-art', ['keep', path.join(fx.base, 'missing.png')], fx.env, fx.repo).status, 2)
 })
 
-test('wb-art report: one HTML file, images embedded, Markdown rendered and escaped', () => {
-  const fx = makeEnv({ WB_ART_CONVERTER: 'none' })
+test('lanekeeper-art report: one HTML file, images embedded, Markdown rendered and escaped', () => {
+  const fx = makeEnv({ LANEKEEPER_ART_CONVERTER: 'none' })
   const before = png(path.join(fx.base, 'before.png'), 40, 30, false)
   const after = png(path.join(fx.base, 'after.png'), 40, 30, false)
   const md = path.join(fx.base, 'r.md')
   fs.writeFileSync(md, '## Result\n\n| item | value |\n|---|---|\n| tests | **12** passed |\n\n- one\n- two <script>x</script>\n\n```\ncode <b>\n```\n')
   const out = path.join(fx.base, 'out', 'report.html')
-  const r = bin('wb-art', ['report', '--title', 'List search', '--md', md, '--image', `Before=${before}`, '--image', `After=${after}`, '--out', out], fx.env, fx.repo)
+  const r = bin('lanekeeper-art', ['report', '--title', 'List search', '--md', md, '--image', `Before=${before}`, '--image', `After=${after}`, '--out', out], fx.env, fx.repo)
   assert.equal(r.status, 0, r.stderr)
   const html = fs.readFileSync(out, 'utf8')
   assert.match(html, /<title>List search<\/title>/)
@@ -112,12 +112,12 @@ test('wb-art report: one HTML file, images embedded, Markdown rendered and escap
   assert.match(html, /<figcaption>Before<\/figcaption>/)
 })
 
-test('wb-art report embeds a big PNG as WebP', { skip: !realConverter && 'no cwebp or Pillow on this machine' }, () => {
+test('lanekeeper-art report embeds a big PNG as WebP', { skip: !realConverter && 'no cwebp or Pillow on this machine' }, () => {
   const fx = makeEnv()
   const big = png(path.join(fx.base, 'big.png'), 400, 300, true)
   const md = path.join(fx.base, 'r.md')
   fs.writeFileSync(md, 'text\n')
-  const r = bin('wb-art', ['report', '--title', 'T', '--md', md, '--image', `After=${big}`, '--slug', 'x', '--json'], fx.env, fx.repo)
+  const r = bin('lanekeeper-art', ['report', '--title', 'T', '--md', md, '--image', `After=${big}`, '--slug', 'x', '--json'], fx.env, fx.repo)
   assert.equal(r.status, 0, r.stderr)
   const { file } = JSON.parse(r.stdout)
   assert.match(fs.readFileSync(file, 'utf8'), /src="data:image\/webp;base64,/)
@@ -125,13 +125,13 @@ test('wb-art report embeds a big PNG as WebP', { skip: !realConverter && 'no cwe
 
 // ---- defects -------------------------------------------------------------------
 
-test('wb-defects summary and export (Markdown always, xlsx with openpyxl)', () => {
+test('lanekeeper-defects summary and export (Markdown always, xlsx with openpyxl)', () => {
   const fx = makeEnv()
   const dir = path.join(fx.repo, 'docs', 'e2e')
   C.addDefect(dir, { title: 'Sort lost after reload', severity: 'high', cases: ['LIST-003'], lane: 'l2' })
   C.addDefect(dir, { title: 'Typo | pipe', severity: 'low' })
   C.resolveDefect(dir, 'D-002', { status: 'fixed' })
-  const s = JSON.parse(bin('wb-defects', ['summary', '--json'], fx.env, fx.repo).stdout)
+  const s = JSON.parse(bin('lanekeeper-defects', ['summary', '--json'], fx.env, fx.repo).stdout)
   assert.deepEqual(s, { total: 2, status: { open: 1, fixed: 1, wontfix: 0 }, open_by_severity: { critical: 0, high: 1, medium: 0, low: 0 }, open_ids: ['D-001'] })
   const md = C.defectsMarkdown(dir, translator('ko'))
   assert.match(md, /# 결함 대장/)
@@ -141,7 +141,7 @@ test('wb-defects summary and export (Markdown always, xlsx with openpyxl)', () =
   const userBase = spawnSync('python3', ['-m', 'site', '--user-base'], { encoding: 'utf8' }).stdout.trim()
   const env = { ...fx.env, PYTHONUSERBASE: userBase }
   const hasXlsx = spawnSync('python3', ['-c', 'import openpyxl'], { env }).status === 0
-  const r = bin('wb-defects', ['export'], env, fx.repo)
+  const r = bin('lanekeeper-defects', ['export'], env, fx.repo)
   assert.ok(fs.existsSync(path.join(dir, 'defect-register.md')))
   if (hasXlsx) {
     assert.equal(r.status, 0, r.stderr)
@@ -150,7 +150,7 @@ test('wb-defects summary and export (Markdown always, xlsx with openpyxl)', () =
     const rows = spawnSync('python3', ['-c', 'import sys,openpyxl;ws=openpyxl.load_workbook(sys.argv[1]).active;print(ws.max_row, ws["A2"].value, ws["B2"].value)', x], { encoding: 'utf8', env }).stdout.trim()
     assert.equal(rows, '3 D-001 high')
   } else assert.equal(r.status, 3)
-  const noPy = bin('wb-defects', ['export', '--format', 'xlsx', '--out', path.join(fx.base, 'x')], { ...fx.env, WB_PYTHON: '/nonexistent/python' }, fx.repo)
+  const noPy = bin('lanekeeper-defects', ['export', '--format', 'xlsx', '--out', path.join(fx.base, 'x')], { ...fx.env, LANEKEEPER_PYTHON: '/nonexistent/python' }, fx.repo)
   assert.equal(noPy.status, 3)
 })
 
@@ -158,8 +158,8 @@ test('wb-defects summary and export (Markdown always, xlsx with openpyxl)', () =
 
 function mockupRepo(config) {
   const fx = makeEnv()
-  fs.mkdirSync(path.join(fx.repo, '.wb'))
-  fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, ...config }))
+  fs.mkdirSync(path.join(fx.repo, '.lanekeeper'))
+  fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, ...config }))
   fs.mkdirSync(path.join(fx.repo, 'src', 'list'), { recursive: true })
   fs.writeFileSync(path.join(fx.repo, 'src', 'list', 'List.tsx'), 'export const List = () => <ul className="a"><li>Item</li></ul>\n')
   fs.writeFileSync(path.join(fx.repo, 'src', 'list', 'list.css'), '.list { display: block; }\n')
@@ -193,32 +193,32 @@ test('mockup-first: a recorded decision whose scope covers the file unlocks it',
   const m = mockupRepo(UI)
   const dir = path.join(m.repo, 'docs', 'decisions')
   fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(path.join(dir, '2026-10-17-table.md'), '<!-- wb-decision v1 kind=mockup scope=src/table/** -->\n# Table\n')
+  fs.writeFileSync(path.join(dir, '2026-10-17-table.md'), '<!-- lanekeeper-decision v1 kind=mockup scope=src/table/** -->\n# Table\n')
   assert.ok(denied(m.call('Write', 'src/list/Search.tsx', { content: '<input />' })), 'scope elsewhere')
-  fs.writeFileSync(path.join(dir, '2026-10-17-list.md'), '<!-- wb-decision v1 kind=mockup scope=src/list/**,src/shared/Pager.tsx -->\n# List search\nChoice: B\n')
+  fs.writeFileSync(path.join(dir, '2026-10-17-list.md'), '<!-- lanekeeper-decision v1 kind=mockup scope=src/list/**,src/shared/Pager.tsx -->\n# List search\nChoice: B\n')
   assert.equal(m.call('Write', 'src/list/Search.tsx', { content: '<input />' }), null)
   assert.ok(denied(m.call('Write', 'src/other/X.tsx', { content: '<i />' })))
-  fs.writeFileSync(path.join(dir, '2026-10-17-all.md'), '<!-- wb-decision v1 kind=mockup -->\n')
+  fs.writeFileSync(path.join(dir, '2026-10-17-all.md'), '<!-- lanekeeper-decision v1 kind=mockup -->\n')
   assert.equal(m.call('Write', 'src/other/X.tsx', { content: '<i />' }), null, 'no scope covers every UI file')
 })
 
-test('mockup-first with /wb:decide: a pending record does not unlock, the answered one does', () => {
+test('mockup-first with /lanekeeper:decide: a pending record does not unlock, the answered one does', () => {
   const m = mockupRepo(UI)
   const write = () => m.call('Write', 'src/list/Search.tsx', { content: '<input />' })
-  const r = bin('wb-decide', ['new', 'list-search', '--title', 'List search', '--question', 'Where does the search box go?', '--option', 'A=top bar', '--option', 'B=filter panel', '--kind', 'mockup', '--scope', 'src/list/**'], m.env, m.repo)
+  const r = bin('lanekeeper-decide', ['new', 'list-search', '--title', 'List search', '--question', 'Where does the search box go?', '--option', 'A=top bar', '--option', 'B=filter panel', '--kind', 'mockup', '--scope', 'src/list/**'], m.env, m.repo)
   assert.equal(r.status, 0, r.stderr)
   const dir = path.join(m.repo, 'docs', 'decisions')
   const [file] = fs.readdirSync(dir)
   const text = fs.readFileSync(path.join(dir, file), 'utf8')
-  assert.match(text, /^<!-- wb-decision v1 status=pending kind=mockup scope=src\/list\/\*\* -->/)
+  assert.match(text, /^<!-- lanekeeper-decision v1 status=pending kind=mockup scope=src\/list\/\*\* -->/)
   assert.deepEqual({ ...D.parse(text) }, { status: 'pending', title: 'List search', body: 'Pending', kind: 'mockup', scope: ['src/list/**'] })
   assert.ok(denied(write()), 'pending')
-  assert.equal(bin('wb-decide', ['answer', 'list-search', '--choice', 'A. top bar'], m.env, m.repo).status, 0)
-  assert.match(fs.readFileSync(path.join(dir, file), 'utf8'), /^<!-- wb-decision v1 status=decided kind=mockup scope=src\/list\/\*\* -->/)
+  assert.equal(bin('lanekeeper-decide', ['answer', 'list-search', '--choice', 'A. top bar'], m.env, m.repo).status, 0)
+  assert.match(fs.readFileSync(path.join(dir, file), 'utf8'), /^<!-- lanekeeper-decision v1 status=decided kind=mockup scope=src\/list\/\*\* -->/)
   assert.equal(write(), null, 'decided')
   assert.ok(denied(m.call('Write', 'src/other/X.tsx', { content: '<i />' })), 'outside the scope')
   // an ordinary decision (no kind) never unlocks UI writes
-  assert.equal(D.render({ lang: 'en', title: 'T', question: 'Q', options: [{ key: 'A', text: 'a' }], date: 'd' }).split('\n')[0], '<!-- wb-decision v1 status=pending -->')
+  assert.equal(D.render({ lang: 'en', title: 'T', question: 'Q', options: [{ key: 'A', text: 'a' }], date: 'd' }).split('\n')[0], '<!-- lanekeeper-decision v1 status=pending -->')
 })
 
 test('mockup-first hook process: three-part Korean message, registered in hooks.json', () => {
@@ -227,7 +227,7 @@ test('mockup-first hook process: three-part Korean message, registered in hooks.
   assert.equal(r.status, 0)
   const reason = r.out.hookSpecificOutput.permissionDecisionReason
   assert.match(reason, /막았습니다: src\/list\/New\.tsx/)
-  assert.match(reason, /이렇게 고치세요: .*wb-decide new .*wb-decision v1 status=decided kind=mockup scope=src\/list\/New\.tsx/)
+  assert.match(reason, /이렇게 고치세요: .*lanekeeper-decide new .*lanekeeper-decision v1 status=decided kind=mockup scope=src\/list\/New\.tsx/)
   assert.match(reason, /물어볼 곳: /)
   const h = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8'))
   assert.ok(h.hooks.PreToolUse.some((e) => e.matcher === 'Write|Edit|MultiEdit' && e.hooks.some((x) => x.command.endsWith('mockup/mockup-first.mjs'))))
@@ -246,37 +246,37 @@ function transcript(fx, rows) {
 
 test('artifact-check: scan finds the report stage and what came after it', () => {
   assert.deepEqual(scan([say('hello'), use('Artifact', {})]), { start: -1, artifact: false, htmlFile: false })
-  assert.equal(scan([use('Artifact', {}), use('Skill', { skill: 'wb:report' })]).artifact, false, 'artifact before the stage does not count')
-  assert.equal(scan([say('<command-name>/wb:report</command-name>'), use('Artifact', { action: 'publish' })]).artifact, true)
-  assert.equal(scan([use('Skill', { skill: 'report' }), use('Bash', { command: 'wb-art report --title x --md r.md' })]).htmlFile, true)
+  assert.equal(scan([use('Artifact', {}), use('Skill', { skill: 'lanekeeper:report' })]).artifact, false, 'artifact before the stage does not count')
+  assert.equal(scan([say('<command-name>/lanekeeper:report</command-name>'), use('Artifact', { action: 'publish' })]).artifact, true)
+  assert.equal(scan([use('Skill', { skill: 'report' }), use('Bash', { command: 'lanekeeper-art report --title x --md r.md' })]).htmlFile, true)
 })
 
 test('artifact-check: blocks once at the report stage without an artifact', () => {
   const fx = makeEnv()
   const input = (rows, extra = {}) => ({ session_id: 's1', cwd: fx.repo, transcript_path: transcript(fx, rows), ...extra })
   assert.equal(artifactCheck(input([say('done'), use('Bash', { command: 'ls' })]), fx.env), null, 'not a report stage')
-  const rows = [use('Skill', { skill: 'wb:report' }), use('Bash', { command: 'wb-defects export' })]
+  const rows = [use('Skill', { skill: 'lanekeeper:report' }), use('Bash', { command: 'lanekeeper-defects export' })]
   const first = artifactCheck(input(rows), fx.env)
   assert.equal(first.decision, 'block')
   assert.match(first.reason, /artifact/i)
   assert.equal(artifactCheck(input(rows), fx.env), null, 'once per report')
   assert.equal(artifactCheck(input(rows, { session_id: 's2', stop_hook_active: true }), fx.env), null)
   assert.equal(artifactCheck(input([...rows, use('Artifact', { file_path: 'r.html' })], { session_id: 's3' }), fx.env), null)
-  assert.equal(artifactCheck(input([...rows, use('Bash', { command: 'wb-art report --title T --md r.md' })], { session_id: 's4' }), fx.env), null, 'html fallback')
+  assert.equal(artifactCheck(input([...rows, use('Bash', { command: 'lanekeeper-art report --title T --md r.md' })], { session_id: 's4' }), fx.env), null, 'html fallback')
   fx.personal({ report: { artifact_fallback: 'none' } })
-  assert.equal(artifactCheck(input([...rows, use('Bash', { command: 'wb-art report --title T --md r.md' })], { session_id: 's5' }), fx.env).decision, 'block', 'fallback off')
+  assert.equal(artifactCheck(input([...rows, use('Bash', { command: 'lanekeeper-art report --title T --md r.md' })], { session_id: 's5' }), fx.env).decision, 'block', 'fallback off')
   fx.personal({ report: { artifact_check: false } })
   assert.equal(artifactCheck(input(rows, { session_id: 's6' }), fx.env), null, 'switched off')
 })
 
 test('artifact-check: a project that keeps result workbooks needs a committed one', () => {
   const fx = makeEnv()
-  fs.mkdirSync(path.join(fx.repo, '.wb'))
-  fs.writeFileSync(path.join(fx.repo, '.wb', 'verify.config.json'), '{}')
-  const rows = [use('Skill', { skill: 'wb:report' }), use('Artifact', {})]
+  fs.mkdirSync(path.join(fx.repo, '.lanekeeper'))
+  fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'verify.config.json'), '{}')
+  const rows = [use('Skill', { skill: 'lanekeeper:report' }), use('Artifact', {})]
   const r = artifactCheck({ session_id: 'x', cwd: fx.repo, transcript_path: transcript(fx, rows) }, fx.env)
   assert.equal(r.decision, 'block')
-  assert.match(r.reason, /wb-check test-results/)
+  assert.match(r.reason, /lanekeeper-check test-results/)
   assert.doesNotMatch(r.reason, /not published/)
   const p = runScript('hooks/scripts/report/artifact-check.mjs', { session_id: 'y', cwd: fx.repo, transcript_path: transcript(fx, rows) }, { ...fx.env, LANG: 'ko_KR.UTF-8' })
   assert.equal(p.out.decision, 'block')

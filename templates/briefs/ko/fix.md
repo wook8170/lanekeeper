@@ -1,5 +1,5 @@
-<!-- wb-brief v1 type=impl-multi lane={{lane}} template=fix -->
-<!-- 표지: type 은 라우팅 작업 종류(wb-route tasks), lane 은 레인 이름. {{…}} 자리를 모두 채워야 디스패치된다. -->
+<!-- lanekeeper-brief v1 type=impl-multi lane={{lane}} template=fix -->
+<!-- 표지: type 은 라우팅 작업 종류(lanekeeper-route tasks), lane 은 레인 이름. {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}}
 
 ## 기준

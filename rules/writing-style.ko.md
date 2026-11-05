@@ -1,6 +1,6 @@
 # 문체 규칙
 
-파일 종류별 문체는 `.wb/config.json` 의 `style.map` 이 정한다. 아래는 문체별 규칙이다.
+파일 종류별 문체는 `.lanekeeper/config.json` 의 `style.map` 이 정한다. 아래는 문체별 규칙이다.
 
 ## haeyo
 대상: 화면 문구, 인앱 매뉴얼, 도움말, 안내 메시지.
