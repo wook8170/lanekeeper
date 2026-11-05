@@ -339,7 +339,8 @@ test('check interval: due at first, not before the interval, due after it, never
 })
 
 test('check hook: silent below the tiers, one line above, then quiet until the interval passes', () => {
-  const s = setup()
+  // pin every tier: the automatic light_only follows the core count, so a small CI runner would put load 5 above it
+  const s = setup({ tiers: { light_only: 10, ...TIERS } })
   const input = { hook_event_name: 'UserPromptSubmit', cwd: s.fx.repo }
   let now = 1_000_000_000
   const at = (load) => checkHook(input, s.fx.env, { now: () => now, loadavg: () => load })
