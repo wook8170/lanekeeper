@@ -146,9 +146,9 @@ test('no project-specific, personal or machine-specific strings in the repositor
 test('copyright holder and contact are filled in (no placeholder left)', () => {
   const files = ['LICENSE', 'SECURITY.md', 'SECURITY.ko.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json']
   for (const f of files) assert.doesNotMatch(read(f), /[A-Z_]+_PLACEHOLDER/, f)
-  assert.match(read('LICENSE'), /^Copyright \(c\) 2026 윤결파파$/m)
-  assert.equal(json('.claude-plugin/plugin.json').author.name, '윤결파파')
-  assert.equal(json('.claude-plugin/marketplace.json').owner.name, '윤결파파')
+  assert.match(read('LICENSE'), /^Copyright \(c\) 2026 Wook Jang$/m)
+  assert.equal(json('.claude-plugin/plugin.json').author.name, 'Wook Jang')
+  assert.equal(json('.claude-plugin/marketplace.json').owner.name, 'Wook Jang')
   for (const f of ['SECURITY.md', 'SECURITY.ko.md']) assert.ok(read(f).includes(PUBLIC_CONTACT), f)
 })
 

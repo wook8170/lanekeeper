@@ -7,6 +7,7 @@
 ## [0.2.0] - 2026-11-05
 
 ### Changed
+- 저작권자·작성자 이름을 다른 플러그인과 같은 「Wook Jang」으로 바꿨다(LICENSE·`plugin.json`·`marketplace.json`)
 - 플러그인 이름을 `wb` 에서 `lanekeeper` 로 바꿨다(표시 이름 「Lanekeeper — Agent Workbench」). 명령은 `/lanekeeper:*`, 도구 25개는 `bin/lanekeeper-*`, 설정 폴더는 `~/.lanekeeper` 와 `<repo>/.lanekeeper`, 공유 상태는 `<git 공용 폴더>/lanekeeper`, 환경 변수는 `LANEKEEPER_*`, 지시서·결정 표식은 `lanekeeper-brief`·`lanekeeper-decision` 이다. 기본 브랜치 이름은 `lanekeeper/*/int`·`lanekeeper/*/l*`, 게이트 표식은 `lanekeeper-gate-pass`, 자동 재개 작업의 이름은 `lanekeeper.auto-retry.<id>` 로 바뀌었다. 저장소 주소는 https://github.com/wook8170/lanekeeper 다
 - 옮기는 방법: `claude plugin uninstall wb@wb-plugin` 으로 옛 플러그인을 지우고 `claude plugin install lanekeeper@lanekeeper`(통합 마켓플레이스는 `lanekeeper@wook8170-plugins`)로 설치한다. 새 이름으로 바꾸려면 세션을 닫은 뒤 `mv ~/.wb ~/.lanekeeper`, 프로젝트마다 `git mv .wb .lanekeeper`, 저장소마다 `mv .git/wb .git/lanekeeper` 를 실행한다. `wb/…` 브랜치로 시작한 레인을 이어 쓰려면 `git.integration_branch_pattern`·`git.lane_branch_pattern` 을 `wb/*/int`·`wb/*/l*` 로 둔다
 - 자동 재개(`personal.auto_retry.enabled`)의 기본값을 `false` 로 바꿨다. 자동 재개는 launchd 에이전트나 systemd 사용자 타이머를 등록하므로, 사용자가 `lanekeeper-retry on` 으로 켤 때만 동작한다. 꺼져 있으면 세션을 시작할 때 도는 자동 재개 훅은 아무것도 더하지 않는다
