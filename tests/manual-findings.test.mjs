@@ -17,33 +17,33 @@ const w = (file, body) => {
 }
 
 // ── 1 gate pass stamp ───────────────────────────────────────────────────
-test('1 wb-test-report gate-pass: a pass on a clean HEAD writes the stamp with head, time and command', () => {
+test('1 lanekeeper-test-report gate-pass: a pass on a clean HEAD writes the stamp with head, time and command', () => {
   const m = makeEnv()
   try {
-    const stamp = path.join(m.repo, '.git', 'wb', 'wb-gate-pass.json')
-    w(path.join(m.repo, '.wb', 'config.json'), { version: 1, gate: { command: 'node -e "process.exit(0)"' } })
+    const stamp = path.join(m.repo, '.git', 'lanekeeper', 'lanekeeper-gate-pass.json')
+    w(path.join(m.repo, '.lanekeeper', 'config.json'), { version: 1, gate: { command: 'node -e "process.exit(0)"' } })
     git(m.repo, 'add', '.')
     git(m.repo, 'commit', '-q', '-m', 'config')
-    const r = bin('wb-test-report', ['gate-pass'], m.env, m.repo)
+    const r = bin('lanekeeper-test-report', ['gate-pass'], m.env, m.repo)
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.match(r.stdout, /Gate pass stamp written/)
     const s = JSON.parse(fs.readFileSync(stamp, 'utf8'))
     assert.equal(s.head, git(m.repo, 'rev-parse', 'HEAD'))
     assert.equal(s.command, 'node -e "process.exit(0)"')
     assert.ok(Number.isFinite(Date.parse(s.at)))
-    assert.ok(!fs.existsSync(path.join(m.repo, '.git', 'wb', 'gate.lock')), 'the gate lock is released')
+    assert.ok(!fs.existsSync(path.join(m.repo, '.git', 'lanekeeper', 'gate.lock')), 'the gate lock is released')
 
     // a failing gate leaves no stamp
     fs.rmSync(stamp)
-    w(path.join(m.repo, '.wb', 'config.json'), { version: 1, gate: { command: 'node -e "process.exit(4)"' } })
+    w(path.join(m.repo, '.lanekeeper', 'config.json'), { version: 1, gate: { command: 'node -e "process.exit(4)"' } })
     git(m.repo, 'commit', '-q', '-am', 'fail gate')
-    const bad = bin('wb-test-report', ['gate-pass'], m.env, m.repo)
+    const bad = bin('lanekeeper-test-report', ['gate-pass'], m.env, m.repo)
     assert.equal(bad.status, 4)
     assert.ok(!fs.existsSync(stamp))
 
     // uncommitted tracked changes: the pass does not count for HEAD
-    w(path.join(m.repo, '.wb', 'config.json'), { version: 1, gate: { command: 'node -e "process.exit(0)"' } })
-    const dirty = bin('wb-test-report', ['gate-pass'], m.env, m.repo)
+    w(path.join(m.repo, '.lanekeeper', 'config.json'), { version: 1, gate: { command: 'node -e "process.exit(0)"' } })
+    const dirty = bin('lanekeeper-test-report', ['gate-pass'], m.env, m.repo)
     assert.equal(dirty.status, 0)
     assert.match(dirty.stderr, /no stamp was written/)
     assert.ok(!fs.existsSync(stamp))
@@ -52,10 +52,10 @@ test('1 wb-test-report gate-pass: a pass on a clean HEAD writes the stamp with h
   }
 })
 
-test('1 wb-test-report gate-pass: without project.gate.command it explains and exits 2', () => {
+test('1 lanekeeper-test-report gate-pass: without project.gate.command it explains and exits 2', () => {
   const m = makeEnv()
   try {
-    const r = bin('wb-test-report', ['gate-pass'], m.env, m.repo)
+    const r = bin('lanekeeper-test-report', ['gate-pass'], m.env, m.repo)
     assert.equal(r.status, 2)
     assert.match(r.stderr, /project\.gate\.command is empty/)
   } finally {
@@ -63,36 +63,36 @@ test('1 wb-test-report gate-pass: without project.gate.command it explains and e
   }
 })
 
-test('1 wb-test-report run: a full pass writes the stamp, a --only run does not', () => {
-  const m = makeEnv({ WB_PYTHON: 'wb-no-such-python' })
+test('1 lanekeeper-test-report run: a full pass writes the stamp, a --only run does not', () => {
+  const m = makeEnv({ LANEKEEPER_PYTHON: 'lanekeeper-no-such-python' })
   try {
-    const stamp = path.join(m.repo, '.git', 'wb', 'wb-gate-pass.json')
+    const stamp = path.join(m.repo, '.git', 'lanekeeper', 'lanekeeper-gate-pass.json')
     w(path.join(m.repo, '.gitignore'), '/test-results/\n')
-    w(path.join(m.repo, '.wb', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
+    w(path.join(m.repo, '.lanekeeper', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
     git(m.repo, 'add', '.')
     git(m.repo, 'commit', '-q', '-m', 'verify config')
-    let r = bin('wb-test-report', ['run', '--only', 'ok'], m.env, m.repo)
+    let r = bin('lanekeeper-test-report', ['run', '--only', 'ok'], m.env, m.repo)
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.ok(!fs.existsSync(stamp))
-    r = bin('wb-test-report', ['run'], m.env, m.repo)
+    r = bin('lanekeeper-test-report', ['run'], m.env, m.repo)
     assert.equal(r.status, 0, r.stdout + r.stderr)
     const s = JSON.parse(fs.readFileSync(stamp, 'utf8'))
     assert.equal(s.head, git(m.repo, 'rev-parse', 'HEAD'))
-    assert.equal(s.command, 'wb-test-report run')
+    assert.equal(s.command, 'lanekeeper-test-report run')
   } finally {
     m.cleanup()
   }
 })
 
-test('1 wb-test-report run: without python or openpyxl the passed stages still count — stamp written, workbook only a warning', () => {
-  const m = makeEnv({ WB_PYTHON: 'wb-no-such-python' })
+test('1 lanekeeper-test-report run: without python or openpyxl the passed stages still count — stamp written, workbook only a warning', () => {
+  const m = makeEnv({ LANEKEEPER_PYTHON: 'lanekeeper-no-such-python' })
   try {
-    const stamp = path.join(m.repo, '.git', 'wb', 'wb-gate-pass.json')
+    const stamp = path.join(m.repo, '.git', 'lanekeeper', 'lanekeeper-gate-pass.json')
     w(path.join(m.repo, '.gitignore'), '/test-results/\n')
-    w(path.join(m.repo, '.wb', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
+    w(path.join(m.repo, '.lanekeeper', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
     git(m.repo, 'add', '.')
     git(m.repo, 'commit', '-q', '-m', 'verify config')
-    const r = bin('wb-test-report', ['run'], m.env, m.repo)
+    const r = bin('lanekeeper-test-report', ['run'], m.env, m.repo)
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.match(r.stderr, /workbook skipped/)
     assert.match(r.stderr, /pip install openpyxl/)
@@ -100,9 +100,9 @@ test('1 wb-test-report run: without python or openpyxl the passed stages still c
     assert.ok(fs.existsSync(stamp))
     // a failed stage still blocks the stamp, with or without the workbook
     fs.rmSync(stamp)
-    w(path.join(m.repo, '.wb', 'verify.config.json'), { version: 1, stages: [{ name: 'bad', adapter: 'vitest', cmd: 'node -e "process.exit(1)"', slot: 'none' }] })
+    w(path.join(m.repo, '.lanekeeper', 'verify.config.json'), { version: 1, stages: [{ name: 'bad', adapter: 'vitest', cmd: 'node -e "process.exit(1)"', slot: 'none' }] })
     git(m.repo, 'commit', '-qam', 'failing stage')
-    const bad = bin('wb-test-report', ['run'], m.env, m.repo)
+    const bad = bin('lanekeeper-test-report', ['run'], m.env, m.repo)
     assert.equal(bad.status, 1, bad.stdout + bad.stderr)
     assert.ok(!fs.existsSync(stamp))
   } finally {
@@ -115,11 +115,11 @@ test('1 end to end: gate-pass on the integration branch lets the granted merge i
   try {
     const cfg = { version: 1, gate: { command: 'node -e "0"' } }
     f.projectConfig(cfg)
-    w(path.join(f.wt.int, '.wb', 'config.json'), cfg) // untracked: does not make the tree dirty
-    const r = bin('wb-test-report', ['gate-pass'], f.env, f.wt.int)
+    w(path.join(f.wt.int, '.lanekeeper', 'config.json'), cfg) // untracked: does not make the tree dirty
+    const r = bin('lanekeeper-test-report', ['gate-pass'], f.env, f.wt.int)
     assert.equal(r.status, 0, r.stdout + r.stderr)
-    f.grant('merge-main', f.sha('wb/t/int'))
-    assert.equal(f.judge('git merge wb/t/int').decision, 'allow')
+    f.grant('merge-main', f.sha('lanekeeper/t/int'))
+    assert.equal(f.judge('git merge lanekeeper/t/int').decision, 'allow')
   } finally {
     f.cleanup()
   }
@@ -130,29 +130,29 @@ test('4 safety hook: a stamp stays valid when later commits only add result file
   const f = makeFixture()
   try {
     f.projectConfig({ version: 1, gate: { command: 'npm test' } })
-    f.stamp(f.sha('wb/t/int'))
+    f.stamp(f.sha('lanekeeper/t/int'))
     w(path.join(f.wt.int, 'docs', 'test-results', '2026-10-17', 'integration-2238.xlsx'), 'x')
     git(f.wt.int, 'add', '.')
     git(f.wt.int, 'commit', '-q', '-m', 'results')
-    f.grant('merge-main', f.sha('wb/t/int'))
-    assert.equal(f.judge('git merge wb/t/int').decision, 'allow')
+    f.grant('merge-main', f.sha('lanekeeper/t/int'))
+    assert.equal(f.judge('git merge lanekeeper/t/int').decision, 'allow')
 
     // any other change after the stamp: run the gate again
-    f.stamp(f.sha('wb/t/int'))
+    f.stamp(f.sha('lanekeeper/t/int'))
     w(path.join(f.wt.int, 'src.txt'), 'y')
     git(f.wt.int, 'add', '.')
     git(f.wt.int, 'commit', '-q', '-m', 'code')
-    f.grant('merge-main', f.sha('wb/t/int'))
-    const r = f.judge('git merge wb/t/int')
+    f.grant('merge-main', f.sha('lanekeeper/t/int'))
+    const r = f.judge('git merge lanekeeper/t/int')
     assert.equal(r.decision, 'deny')
     assert.deepEqual(r.codes, ['stamp.head'])
-    assert.match(formatReasons('en', r.reasons), /wb-test-report gate-pass/)
+    assert.match(formatReasons('en', r.reasons), /lanekeeper-test-report gate-pass/)
   } finally {
     f.cleanup()
   }
 })
 
-test('4 wb-check test-results: committing only the workbook does not ask to run again', () => {
+test('4 lanekeeper-check test-results: committing only the workbook does not ask to run again', () => {
   const m = makeEnv()
   try {
     const ran = git(m.repo, 'rev-parse', '--short', 'HEAD')
@@ -161,14 +161,14 @@ test('4 wb-check test-results: committing only the workbook does not ask to run 
     w(x.replace('.xlsx', '.json'), { verdict: 'passed', meta: { name: 'final', commit: ran }, suites: [], gate: [], failures: [], ledger: [] })
     git(m.repo, 'add', '.')
     git(m.repo, 'commit', '-q', '-m', 'results')
-    let r = bin('wb-check', ['test-results', '--json'], m.env, m.repo)
+    let r = bin('lanekeeper-check', ['test-results', '--json'], m.env, m.repo)
     let j = JSON.parse(r.stdout)
     assert.ok(j.items.some((i) => i.id === 'head_results_only' && i.level === 'ok'), r.stdout)
     assert.ok(!j.items.some((i) => i.id === 'head_differs'))
 
     w(path.join(m.repo, 'a.txt'), 'changed\n')
     git(m.repo, 'commit', '-q', '-am', 'code')
-    r = bin('wb-check', ['test-results', '--json'], m.env, m.repo)
+    r = bin('lanekeeper-check', ['test-results', '--json'], m.env, m.repo)
     j = JSON.parse(r.stdout)
     assert.ok(j.items.some((i) => i.id === 'head_differs' && i.level === 'warn'), r.stdout)
   } finally {
@@ -180,11 +180,11 @@ test('4 wb-check test-results: committing only the workbook does not ask to run 
 test('5 protected push message names the pushed-to branch, not the checked-out one', () => {
   const f = makeFixture()
   try {
-    const r = f.judge('git push origin wb/t/int:main', { cwd: f.wt.int })
+    const r = f.judge('git push origin lanekeeper/t/int:main', { cwd: f.wt.int })
     assert.equal(r.decision, 'deny')
     const text = formatReasons('en', r.reasons)
     assert.match(text, /protected branch `main`/)
-    assert.doesNotMatch(text, /`wb\/t\/int`/)
+    assert.doesNotMatch(text, /`lanekeeper\/t\/int`/)
   } finally {
     f.cleanup()
   }
@@ -214,12 +214,12 @@ test('2 lane briefs tell how to write the test result line', () => {
 })
 
 // ── 7 run output follows the language setting ──────────────────────────
-test('7 wb-test-report run: [verify] lines in the configured language', () => {
-  const m = makeEnv({ WB_PYTHON: 'wb-no-such-python' })
+test('7 lanekeeper-test-report run: [verify] lines in the configured language', () => {
+  const m = makeEnv({ LANEKEEPER_PYTHON: 'lanekeeper-no-such-python' })
   try {
     m.personal({ language: 'ko' })
-    w(path.join(m.repo, '.wb', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
-    const r = bin('wb-test-report', ['run'], m.env, m.repo)
+    w(path.join(m.repo, '.lanekeeper', 'verify.config.json'), { version: 1, stages: [{ name: 'ok', adapter: 'vitest', cmd: 'node -e "0"', slot: 'none' }] })
+    const r = bin('lanekeeper-test-report', ['run'], m.env, m.repo)
     assert.equal(r.status, 0, r.stdout + r.stderr)
     assert.match(r.stdout, /\[verify\] 결과 폴더 .* 실패 단계 없음/)
     assert.match(r.stderr, /\[verify\] 엑셀 생성을 건너뜁니다/)
@@ -235,38 +235,38 @@ test('6 messages, skills and READMEs name only skills that exist', () => {
   const names = new Set(fs.readdirSync(path.join(root, 'skills')).filter((d) => fs.existsSync(path.join(root, 'skills', d, 'SKILL.md'))))
   const files = ['locales/ko.json', 'locales/en.json', 'README.md', 'README.ko.md', ...[...names].map((n) => `skills/${n}/SKILL.md`)]
   for (const f of files) {
-    for (const m of fs.readFileSync(path.join(root, f), 'utf8').matchAll(/\/wb:([a-z][a-z0-9-]*)/g)) assert.ok(names.has(m[1]), `${f}: /wb:${m[1]}`)
+    for (const m of fs.readFileSync(path.join(root, f), 'utf8').matchAll(/\/lanekeeper:([a-z][a-z0-9-]*)/g)) assert.ok(names.has(m[1]), `${f}: /lanekeeper:${m[1]}`)
   }
 })
 
 // ── 8 return brief names the real branch ───────────────────────────────
-test('8 wb-check lane: the return brief carries the lane branch name', () => {
+test('8 lanekeeper-check lane: the return brief carries the lane branch name', () => {
   const m = makeEnv()
   try {
     const wt = path.join(m.base, 'wt-l1')
-    git(m.repo, 'worktree', 'add', '-q', '-b', 'wb/search/l1', wt)
-    const sd = path.join(m.repo, '.git', 'wb')
-    w(path.join(sd, 'lanes.json'), { lanes: [{ id: 'l1', branch: 'wb/search/l1', worktree: wt, integration: 'main' }] })
-    const brief = path.join(m.repo, '.wb', 'briefs', 'l1-return-1.md')
-    let r = bin('wb-check', ['lane', 'l1', '--lane-dir', wt], m.env, m.repo)
+    git(m.repo, 'worktree', 'add', '-q', '-b', 'lanekeeper/search/l1', wt)
+    const sd = path.join(m.repo, '.git', 'lanekeeper')
+    w(path.join(sd, 'lanes.json'), { lanes: [{ id: 'l1', branch: 'lanekeeper/search/l1', worktree: wt, integration: 'main' }] })
+    const brief = path.join(m.repo, '.lanekeeper', 'briefs', 'l1-return-1.md')
+    let r = bin('lanekeeper-check', ['lane', 'l1', '--lane-dir', wt], m.env, m.repo)
     assert.equal(r.status, 1, r.stdout + r.stderr)
     let body = fs.readFileSync(brief, 'utf8')
-    assert.match(body, /\(branch wb\/search\/l1\)/)
-    assert.match(body, /own lane branch \(wb\/search\/l1\)/)
+    assert.match(body, /\(branch lanekeeper\/search\/l1\)/)
+    assert.match(body, /own lane branch \(lanekeeper\/search\/l1\)/)
     // without --lane-dir the lane ledger gives the branch
-    r = bin('wb-check', ['lane', 'l1'], m.env, m.repo)
-    body = fs.readFileSync(path.join(m.repo, '.wb', 'briefs', 'l1-return-2.md'), 'utf8')
-    assert.match(body, /\(branch wb\/search\/l1\)/)
+    r = bin('lanekeeper-check', ['lane', 'l1'], m.env, m.repo)
+    body = fs.readFileSync(path.join(m.repo, '.lanekeeper', 'briefs', 'l1-return-2.md'), 'utf8')
+    assert.match(body, /\(branch lanekeeper\/search\/l1\)/)
   } finally {
     m.cleanup()
   }
 })
 
-// ── 9 wb-explain code fills value slots ────────────────────────────────
-test('9 wb-explain code: no raw {name} slot in the message', () => {
+// ── 9 lanekeeper-explain code fills value slots ────────────────────────────────
+test('9 lanekeeper-explain code: no raw {name} slot in the message', () => {
   const m = makeEnv()
   try {
-    const r = bin('wb-explain', ['code', 'safety.kill.pattern'], m.env, m.repo)
+    const r = bin('lanekeeper-explain', ['code', 'safety.kill.pattern'], m.env, m.repo)
     assert.equal(r.status, 0, r.stderr)
     assert.doesNotMatch(r.stdout, /\{\w+\}/)
     assert.match(r.stdout.split('\n')[0], /`<cmd>`/)
@@ -276,12 +276,12 @@ test('9 wb-explain code: no raw {name} slot in the message', () => {
 })
 
 // ── 10 missing brief file ──────────────────────────────────────────────
-test('10 wb-check brief: a missing file gives a message, not a stack', () => {
+test('10 lanekeeper-check brief: a missing file gives a message, not a stack', () => {
   const m = makeEnv()
   try {
-    const r = bin('wb-check', ['brief', '.wb/briefs/none.md'], m.env, m.repo)
+    const r = bin('lanekeeper-check', ['brief', '.lanekeeper/briefs/none.md'], m.env, m.repo)
     assert.equal(r.status, 2)
-    assert.match(r.stderr, /The brief file \.wb\/briefs\/none\.md does not exist/)
+    assert.match(r.stderr, /The brief file \.lanekeeper\/briefs\/none\.md does not exist/)
     assert.doesNotMatch(r.stderr, /ENOENT|at .*\.mjs/)
   } finally {
     m.cleanup()
@@ -289,12 +289,12 @@ test('10 wb-check brief: a missing file gives a message, not a stack', () => {
 })
 
 // ── 11 grant expiry in local time ──────────────────────────────────────
-test('11 /wb:approve: the expiry is shown in local time with the offset', async () => {
+test('11 /lanekeeper:approve: the expiry is shown in local time with the offset', async () => {
   const { localTime, handleApprove } = await import('../hooks/scripts/safety/approve.mjs')
   assert.match(localTime('2026-10-17T13:55:35.519Z'), /^2026-10-1[78] \d\d:\d\d \(UTC[+-]\d\d:\d\d\)$/)
   const f = makeFixture()
   try {
-    const r = handleApprove({ hook_event_name: 'UserPromptExpansion', expansion_type: 'slash_command', command_name: 'wb:approve', command_args: 'merge-main', command_source: 'plugin', cwd: f.repo, session_id: 's1' }, f.env)
+    const r = handleApprove({ hook_event_name: 'UserPromptExpansion', expansion_type: 'slash_command', command_name: 'lanekeeper:approve', command_args: 'merge-main', command_source: 'plugin', cwd: f.repo, session_id: 's1' }, f.env)
     const text = r.hookSpecificOutput.additionalContext
     assert.ok(text.includes(localTime(f.readGrant().expires)), text)
     assert.doesNotMatch(text, /\d{4}-\d\d-\d\dT\d\d:\d\d/)
@@ -306,8 +306,8 @@ test('11 /wb:approve: the expiry is shown in local time with the offset', async 
 // ── 12 SECURITY states what reads conversation logs ────────────────────
 test('12 SECURITY: the token guard row says what it reads from ~/.claude.json and that the command reads logs without a budget', () => {
   const root = path.join(HERE, '..')
-  assert.match(fs.readFileSync(path.join(root, 'SECURITY.ko.md'), 'utf8'), /훅은 공식 사용량도 예산\(`token_guard\.budget`\)도 없으면 대화 기록을 읽지 않는다\. 사람이 `wb-token status`/)
-  assert.match(fs.readFileSync(path.join(root, 'SECURITY.md'), 'utf8'), /With neither an official value nor a budget .* the hook reads no conversation logs\. Running `wb-token status`/)
+  assert.match(fs.readFileSync(path.join(root, 'SECURITY.ko.md'), 'utf8'), /훅은 공식 사용량도 예산\(`token_guard\.budget`\)도 없으면 대화 기록을 읽지 않는다\. 사람이 `lanekeeper-token status`/)
+  assert.match(fs.readFileSync(path.join(root, 'SECURITY.md'), 'utf8'), /With neither an official value nor a budget .* the hook reads no conversation logs\. Running `lanekeeper-token status`/)
 })
 
 // ── 14 no internal lane names in rule text ─────────────────────────────

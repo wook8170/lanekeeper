@@ -63,7 +63,7 @@ test('token guard speaks only when the stage rises, quietly follows a fall, and 
   const f = makeEnv()
   try {
     const notes = []
-    const run = (util, sid = 's') => tokenCheck({ session_id: sid, hook_event_name: 'PostToolUse', cwd: f.repo }, { ...f.env, WB_TOKEN_FAKE_UTIL: String(util) }, { notify: (a, b) => notes.push([a, b]) })
+    const run = (util, sid = 's') => tokenCheck({ session_id: sid, hook_event_name: 'PostToolUse', cwd: f.repo }, { ...f.env, LANEKEEPER_TOKEN_FAKE_UTIL: String(util) }, { notify: (a, b) => notes.push([a, b]) })
     assert.equal(run(50), null)
     assert.match(run(91).hookSpecificOutput.additionalContext, /91%.*shorter units/)
     assert.equal(run(92), null, 'same stage: silent')
@@ -85,7 +85,7 @@ test('token guard: handoff stage names the file duty when the handoff guard is o
   const f = makeEnv()
   try {
     f.personal({ handoff: { enabled: false } })
-    const run = (env, util) => tokenCheck({ session_id: 'x', cwd: f.repo }, { ...env, WB_TOKEN_FAKE_UTIL: String(util) })
+    const run = (env, util) => tokenCheck({ session_id: 'x', cwd: f.repo }, { ...env, LANEKEEPER_TOKEN_FAKE_UTIL: String(util) })
     assert.match(run(f.env, 96).hookSpecificOutput.additionalContext, /update the handoff file at the end of every wave/)
     f.personal({ token_guard: { enabled: false } })
     assert.equal(run(f.env, 99), null)
@@ -102,32 +102,32 @@ test('token guard: custom stages and Korean messages', () => {
   const f = makeEnv()
   try {
     f.personal({ language: 'ko', token_guard: { stages: [50, 70] } })
-    const r = tokenCheck({ session_id: 'k', cwd: f.repo }, { ...f.env, WB_TOKEN_FAKE_UTIL: '75' }, { notify: () => {} })
+    const r = tokenCheck({ session_id: 'k', cwd: f.repo }, { ...f.env, LANEKEEPER_TOKEN_FAKE_UTIL: '75' }, { notify: () => {} })
     assert.match(r.hookSpecificOutput.additionalContext, /임계 상태/)
   } finally {
     f.cleanup()
   }
 })
-test('wb-token: calibrate sets the budget from usage or a number, status reports it', () => {
+test('lanekeeper-token: calibrate sets the budget from usage or a number, status reports it', () => {
   const f = makeEnv()
   try {
     writeTranscript(f, 'c.jsonl', [row(Date.now() - 1000, { output_tokens: 1000 })])
-    let r = bin('wb-token', ['status'], f.env, f.repo)
+    let r = bin('lanekeeper-token', ['status'], f.env, f.repo)
     assert.match(r.stdout, /Budget not set/)
-    r = bin('wb-token', ['calibrate'], f.env, f.repo)
+    r = bin('lanekeeper-token', ['calibrate'], f.env, f.repo)
     assert.equal(f.readPersonal().token_guard.budget, 5000)
-    r = bin('wb-token', ['calibrate', '10000'], f.env, f.repo)
+    r = bin('lanekeeper-token', ['calibrate', '10000'], f.env, f.repo)
     assert.equal(f.readPersonal().token_guard.budget, 10000)
-    assert.match(bin('wb-token', ['status'], f.env, f.repo).stdout, /Budget 10000: 50% used/)
-    assert.equal(bin('wb-token', ['calibrate', 'abc'], f.env, f.repo).status, 1)
-    bin('wb-token', ['off'], f.env, f.repo)
+    assert.match(bin('lanekeeper-token', ['status'], f.env, f.repo).stdout, /Budget 10000: 50% used/)
+    assert.equal(bin('lanekeeper-token', ['calibrate', 'abc'], f.env, f.repo).status, 1)
+    bin('lanekeeper-token', ['off'], f.env, f.repo)
     assert.equal(f.readPersonal().token_guard.enabled, false)
   } finally {
     f.cleanup()
   }
 })
 test('token guard hook process: JSON on stdout', () => {
-  const f = makeEnv({ WB_TOKEN_FAKE_UTIL: '91' })
+  const f = makeEnv({ LANEKEEPER_TOKEN_FAKE_UTIL: '91' })
   try {
     const r = runScript('hooks/scripts/token-guard/check.mjs', { session_id: 'proc', hook_event_name: 'UserPromptSubmit', cwd: f.repo }, f.env)
     assert.equal(r.out.hookSpecificOutput.hookEventName, 'UserPromptSubmit')
@@ -172,7 +172,7 @@ test('handoff session start: an accumulated file over max_lines shows the newest
     assert.doesNotMatch(a, /content B/)
     assert.match(a, /newest section only/)
     assert.match(a, /has 6\d lines, over the 40-line target/)
-    assert.match(a, /wb-waves handoff migrate/)
+    assert.match(a, /lanekeeper-waves handoff migrate/)
     assert.match(a, /notes\/old\/progress-until-/)
   } finally {
     f.cleanup()
@@ -303,11 +303,11 @@ test('migrate: an accumulated progress.md over max_lines moves whole (git mv) an
     f.cleanup()
   }
 })
-test('wb-waves handoff: check, archive (whole file or --from) and migrate', () => {
+test('lanekeeper-waves handoff: check, archive (whole file or --from) and migrate', () => {
   const f = makeEnv()
   try {
     f.personal({ handoff: { max_lines: 30 } })
-    const run = (...a) => bin('wb-waves', ['handoff', ...a], f.env, f.repo)
+    const run = (...a) => bin('lanekeeper-waves', ['handoff', ...a], f.env, f.repo)
     const p = path.join(f.repo, 'progress.md')
     assert.match(run('check').stdout, /does not exist/)
     assert.notEqual(run('archive', 'x').status, 0, 'archive without a file fails')
@@ -361,7 +361,7 @@ test('handoff stop guard: stale work blocks once, then throttle, stop_hook_activ
     assert.match(b.reason, /progress\.md/)
     assert.match(b.reason, /current state only \(target: 300 lines or fewer\)/)
     assert.match(b.reason, /docs\/progress-archive\/progress-<YYYY-MM>\.md/)
-    assert.match(b.reason, /wb-waves handoff archive/)
+    assert.match(b.reason, /lanekeeper-waves handoff archive/)
     assert.doesNotMatch(b.reason, /newest section on top|keep still-valid items, newest/, 'no accumulate-on-top instruction')
     assert.doesNotMatch(b.reason, /over the \d+-line target/)
     assert.equal(stop(), null, 'throttle')
@@ -411,7 +411,7 @@ test('handoff stop guard: an oversized file adds the move step', () => {
     assert.equal(b.decision, 'block')
     assert.match(b.reason, /target: 20 lines/)
     assert.match(b.reason, /has 25 lines, over the 20-line target/)
-    assert.match(b.reason, /wb-waves handoff migrate/)
+    assert.match(b.reason, /lanekeeper-waves handoff migrate/)
   } finally {
     f.cleanup()
   }
@@ -437,18 +437,18 @@ test('terse: per-repository switch, personal default, injection at session start
   try {
     const ss = () => runScript('hooks/scripts/terse/session-start.mjs', { hook_event_name: 'SessionStart', source: 'startup', cwd: f.repo }, f.env)
     assert.equal(ss().out, null)
-    assert.match(bin('wb-terse', ['status'], f.env, f.repo).stdout, /off/)
-    assert.match(bin('wb-terse', ['on'], f.env, f.repo).stdout, /on for this repository/)
+    assert.match(bin('lanekeeper-terse', ['status'], f.env, f.repo).stdout, /off/)
+    assert.match(bin('lanekeeper-terse', ['on'], f.env, f.repo).stdout, /on for this repository/)
     assert.match(ss().out.hookSpecificOutput.additionalContext, /Terse mode \(on\)/)
-    assert.ok(fs.existsSync(path.join(f.repo, '.git', 'wb', 'terse')))
-    bin('wb-terse', ['off'], f.env, f.repo)
+    assert.ok(fs.existsSync(path.join(f.repo, '.git', 'lanekeeper', 'terse')))
+    bin('lanekeeper-terse', ['off'], f.env, f.repo)
     assert.equal(ss().out, null)
-    fs.rmSync(path.join(f.repo, '.git', 'wb', 'terse'))
+    fs.rmSync(path.join(f.repo, '.git', 'lanekeeper', 'terse'))
     f.personal({ terse: true, language: 'ko' })
     assert.match(ss().out.hookSpecificOutput.additionalContext, /간결 모드/)
     const plain = path.join(f.base, 'plain')
     fs.mkdirSync(plain)
-    assert.equal(bin('wb-terse', ['on'], f.env, plain).status, 1, 'no git: no switch file')
+    assert.equal(bin('lanekeeper-terse', ['on'], f.env, plain).status, 1, 'no git: no switch file')
   } finally {
     f.cleanup()
   }
@@ -463,12 +463,12 @@ test('checkpoint commits WIP on a lane branch only', () => {
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'protected', 'main is never committed to')
     git(f.repo, 'checkout', '-q', '-b', 'feature/x')
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'not-lane')
-    git(f.repo, 'checkout', '-q', '-b', 'wb/mvp/l3')
+    git(f.repo, 'checkout', '-q', '-b', 'lanekeeper/mvp/l3')
     const before = git(f.repo, 'rev-parse', 'HEAD')
     const r = checkpointDir(f.repo, resolved, 'StopFailure')
     assert.equal(r.committed, true)
     assert.notEqual(git(f.repo, 'rev-parse', 'HEAD'), before)
-    assert.match(git(f.repo, 'log', '-1', '--format=%s'), /^wip\(wb\): checkpoint at StopFailure /)
+    assert.match(git(f.repo, 'log', '-1', '--format=%s'), /^wip\(lanekeeper\): checkpoint at StopFailure /)
     assert.equal(git(f.repo, 'status', '--porcelain'), '')
     assert.equal(checkpointDir(f.repo, resolved, 'Stop').skipped, 'clean')
     fs.writeFileSync(path.join(f.repo, '.git', 'MERGE_HEAD'), git(f.repo, 'rev-parse', 'HEAD'))
@@ -486,7 +486,7 @@ test('checkpoint: untracked files are not committed (recorded), secret-like trac
     fs.writeFileSync(path.join(f.repo, 'id_rsa'), 'k\n')
     git(f.repo, 'add', '.')
     git(f.repo, 'commit', '-q', '-m', 'secrets tracked')
-    git(f.repo, 'checkout', '-q', '-b', 'wb/mvp/l3')
+    git(f.repo, 'checkout', '-q', '-b', 'lanekeeper/mvp/l3')
     fs.writeFileSync(path.join(f.repo, '.env'), 's=2\n')
     fs.writeFileSync(path.join(f.repo, 'id_rsa'), 'k2\n')
     fs.writeFileSync(path.join(f.repo, 'a.txt'), 'changed\n')
@@ -497,7 +497,7 @@ test('checkpoint: untracked files are not committed (recorded), secret-like trac
     assert.deepEqual(git(f.repo, 'show', '--name-only', '--format=', 'HEAD').split('\n'), ['a.txt'])
     assert.deepEqual(r.secrets.sort(), ['.env', 'id_rsa'])
     assert.deepEqual(r.untracked, ['new.txt'])
-    const rec = JSON.parse(fs.readFileSync(path.join(f.repo, '.git', 'wb', 'checkpoint.json'), 'utf8'))
+    const rec = JSON.parse(fs.readFileSync(path.join(f.repo, '.git', 'lanekeeper', 'checkpoint.json'), 'utf8'))
     assert.deepEqual([rec.untracked_count, rec.untracked, rec.secrets_skipped.length], [1, ['new.txt'], 2])
     assert.match(notes[0], /1 untracked.*secret-like/)
     assert.match(git(f.repo, 'status', '--porcelain'), /\.env/)
@@ -513,7 +513,7 @@ test('checkpoint: untracked files are not committed (recorded), secret-like trac
     const r3 = checkpointDir(f.repo, resolved, 'Stop', new Date(), { env: f.env, notifyFn: (a, b) => notes.push(b) })
     assert.equal(r3.skipped, 'commit-failed')
     assert.equal(git(f.repo, 'rev-parse', 'HEAD'), head)
-    assert.equal(JSON.parse(fs.readFileSync(path.join(f.repo, '.git', 'wb', 'checkpoint.json'), 'utf8')).skipped, 'commit-failed')
+    assert.equal(JSON.parse(fs.readFileSync(path.join(f.repo, '.git', 'lanekeeper', 'checkpoint.json'), 'utf8')).skipped, 'commit-failed')
   } finally {
     f.cleanup()
   }
@@ -521,7 +521,7 @@ test('checkpoint: untracked files are not committed (recorded), secret-like trac
 test('checkpoint hook process: commits on a lane branch, disabled setting does nothing', () => {
   const f = makeEnv()
   try {
-    git(f.repo, 'checkout', '-q', '-b', 'wb/mvp/l3')
+    git(f.repo, 'checkout', '-q', '-b', 'lanekeeper/mvp/l3')
     fs.writeFileSync(path.join(f.repo, 'a.txt'), 'w')
     f.personal({ checkpoint: { enabled: false } })
     runScript('hooks/scripts/checkpoint/checkpoint.mjs', { hook_event_name: 'PreCompact', cwd: f.repo }, f.env)
@@ -529,7 +529,7 @@ test('checkpoint hook process: commits on a lane branch, disabled setting does n
     f.personal({})
     const r = runScript('hooks/scripts/checkpoint/checkpoint.mjs', { hook_event_name: 'SubagentStop', cwd: f.repo }, f.env)
     assert.equal(git(f.repo, 'status', '--porcelain'), '')
-    assert.match(r.out.systemMessage, /wb\/mvp\/l3@/)
+    assert.match(r.out.systemMessage, /lanekeeper\/mvp\/l3@/)
   } finally {
     f.cleanup()
   }
@@ -555,10 +555,10 @@ test('hooks.json registers every L3 hook on the right events; scripts exist and 
     }
   }
   assert.ok(!h.UserPromptSubmit.some((e) => e.hooks.some((x) => /approve/.test(x.command))), 'grants still do not come from UserPromptSubmit')
-  for (const b of ['wb-retry', 'wb-token', 'wb-terse']) assert.ok(fs.statSync(path.join(ROOT, 'bin', b)).mode & 0o111, b)
+  for (const b of ['lanekeeper-retry', 'lanekeeper-token', 'lanekeeper-terse']) assert.ok(fs.statSync(path.join(ROOT, 'bin', b)).mode & 0o111, b)
 })
 test('every message the L3 code uses exists in ko and en, and ko is translated', () => {
-  const src = ['lib/retry.mjs', 'lib/token.mjs', 'lib/handoff.mjs', 'hooks/scripts/handoff/session-start.mjs', 'hooks/scripts/handoff/stop-guard.mjs', 'hooks/scripts/auto-retry/session-start.mjs', 'hooks/scripts/token-guard/check.mjs', 'bin/wb-retry', 'bin/wb-token', 'bin/wb-terse']
+  const src = ['lib/retry.mjs', 'lib/token.mjs', 'lib/handoff.mjs', 'hooks/scripts/handoff/session-start.mjs', 'hooks/scripts/handoff/stop-guard.mjs', 'hooks/scripts/auto-retry/session-start.mjs', 'hooks/scripts/token-guard/check.mjs', 'bin/lanekeeper-retry', 'bin/lanekeeper-token', 'bin/lanekeeper-terse']
     .map((f) => fs.readFileSync(path.join(ROOT, f), 'utf8'))
     .join('\n')
   const keys = new Set([...src.matchAll(/\bt\('((?:retry|token|handoff|chat|terse)\.[a-z.]+)'/g)].map((m) => m[1]))

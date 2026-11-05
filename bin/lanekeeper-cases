@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-cases — test case ledger (<module>.cases.json in paths.e2e_ledger).
+// lanekeeper-cases — test case ledger (<module>.cases.json in paths.e2e_ledger).
 //
-//   wb-cases init <module> [--prefix P]
-//   wb-cases add <module> --title T --expected E [--step S]... [--priority P0..P3] [--role R]
-//   wb-cases retire <module> <id>                  the id is never reused
-//   wb-cases set <module> <id> [--status active|fixme] [--defect D-001]
-//   wb-cases list [<module>] [--json]
-//   wb-cases check                                 ledger and defect register consistency (exit 1 on problems)
+//   lanekeeper-cases init <module> [--prefix P]
+//   lanekeeper-cases add <module> --title T --expected E [--step S]... [--priority P0..P3] [--role R]
+//   lanekeeper-cases retire <module> <id>                  the id is never reused
+//   lanekeeper-cases set <module> <id> [--status active|fixme] [--defect D-001]
+//   lanekeeper-cases list [<module>] [--json]
+//   lanekeeper-cases check                                 ledger and defect register consistency (exit 1 on problems)
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -27,22 +27,22 @@ const need = (ok, usage) => ok || ctx.fail('usage', { usage }, 2)
 
 const COMMANDS = {
   init() {
-    need(module, 'wb-cases init <module>')
+    need(module, 'lanekeeper-cases init <module>')
     const r = C.initCases(dir, module, { prefix: args.prefix })
     print(t('cases.created', { file: path.relative(ctx.root, r.file), prefix: r.prefix }))
   },
   add() {
-    need(module, 'wb-cases add <module> --title T --expected E')
+    need(module, 'lanekeeper-cases add <module> --title T --expected E')
     const c = C.addCase(dir, module, { title: args.title, expected: args.expected, steps, priority: args.priority, role: args.role })
     print(t('cases.added', { id: c.id }))
   },
   retire() {
-    need(module && id, 'wb-cases retire <module> <id>')
+    need(module && id, 'lanekeeper-cases retire <module> <id>')
     C.retireCase(dir, module, id)
     print(t('cases.retired', { id }))
   },
   set() {
-    need(module && id, 'wb-cases set <module> <id> [--status S] [--defect D]')
+    need(module && id, 'lanekeeper-cases set <module> <id> [--status S] [--defect D]')
     const c = C.setCase(dir, module, id, { status: args.status, defect: args.defect })
     print(t('cases.updated', { id: c.id, status: c.status }))
   },
@@ -65,7 +65,7 @@ const COMMANDS = {
   },
 }
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-cases <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-cases <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 await guarded(ctx, () => COMMANDS[cmd]())

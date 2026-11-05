@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-defects — defect register (defect-register.json in paths.e2e_ledger).
+// lanekeeper-defects — defect register (defect-register.json in paths.e2e_ledger).
 //
-//   wb-defects add --title T [--severity critical|high|medium|low] [--case ID]... [--lane L] [--note N]
-//   wb-defects resolve <D-id> [--status fixed|wontfix] [--note N]
-//   wb-defects list [--status open|fixed|wontfix] [--json]
-//   wb-defects check                               same checks as `wb-cases check`
-//   wb-defects summary [--json]                    counts by status, open defects by severity
-//   wb-defects export [--out DIR] [--format md,xlsx]
+//   lanekeeper-defects add --title T [--severity critical|high|medium|low] [--case ID]... [--lane L] [--note N]
+//   lanekeeper-defects resolve <D-id> [--status fixed|wontfix] [--note N]
+//   lanekeeper-defects list [--status open|fixed|wontfix] [--json]
+//   lanekeeper-defects check                               same checks as `lanekeeper-cases check`
+//   lanekeeper-defects summary [--json]                    counts by status, open defects by severity
+//   lanekeeper-defects export [--out DIR] [--format md,xlsx]
 //                                                  defect-register.md and .xlsx next to the register
 //                                                  (xlsx needs Python 3 + openpyxl; missing = exit 3)
 // Defects are never deleted; a fixed one stays in the register.
@@ -35,7 +35,7 @@ const COMMANDS = {
     print(t('defects.added', { id: d.id }))
   },
   resolve() {
-    if (!id) ctx.fail('usage', { usage: 'wb-defects resolve <D-id>' }, 2)
+    if (!id) ctx.fail('usage', { usage: 'lanekeeper-defects resolve <D-id>' }, 2)
     const d = C.resolveDefect(dir, id, { status: args.status, note: args.note })
     print(t('defects.resolved', { id: d.id, status: d.status }))
   },
@@ -69,18 +69,18 @@ const COMMANDS = {
         severity: Object.fromEntries(C.SEVERITIES.map((s) => [s, t(`defects.sev.${s}`)])),
         status: Object.fromEntries(C.DEFECT_STATUSES.map((s) => [s, t(`defects.st.${s}`)])),
       }
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-defects-'))
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-defects-'))
       const lf = path.join(tmp, 'labels.json')
       const src = path.join(tmp, 'register.json')
       fs.writeFileSync(lf, JSON.stringify(labels))
       fs.writeFileSync(src, JSON.stringify(C.readDefects(dir)))
       const xf = path.join(out, 'defect-register.xlsx')
-      const py = process.env.WB_PYTHON || 'python3'
+      const py = process.env.LANEKEEPER_PYTHON || 'python3'
       const r = spawnSync(py, [path.join(libDir, '..', 'templates', 'defects', 'build-defects-xlsx.py'), src, xf, lf], { encoding: 'utf8' })
       fs.rmSync(tmp, { recursive: true, force: true })
       if (r.status !== 0) {
         for (const f of written) print(f)
-        process.stderr.write(`[wb] ${t('defects.xlsx_missing')}\n`)
+        process.stderr.write(`[lanekeeper] ${t('defects.xlsx_missing')}\n`)
         process.exit(3)
       }
       written.push(xf)
@@ -96,7 +96,7 @@ const COMMANDS = {
   },
 }
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-defects <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-defects <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 await guarded(ctx, () => COMMANDS[cmd]())

@@ -23,7 +23,7 @@ export function handle(input, env = process.env, deps = {}) {
   const tier = tierOf(load, ls.tiers)
   if (tier === 'ok') return null
   const t = translator(resolved.effective.language)
-  return ctxOutput(input.hook_event_name || 'UserPromptSubmit', `[wb] ${t(`load.notice.${tier}`, { load: load.toFixed(2), light: ls.tiers.light_only, hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy })}`)
+  return ctxOutput(input.hook_event_name || 'UserPromptSubmit', `[lanekeeper] ${t(`load.notice.${tier}`, { load: load.toFixed(2), light: ls.tiers.light_only, hold: ls.tiers.hold_new_lanes, stop: ls.tiers.stop_heavy })}`)
 }
 
 hookMain(import.meta, handle)

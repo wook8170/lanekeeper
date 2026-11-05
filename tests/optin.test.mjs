@@ -1,5 +1,5 @@
 // Opt-in and deference: workflow hooks stay silent outside a repository with
-// .wb/config.json, safety hooks always run; a hook kind the user's Claude Code
+// .lanekeeper/config.json, safety hooks always run; a hook kind the user's Claude Code
 // settings already register is left to that hook; onFailure "block" on the
 // guards that must not fail open.
 import { test } from 'node:test'
@@ -11,16 +11,16 @@ import { optedIn, globalHookKinds } from '../lib/optin.mjs'
 
 function setup() {
   const f = makeEnv()
-  delete f.env.WB_ACTIVE
+  delete f.env.LANEKEEPER_ACTIVE
   return f
 }
 const optIn = (f) => {
-  fs.mkdirSync(path.join(f.repo, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(f.repo, '.wb', 'config.json'), JSON.stringify({ version: 1 }))
+  fs.mkdirSync(path.join(f.repo, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(f.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1 }))
 }
 const agent = (f) => runScript('hooks/scripts/dispatch/dispatch-guard.mjs', { tool_name: 'Agent', tool_input: { prompt: 'do it', model: 'opus' }, cwd: f.repo }, f.env)
 
-test('opt-in: without .wb/config.json the dispatch guard is silent; with it a dispatch without a brief is denied', () => {
+test('opt-in: without .lanekeeper/config.json the dispatch guard is silent; with it a dispatch without a brief is denied', () => {
   const f = setup()
   try {
     assert.equal(optedIn(f.repo, f.env), false)
@@ -28,13 +28,13 @@ test('opt-in: without .wb/config.json the dispatch guard is silent; with it a di
     optIn(f)
     assert.equal(optedIn(f.repo, f.env), true)
     assert.equal(agent(f).out.hookSpecificOutput.permissionDecision, 'deny')
-    assert.equal(optedIn(f.repo, { ...f.env, WB_ACTIVE: '0' }), false, 'WB_ACTIVE=0 turns it off')
+    assert.equal(optedIn(f.repo, { ...f.env, LANEKEEPER_ACTIVE: '0' }), false, 'LANEKEEPER_ACTIVE=0 turns it off')
   } finally {
     f.cleanup()
   }
 })
 
-test('opt-in: a linked worktree counts when the main checkout has .wb/config.json', async () => {
+test('opt-in: a linked worktree counts when the main checkout has .lanekeeper/config.json', async () => {
   const f = setup()
   try {
     optIn(f)
@@ -70,7 +70,7 @@ test('opt-in: handoff session start and the session rules are silent outside an 
   }
 })
 
-test('defer: a handoff hook in the Claude Code settings silences wb handoff; global_hooks=ignore keeps it', () => {
+test('defer: a handoff hook in the Claude Code settings silences lanekeeper handoff; global_hooks=ignore keeps it', () => {
   const f = setup()
   try {
     optIn(f)
@@ -80,7 +80,7 @@ test('defer: a handoff hook in the Claude Code settings silences wb handoff; glo
     assert.deepEqual([...globalHookKinds(f.env)].sort(), ['handoff', 'token_guard'])
     const hs = () => runScript('hooks/scripts/handoff/session-start.mjs', { source: 'startup', cwd: f.repo }, f.env).out
     assert.equal(hs(), null)
-    fs.writeFileSync(path.join(f.env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, global_hooks: 'ignore' }))
+    fs.writeFileSync(path.join(f.env.LANEKEEPER_HOME, 'personal.json'), JSON.stringify({ version: 1, global_hooks: 'ignore' }))
     assert.match(hs().hookSpecificOutput.additionalContext, /content A/)
   } finally {
     f.cleanup()

@@ -85,14 +85,14 @@ test('no marker is reported as marker', () => {
 test('collectBrief: prompt names a brief file that names a common brief', () => {
   const fx = makeEnv()
   try {
-    const dir = path.join(fx.repo, '.wb', 'briefs')
+    const dir = path.join(fx.repo, '.lanekeeper', 'briefs')
     fs.mkdirSync(dir, { recursive: true })
     const full = fill(tpl('ko', 'impl'))
     const cut = full.indexOf('## 금지')
     // the lane brief carries goal/scope; the common brief carries the rest
     fs.writeFileSync(path.join(dir, 'common.md'), full.slice(cut))
-    fs.writeFileSync(path.join(dir, 'l9.md'), `${full.slice(0, cut)}\n공통 규칙은 .wb/briefs/common.md 를 먼저 읽는다.\n`)
-    const b = collectBrief('지시서 .wb/briefs/l9.md 를 읽고 진행하라.', { cwd: fx.repo, projectRoot: fx.repo })
+    fs.writeFileSync(path.join(dir, 'l9.md'), `${full.slice(0, cut)}\n공통 규칙은 .lanekeeper/briefs/common.md 를 먼저 읽는다.\n`)
+    const b = collectBrief('지시서 .lanekeeper/briefs/l9.md 를 읽고 진행하라.', { cwd: fx.repo, projectRoot: fx.repo })
     assert.equal(b.files.length, 2)
     assert.equal(b.marker.attrs.template, 'impl')
     assert.equal(checkBrief(b.text).ok, true)
@@ -104,16 +104,16 @@ test('collectBrief: prompt names a brief file that names a common brief', () => 
   }
 })
 
-test('wb-check brief: exit 0 on a filled template, 1 with the missing items', () => {
+test('lanekeeper-check brief: exit 0 on a filled template, 1 with the missing items', () => {
   const fx = makeEnv({ LANG: 'C' })
   try {
     const ok = path.join(fx.base, 'ok.md')
     fs.writeFileSync(ok, fill(tpl('en', 'review')))
-    let r = bin('wb-check', ['brief', ok], fx.env, fx.repo)
+    let r = bin('lanekeeper-check', ['brief', ok], fx.env, fx.repo)
     assert.equal(r.status, 0, r.stdout + r.stderr)
     const bad = path.join(fx.base, 'bad.md')
     fs.writeFileSync(bad, fill(tpl('en', 'review')).replace('## Commit rules', '## Misc'))
-    r = bin('wb-check', ['brief', bad, '--json'], fx.env, fx.repo)
+    r = bin('lanekeeper-check', ['brief', bad, '--json'], fx.env, fx.repo)
     assert.equal(r.status, 1)
     assert.deepEqual(JSON.parse(r.stdout).missing, ['commit'])
   } finally {

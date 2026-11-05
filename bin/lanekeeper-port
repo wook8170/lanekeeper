@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// wb-port — port numbers by name, and lane port leases.
+// lanekeeper-port — port numbers by name, and lane port leases.
 //
-//   wb-port get <name> [--lane <id>]     <name> = a protected port name, or lane.<name> (web, api, ...)
-//   wb-port list [--json]                protected ports, the lane range and current leases
-//   wb-port lease --lane <id> [--worktree <dir>] [--json]
-//   wb-port release --lane <id>
-//   wb-port check [--json]               lane range problems (overlap, protected ports inside)
+//   lanekeeper-port get <name> [--lane <id>]     <name> = a protected port name, or lane.<name> (web, api, ...)
+//   lanekeeper-port list [--json]                protected ports, the lane range and current leases
+//   lanekeeper-port lease --lane <id> [--worktree <dir>] [--json]
+//   lanekeeper-port release --lane <id>
+//   lanekeeper-port check [--json]               lane range problems (overlap, protected ports inside)
 //
 // Port numbers live only in machine settings; briefs and docs name them
 // ({{port:lane.web}}, {{port:<protected name>}}) and ask this command.
@@ -29,7 +29,7 @@ const t = translator(resolved.effective.language)
 const config = resolved.config
 const out = (s) => process.stdout.write(`${s}\n`)
 const fail = (key, vars, code = 1) => {
-  process.stderr.write(`[wb-port] ${t(key, vars)}\n`)
+  process.stderr.write(`[lanekeeper-port] ${t(key, vars)}\n`)
   process.exit(code)
 }
 if (resolved.errors.length) fail('slot.config_error', { file: resolved.errors[0].file, key: resolved.errors[0].path, msg: resolved.errors[0].msg }, 2)
@@ -40,7 +40,7 @@ const [cmd, name] = args._
 
 function currentLane() {
   if (args.lane) return String(args.lane)
-  if (env.WB_LANE) return env.WB_LANE
+  if (env.LANEKEEPER_LANE) return env.LANEKEEPER_LANE
   if (!sd) return null
   const hit = readLanes(sd).lanes.find((l) => l.worktree && path.resolve(l.worktree) === path.resolve(root))
   if (hit) return hit.id

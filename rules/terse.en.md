@@ -14,4 +14,4 @@ Do not shorten:
 - The final report: what changed, what was verified, what remains.
 - Instructions to subagents. Short instructions make agents wander and cost more. Ask for reports in a file and read only the lines you need.
 
-Turn it off with `wb-terse off` or `/wb:terse off`.
+Turn it off with `lanekeeper-terse off` or `/lanekeeper:terse off`.

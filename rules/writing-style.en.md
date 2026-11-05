@@ -1,6 +1,6 @@
 # Writing style rules
 
-The style for each kind of file comes from `style.map` in `.wb/config.json`. The rules per style follow.
+The style for each kind of file comes from `style.map` in `.lanekeeper/config.json`. The rules per style follow.
 
 ## haeyo
 For: screen text, in-app manual, help, notices. (The name is the Korean polite-friendly register; in English use plain second-person sentences.)

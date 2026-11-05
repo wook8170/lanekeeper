@@ -46,19 +46,19 @@ class Workbook(unittest.TestCase):
                                    '--gate-json', self.p('gate.json'), '--ledger-priority', 'P0')
         self.assertEqual(self.sheets(out), ['요약', '단위', '통합 DB', 'e2e', 'e2e 상세', 'gate 단계', '실패 목록', '간헐 실패', '원장 대조'])
         self.assertIn('판정 실패', line)
-        wb = openpyxl.load_workbook(out)
-        ws = wb['요약']
+        book = openpyxl.load_workbook(out)
+        ws = book['요약']
         self.assertEqual(ws['A3'].value, '종합 판정')
         self.assertTrue(ws['B3'].value.startswith('실패'))
-        fails = [r[2].value for r in wb['실패 목록'].iter_rows(min_row=2)]
+        fails = [r[2].value for r in book['실패 목록'].iter_rows(min_row=2)]
         self.assertIn('cart > totals', fails)
         self.assertIn('PAY-002 · 003 refund', fails)
         self.assertIn('npm run typecheck', fails)
-        flaky = [r[2].value for r in wb['간헐 실패'].iter_rows(min_row=2)]
+        flaky = [r[2].value for r in book['간헐 실패'].iter_rows(min_row=2)]
         self.assertEqual(flaky, ['PAY-004 slow network'])
-        ledger = {r[1].value: r[0].value for r in wb['원장 대조'].iter_rows(min_row=2)}
+        ledger = {r[1].value: r[0].value for r in book['원장 대조'].iter_rows(min_row=2)}
         self.assertEqual(set(ledger), {'PAY-002', 'PAY-004', 'PAY-005', 'PAY-006', 'PAY-999'})
-        gate = [(r[1].value, r[3].value) for r in wb['gate 단계'].iter_rows(min_row=2)]
+        gate = [(r[1].value, r[3].value) for r in book['gate 단계'].iter_rows(min_row=2)]
         self.assertEqual(gate, [('lint', '통과'), ('typecheck', '실패'), ('build', '미실행')])
 
     def test_sheets_without_data_are_not_created(self):
@@ -81,8 +81,8 @@ class Workbook(unittest.TestCase):
                 {'projectName': 'chromium', 'status': 'expected', 'results': [{'status': 'passed', 'duration': 5}]}]}]}]}
         F.write(self.p('rerun.json'), rerun)
         out, _ = self.run_build('--input', 'playwright:e2e:main=' + self.p('pw.json'), '--rerun', 'playwright=' + self.p('rerun.json'))
-        wb = openpyxl.load_workbook(out)
-        flaky = {r[2].value: r[4].value for r in wb['간헐 실패'].iter_rows(min_row=2)}
+        book = openpyxl.load_workbook(out)
+        flaky = {r[2].value: r[4].value for r in book['간헐 실패'].iter_rows(min_row=2)}
         self.assertEqual(flaky['PAY-002 · 003 refund'], '별도 재실행')
         self.assertEqual(flaky['PAY-004 slow network'], '같은 실행 안 재시도')
 
@@ -97,10 +97,10 @@ class Workbook(unittest.TestCase):
                                                                {'adapter': 'jest', 'kind': 'unit', 'suite': 'dead', 'file': os.path.join(d, 'nope.json'), 'exit': 1}]})
         out, _ = self.run_build('--results-dir', d, '--out-template', 'docs/test-results/{date}/{name}-{HHMM}.xlsx')
         self.assertTrue(out.endswith('r.xlsx'))
-        wb = openpyxl.load_workbook(out)
-        names = [r[1].value for r in wb['단위'].iter_rows(min_row=2)]
+        book = openpyxl.load_workbook(out)
+        names = [r[1].value for r in book['단위'].iter_rows(min_row=2)]
         self.assertEqual(names, ['dead', 'web', '2개'])  # a stage with no output is a failed suite row
-        self.assertEqual(wb['요약']['B7'].value, 'abc1234')
+        self.assertEqual(book['요약']['B7'].value, 'abc1234')
 
     def test_out_template_default_location(self):
         r = subprocess.run([sys.executable, SCRIPT, '--repo', self.dir, '--name', 'My Run', '--started', '2026-03-04T05:06:00',
@@ -178,9 +178,9 @@ class Workbook(unittest.TestCase):
         F.write(self.p('cov.json'), {'total': {'lines': {'pct': 81.5, 'total': 100}, 'statements': {'pct': 80}, 'branches': {'pct': 70}, 'functions': {'pct': 90}}})
         F.write(self.p('mut.json'), {'files': {'a.js': {'mutants': [{'status': 'Killed'}, {'status': 'Survived'}, {'status': 'Timeout'}]}}})
         out, _ = self.run_build('--input', 'vitest:unit:web=' + self.p('v.json'), '--coverage', 'web=' + self.p('cov.json'), '--mutation', 'web=' + self.p('mut.json'))
-        wb = openpyxl.load_workbook(out)
-        self.assertEqual(wb['커버리지']['B2'].value, 81.5)
-        self.assertEqual(wb['변이']['B2'].value, 66.7)
+        book = openpyxl.load_workbook(out)
+        self.assertEqual(book['커버리지']['B2'].value, 81.5)
+        self.assertEqual(book['변이']['B2'].value, 66.7)
 
     def test_bad_kind_is_reported(self):
         r = subprocess.run([sys.executable, SCRIPT, '--repo', self.dir, '--out', self.p('o.xlsx'), '--input', 'vitest:weird:web=' + self.p('v.json')],

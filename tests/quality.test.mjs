@@ -1,5 +1,5 @@
 // Quality results per kind: parsers, common head, index, ship precheck (missing · stale · failed ·
-// weakened · accepted), weakening chain, version roll-up, wb-quality and the ship gate hook.
+// weakened · accepted), weakening chain, version roll-up, lanekeeper-quality and the ship gate hook.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -287,16 +287,16 @@ test('roll-up and result workbooks are written with openpyxl', { skip: !py.ok &&
   f.cleanup()
 })
 
-// ---- wb-quality and the hook ------------------------------------------------------------
+// ---- lanekeeper-quality and the hook ------------------------------------------------------------
 
 function project(f, quality) {
-  w(path.join(f.repo, '.wb/config.json'), { version: 1, quality })
+  w(path.join(f.repo, '.lanekeeper/config.json'), { version: 1, quality })
   fs.writeFileSync(path.join(f.repo, '.gitignore'), 'test-results/\n')
   fs.writeFileSync(path.join(f.repo, 'VERSION'), '2.0.0\n')
   commitAll(f.repo, 'config')
 }
 
-test('wb-quality: run writes the head json and the index, precheck --run runs what is missing and blocks failures', () => {
+test('lanekeeper-quality: run writes the head json and the index, precheck --run runs what is missing and blocks failures', () => {
   const f = makeEnv()
   project(f, {
     suites: {
@@ -305,7 +305,7 @@ test('wb-quality: run writes the head json and the index, precheck --run runs wh
     },
     ship: { requires: ['unit', 'gate'] },
   })
-  const run = bin('wb-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo)
+  const run = bin('lanekeeper-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo)
   assert.equal(run.status, 0, run.stderr)
   const idx = JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results/index.json'), 'utf8'))
   assert.equal(idx.entries.length, 1)
@@ -313,37 +313,37 @@ test('wb-quality: run writes the head json and the index, precheck --run runs wh
   assert.deepEqual(Q.validateHead(h), [])
   assert.deepEqual([h.version, h.kind, h.verdict, h.counts.fixme, h.dirty, h.raw.committed], ['2.0.0', 'unit', 'passed', 1, false, false])
   assert.ok(fs.existsSync(path.join(f.repo, h.raw.log)))
-  const pre = bin('wb-quality', ['precheck', '--run', '--no-xlsx'], f.env, f.repo)
+  const pre = bin('lanekeeper-quality', ['precheck', '--run', '--no-xlsx'], f.env, f.repo)
   assert.equal(pre.status, 1, pre.stdout)
   assert.match(pre.stdout, /running gate \(missing\)/)
   assert.doesNotMatch(pre.stdout, /running unit/, 'a valid result is not run again')
   assert.match(pre.stdout, /gate\s+failed/)
   assert.match(pre.stdout, /gate: read the failures/)
-  const st = JSON.parse(bin('wb-quality', ['status', '--json'], f.env, f.repo).stdout)
+  const st = JSON.parse(bin('lanekeeper-quality', ['status', '--json'], f.env, f.repo).stdout)
   assert.deepEqual(st.rows.map((r) => r.state), ['ok', 'failed'])
   f.cleanup()
 })
 
-test('wb-quality: heavy suites run through wb-slot, record, report, accept needs a terminal', () => {
+test('lanekeeper-quality: heavy suites run through lanekeeper-slot, record, report, accept needs a terminal', () => {
   const f = makeEnv()
   project(f, { suites: { e2e: { category: 'e2e', command: 'true' }, usability: { category: 'usability' } }, ship: { requires: ['e2e', 'usability'] } })
-  const r = bin('wb-quality', ['run', 'e2e', '--no-xlsx'], f.env, f.repo)
+  const r = bin('lanekeeper-quality', ['run', 'e2e', '--no-xlsx'], f.env, f.repo)
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /slot heavy/)
   const head = JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results', JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results/index.json'), 'utf8')).entries[0].json), 'utf8'))
   assert.equal(head.counts.total, 1, 'exit parser')
-  assert.equal(bin('wb-quality', ['run', 'usability'], f.env, f.repo).status, 2, 'a kind without a command is recorded, not run')
+  assert.equal(bin('lanekeeper-quality', ['run', 'usability'], f.env, f.repo).status, 2, 'a kind without a command is recorded, not run')
   const scen = w(path.join(f.base, 'usability.json'), { counts: { total: 3, passed: 3, failed: 0 }, detail: { scenarios: ['sign in', 'make a chart', 'share'] } })
-  assert.equal(bin('wb-quality', ['record', 'usability', '--verdict', 'passed', '--from', scen, '--no-xlsx'], f.env, f.repo).status, 0)
-  assert.equal(bin('wb-quality', ['precheck'], f.env, f.repo).status, 0)
-  const ship = bin('wb-quality', ['record', 'ship', '--verdict', 'passed', '--report', 'docs/release/vpr.md', '--no-xlsx'], f.env, f.repo)
+  assert.equal(bin('lanekeeper-quality', ['record', 'usability', '--verdict', 'passed', '--from', scen, '--no-xlsx'], f.env, f.repo).status, 0)
+  assert.equal(bin('lanekeeper-quality', ['precheck'], f.env, f.repo).status, 0)
+  const ship = bin('lanekeeper-quality', ['record', 'ship', '--verdict', 'passed', '--report', 'docs/release/vpr.md', '--no-xlsx'], f.env, f.repo)
   assert.equal(ship.status, 0, ship.stderr)
-  const rep = bin('wb-quality', ['report', '--json', '--no-xlsx'], f.env, f.repo)
+  const rep = bin('lanekeeper-quality', ['report', '--json', '--no-xlsx'], f.env, f.repo)
   const j = JSON.parse(rep.stdout)
   assert.deepEqual([j.version, j.allPassed, j.files.md], ['2.0.0', true, 'docs/test-results/2.0.0/quality-2.0.0.md'])
   const shipHead = j.latest.find((l) => l.kind === 'ship').entry
   assert.equal(shipHead.category, 'ship')
-  const acc = bin('wb-quality', ['accept', 'e2e', '--reason', 'x'], f.env, f.repo)
+  const acc = bin('lanekeeper-quality', ['accept', 'e2e', '--reason', 'x'], f.env, f.repo)
   assert.equal(acc.status, 4, 'no TTY: refused')
   assert.equal(fs.existsSync(path.join(f.repo, 'docs/test-results/accepted.json')), false)
   f.cleanup()
@@ -356,12 +356,12 @@ test('ship gate hook: denies VPR before the precheck passes, ignores other calls
   let r = hook({ subagent_type: 'some-plugin:readiness-auditor', prompt: 'audit' })
   assert.equal(r.out.hookSpecificOutput.permissionDecision, 'deny')
   assert.match(r.out.hookSpecificOutput.permissionDecisionReason, /unit=missing/)
-  assert.match(r.out.hookSpecificOutput.permissionDecisionReason, /\/wb:ship-verify/)
+  assert.match(r.out.hookSpecificOutput.permissionDecisionReason, /\/lanekeeper:ship-verify/)
   assert.equal(hook({ skill: 'verifying-production-readiness' }, 'Skill').out.hookSpecificOutput.permissionDecision, 'deny')
   assert.equal(hook({ subagent_type: 'general-purpose', prompt: 'Use the verifying-production-readiness skill' }).out.hookSpecificOutput.permissionDecision, 'deny')
   assert.equal(hook({ subagent_type: 'general-purpose', prompt: 'fix the chart' }).out, null)
-  assert.equal(hook({ skill: 'wb:ship-verify' }, 'Skill').out, null, 'the skill that runs the precheck is not blocked')
-  assert.equal(bin('wb-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
+  assert.equal(hook({ skill: 'lanekeeper:ship-verify' }, 'Skill').out, null, 'the skill that runs the precheck is not blocked')
+  assert.equal(bin('lanekeeper-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
   r = hook({ subagent_type: 'readiness-auditor' })
   assert.equal(r.out.hookSpecificOutput.permissionDecision, undefined, 'passes once the precheck is ok')
   assert.match(r.out.hookSpecificOutput.additionalContext, /ux-adversarial=manual/, 'the default advisory kind only warns')
@@ -369,7 +369,7 @@ test('ship gate hook: denies VPR before the precheck passes, ignores other calls
   r = hook({ subagent_type: 'readiness-auditor' })
   assert.match(r.out.hookSpecificOutput.permissionDecisionReason, /uncommitted changes/)
   git(f.repo, 'checkout', '--', 'a.txt')
-  w(path.join(f.repo, '.wb/config.json'), { version: 1, quality: { suites: { unit: { command: 'true' }, e2e: { command: 'true' } }, ship: { requires: ['unit', 'e2e'], enforce: 'warn' } } })
+  w(path.join(f.repo, '.lanekeeper/config.json'), { version: 1, quality: { suites: { unit: { command: 'true' }, e2e: { command: 'true' } }, ship: { requires: ['unit', 'e2e'], enforce: 'warn' } } })
   r = hook({ subagent_type: 'readiness-auditor' })
   assert.match(r.out.hookSpecificOutput.additionalContext, /e2e=missing/)
   assert.equal(r.out.hookSpecificOutput.permissionDecision, undefined)
@@ -400,12 +400,12 @@ test('precheck: advisory kinds are checked but do not block; a kind in requires 
   f.cleanup()
 })
 
-test('wb-quality: advisory kind is listed apart, warns, keeps exit 0; ship gate warns only for it', () => {
+test('lanekeeper-quality: advisory kind is listed apart, warns, keeps exit 0; ship gate warns only for it', () => {
   const f = makeEnv()
   project(f, { suites: { unit: { command: 'true', slot: 'none' }, 'ux-adversarial': { category: 'ux-adversarial' } }, ship: { requires: ['unit'] } })
-  assert.equal(bin('wb-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
-  assert.equal(bin('wb-quality', ['run', 'ux-adversarial'], f.env, f.repo).status, 2, 'a kind without a command is recorded, not run')
-  let pre = bin('wb-quality', ['precheck'], f.env, f.repo)
+  assert.equal(bin('lanekeeper-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
+  assert.equal(bin('lanekeeper-quality', ['run', 'ux-adversarial'], f.env, f.repo).status, 2, 'a kind without a command is recorded, not run')
+  let pre = bin('lanekeeper-quality', ['precheck'], f.env, f.repo)
   assert.equal(pre.status, 0, pre.stdout)
   assert.match(pre.stdout, /Warning kinds/)
   assert.match(pre.stdout, /Warning: ux-adversarial=manual/)
@@ -418,23 +418,23 @@ test('wb-quality: advisory kind is listed apart, warns, keeps exit 0; ship gate 
     failures: [{ suite: 'blocker', name: 'F-03 publish', message: 'after publishing, the user cannot find where the result is' }],
     detail: { findings: [{ id: 'F-03', severity: 'blocker', axis: [4], status: 'open' }] },
   })
-  assert.equal(bin('wb-quality', ['record', 'ux-adversarial', '--verdict', 'failed', '--from', found, '--no-xlsx'], f.env, f.repo).status, 0)
-  pre = bin('wb-quality', ['precheck'], f.env, f.repo)
+  assert.equal(bin('lanekeeper-quality', ['record', 'ux-adversarial', '--verdict', 'failed', '--from', found, '--no-xlsx'], f.env, f.repo).status, 0)
+  pre = bin('lanekeeper-quality', ['precheck'], f.env, f.repo)
   assert.equal(pre.status, 0, 'still a warning')
   assert.match(pre.stdout, /ux-adversarial=failed/)
   const head = JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results', JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results/index.json'), 'utf8')).entries.find((e) => e.kind === 'ux-adversarial').json), 'utf8'))
   assert.equal(head.category, 'ux-adversarial')
   assert.equal(head.failures[0].name, 'F-03 publish')
-  const ship = bin('wb-quality', ['record', 'ship', '--verdict', 'passed', '--no-xlsx'], f.env, f.repo)
+  const ship = bin('lanekeeper-quality', ['record', 'ship', '--verdict', 'passed', '--no-xlsx'], f.env, f.repo)
   assert.equal(ship.status, 0, ship.stderr)
-  w(path.join(f.repo, '.wb/config.json'), { version: 1, quality: { suites: { unit: { command: 'true', slot: 'none' }, 'ux-adversarial': { category: 'ux-adversarial' } }, ship: { requires: ['unit'], advisory: [] } } })
+  w(path.join(f.repo, '.lanekeeper/config.json'), { version: 1, quality: { suites: { unit: { command: 'true', slot: 'none' }, 'ux-adversarial': { category: 'ux-adversarial' } }, ship: { requires: ['unit'], advisory: [] } } })
   commitAll(f.repo, 'no advisory')
-  assert.equal(bin('wb-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
+  assert.equal(bin('lanekeeper-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
   r = hook({ subagent_type: 'readiness-auditor' })
   assert.equal(r.out, null, 'advisory: [] turns the warning off')
-  w(path.join(f.repo, '.wb/config.json'), { version: 1, quality: { suites: { unit: { command: 'true', slot: 'none' }, 'ux-adversarial': { category: 'ux-adversarial' } }, ship: { requires: ['unit', 'ux-adversarial'] } } })
+  w(path.join(f.repo, '.lanekeeper/config.json'), { version: 1, quality: { suites: { unit: { command: 'true', slot: 'none' }, 'ux-adversarial': { category: 'ux-adversarial' } }, ship: { requires: ['unit', 'ux-adversarial'] } } })
   commitAll(f.repo, 'require it')
-  assert.equal(bin('wb-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
+  assert.equal(bin('lanekeeper-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)
   r = hook({ subagent_type: 'readiness-auditor' })
   assert.equal(r.out.hookSpecificOutput.permissionDecision, 'deny', 'in requires it blocks')
   assert.match(r.out.hookSpecificOutput.permissionDecisionReason, /ux-adversarial=(failed|stale)/)

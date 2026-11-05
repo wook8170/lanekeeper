@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// wb-terse — terse mode for this repository (all worktrees share the switch).
+// lanekeeper-terse — terse mode for this repository (all worktrees share the switch).
 //
-//   wb-terse status | on | off
+//   lanekeeper-terse status | on | off
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'

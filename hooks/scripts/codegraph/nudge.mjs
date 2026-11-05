@@ -92,7 +92,7 @@ export function handle(input, env = process.env) {
       }
     }
   }
-  return notes.length ? ctxOutput('PreToolUse', notes.map((n) => `[wb] ${n}`).join('\n')) : null
+  return notes.length ? ctxOutput('PreToolUse', notes.map((n) => `[lanekeeper] ${n}`).join('\n')) : null
 }
 
 hookMain(import.meta, handle)

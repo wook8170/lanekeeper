@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// wb-explain — what is blocked or waiting right now, why, and what to do. Read only.
+// lanekeeper-explain — what is blocked or waiting right now, why, and what to do. Read only.
 //
-//   wb-explain [--json]                 current blockers, waits and notes
-//   wb-explain code <message-code>      the rule behind a block message, with its recovery
-//   wb-explain rule <id>                one catalog rule (same as `wb-rules show`)
-//   wb-explain links                    project documents linked under explain.links
+//   lanekeeper-explain [--json]                 current blockers, waits and notes
+//   lanekeeper-explain code <message-code>      the rule behind a block message, with its recovery
+//   lanekeeper-explain rule <id>                one catalog rule (same as `lanekeeper-rules show`)
+//   lanekeeper-explain links                    project documents linked under explain.links
 //
 // Common options: --project <dir>, --lang ko|en
 import fs from 'node:fs'
@@ -28,12 +28,12 @@ const rules = R.loadCatalog()
 const [cmd, arg] = args._
 
 if (cmd === 'code') {
-  if (!arg) (print('usage: wb-explain code <message-code>'), process.exit(2))
+  if (!arg) (print('usage: lanekeeper-explain code <message-code>'), process.exit(2))
   const rule = R.ruleForCode(rules, arg)
   const msgs = messages(lang)
   const base = arg.replace(/\.(why|fix|ask)$/, '')
   const why = msgs[`${base}.why`]
-  if (!rule && !why) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
+  if (!rule && !why) (process.stderr.write(`[lanekeeper] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
   // no real call here, so a value slot such as {cmd} is shown as <cmd>
   const generic = (k) => t(k).replace(/\{(\w+)\}/g, '<$1>')
   if (args.json) print(JSON.stringify({ code: base, why: why ? generic(`${base}.why`) : null, fix: msgs[`${base}.fix`] ? generic(`${base}.fix`) : null, rule }, null, 2))
@@ -47,7 +47,7 @@ if (cmd === 'code') {
   }
 } else if (cmd === 'rule') {
   const rule = R.findRule(rules, arg)
-  if (!rule) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
+  if (!rule) (process.stderr.write(`[lanekeeper] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
   for (const l of R.describeRule(rule, lang, t)) print(l)
 } else if (cmd === 'links') {
   const links = getPath(resolved.config, 'project.explain.links') || []
@@ -64,6 +64,6 @@ if (cmd === 'code') {
     }
   }
 } else {
-  print('usage: wb-explain [code <code>|rule <id>|links]')
+  print('usage: lanekeeper-explain [code <code>|rule <id>|links]')
   process.exit(2)
 }

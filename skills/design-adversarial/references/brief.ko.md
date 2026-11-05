@@ -1,4 +1,4 @@
-<!-- wb-brief v1 type=adversarial lane={{lane}} template=design-adversarial implementer={{implementer}} role=verifier -->
+<!-- lanekeeper-brief v1 type=adversarial lane={{lane}} template=design-adversarial implementer={{implementer}} role=verifier -->
 <!-- 표지: type=adversarial 은 설계를 쓴 모델과 다른 모델로 라우팅한다(기본은 opus. 라우팅에 더 높은 모델을 넣었으면 그 모델을 먼저 쓴다). role=verifier 는 검수 레인 표식이다. {{…}} 자리를 모두 채워야 디스패치된다. -->
 # {{lane}} — {{title}} {{revision}}판 {{stage}} 적대 검증
 

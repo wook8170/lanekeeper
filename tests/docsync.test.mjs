@@ -1,5 +1,5 @@
 // Docs sync: impact map (rules · mirrors · groups · reverse index of screen phrases · capture scenes),
-// the gate verdict, wb-docs in a repository, and the `docs` kind it registers with wb-quality.
+// the gate verdict, lanekeeper-docs in a repository, and the `docs` kind it registers with lanekeeper-quality.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -226,15 +226,15 @@ test('docsync settings: snake_case and camelCase read the same; the example vali
   assert.deepEqual([...r.errors, ...r.warnings], [])
 })
 
-// ---- wb-docs and wb-quality in a repository ---------------------------------------
+// ---- lanekeeper-docs and lanekeeper-quality in a repository ---------------------------------------
 
 function repoWith(f, body = SHARE_OLD) {
   for (const [file, text] of Object.entries({ ...FILES, 'web/src/screens/ShareModal.tsx': body })) {
     fs.mkdirSync(path.join(f.repo, path.dirname(file)), { recursive: true })
     fs.writeFileSync(path.join(f.repo, file), text)
   }
-  fs.mkdirSync(path.join(f.repo, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(f.repo, '.wb/config.json'), JSON.stringify({ version: 1, docs_sync: CONFIG, quality: { ship: { requires: ['docs'] } } }))
+  fs.mkdirSync(path.join(f.repo, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(f.repo, '.lanekeeper/config.json'), JSON.stringify({ version: 1, docs_sync: CONFIG, quality: { ship: { requires: ['docs'] } } }))
   fs.writeFileSync(path.join(f.repo, '.gitignore'), 'test-results/\n')
   fs.writeFileSync(path.join(f.repo, 'VERSION'), '1.0.0\n')
   git(f.repo, 'add', '-A')
@@ -247,35 +247,35 @@ const fixDocs = (f) => {
   }
 }
 
-test('wb-docs: check fails while documents keep the old phrase, writes the quality json, passes once they follow', () => {
+test('lanekeeper-docs: check fails while documents keep the old phrase, writes the quality json, passes once they follow', () => {
   const f = makeEnv()
   try {
     repoWith(f)
     git(f.repo, 'checkout', '-q', '-b', 'feature')
     fs.writeFileSync(path.join(f.repo, 'web/src/screens/ShareModal.tsx'), SHARE_NEW)
-    const r1 = bin('wb-docs', ['check', '--json', 'out.json'], f.env, f.repo)
+    const r1 = bin('lanekeeper-docs', ['check', '--json', 'out.json'], f.env, f.repo)
     assert.equal(r1.status, 1, r1.stdout + r1.stderr)
     assert.match(r1.stdout, /help\/sharing\.md:2/)
     const j = JSON.parse(fs.readFileSync(path.join(f.repo, 'out.json'), 'utf8'))
     assert.deepEqual([j.counts.total, j.counts.failed], [6, 2])
     assert.equal(j.suites.length, 6)
     assert.ok(Q.parseResult('json', { files: [path.join(f.repo, 'out.json')] }).counts.failed === 2, 'readable by the quality json parser')
-    const map = bin('wb-docs', ['map'], f.env, f.repo)
+    const map = bin('lanekeeper-docs', ['map'], f.env, f.repo)
     assert.equal(map.status, 0, map.stderr)
     assert.match(map.stdout, /SHOTS=share node capture\/capture\.mjs/)
     assert.match(map.stdout, /"Copy link now" → "Copy the address"/)
     fixDocs(f)
-    const r2 = bin('wb-docs', ['check'], f.env, f.repo)
+    const r2 = bin('lanekeeper-docs', ['check'], f.env, f.repo)
     assert.equal(r2.status, 0, r2.stdout + r2.stderr)
   } finally {
     f.cleanup()
   }
 })
 
-test('wb-docs: without docs_sync.targets it explains the setting and exits 2', () => {
+test('lanekeeper-docs: without docs_sync.targets it explains the setting and exits 2', () => {
   const f = makeEnv()
   try {
-    const r = bin('wb-docs', ['check'], f.env, f.repo)
+    const r = bin('lanekeeper-docs', ['check'], f.env, f.repo)
     assert.equal(r.status, 2)
     assert.match(r.stderr, /docs_sync\.targets/)
   } finally {
@@ -283,11 +283,11 @@ test('wb-docs: without docs_sync.targets it explains the setting and exits 2', (
   }
 })
 
-test('wb-quality: docs_sync registers the kind docs (category gate); run records it and the precheck uses it', () => {
+test('lanekeeper-quality: docs_sync registers the kind docs (category gate); run records it and the precheck uses it', () => {
   const S = Q.qualitySettings({ project: { docs_sync: { targets: [{ id: 'a', paths: ['a/**'] }], quality_base: 'main' } } })
   assert.equal(S.suites.docs.category, 'gate')
   assert.equal(S.suites.docs.parser, 'json')
-  assert.match(S.suites.docs.command, /wb-docs" check --base main --json \{file\}$/)
+  assert.match(S.suites.docs.command, /lanekeeper-docs" check --base main --json \{file\}$/)
   assert.equal(Q.qualitySettings({ project: {} }).suites.docs, undefined)
   const own = Q.qualitySettings({ project: { docs_sync: { targets: [{ id: 'a' }] }, quality: { suites: { docs: { command: 'mine' } } } } })
   assert.equal(own.suites.docs.command, 'mine', 'a suite of the same name wins')
@@ -298,15 +298,15 @@ test('wb-quality: docs_sync registers the kind docs (category gate); run records
     git(f.repo, 'tag', 'v1.0.0')
     fs.writeFileSync(path.join(f.repo, 'web/src/screens/ShareModal.tsx'), SHARE_NEW)
     git(f.repo, 'commit', '-qam', 'rename the button')
-    const run1 = bin('wb-quality', ['run', 'docs', '--no-xlsx'], f.env, f.repo)
+    const run1 = bin('lanekeeper-quality', ['run', 'docs', '--no-xlsx'], f.env, f.repo)
     assert.equal(run1.status, 1, 'a failed suite exits 1: ' + run1.stdout + run1.stderr)
     const idx = () => JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results/index.json'), 'utf8'))
     const h1 = JSON.parse(fs.readFileSync(path.join(f.repo, 'docs/test-results', idx().entries[0].json), 'utf8'))
     assert.deepEqual([h1.kind, h1.category, h1.verdict, h1.counts.total, h1.counts.failed], ['docs', 'gate', 'failed', 6, 2])
-    assert.equal(bin('wb-quality', ['precheck'], f.env, f.repo).status, 1)
+    assert.equal(bin('lanekeeper-quality', ['precheck'], f.env, f.repo).status, 1)
     fixDocs(f)
     git(f.repo, 'commit', '-qam', 'docs follow')
-    const pre = bin('wb-quality', ['precheck', '--run', '--no-xlsx'], f.env, f.repo)
+    const pre = bin('lanekeeper-quality', ['precheck', '--run', '--no-xlsx'], f.env, f.repo)
     assert.equal(pre.status, 0, pre.stdout + pre.stderr)
   } finally {
     f.cleanup()

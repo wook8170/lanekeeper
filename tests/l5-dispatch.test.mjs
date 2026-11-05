@@ -18,10 +18,10 @@ const FUTURE_S = Math.floor(Date.now() / 1000) + 7200
 
 function setup({ denied = [], project = null } = {}) {
   const fx = makeEnv()
-  fs.writeFileSync(path.join(fx.env.WB_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied }))
+  fs.writeFileSync(path.join(fx.env.LANEKEEPER_HOME, 'routing.json'), JSON.stringify({ version: 1, ...FABLE_ROUTING, denied }))
   if (project) {
-    fs.mkdirSync(path.join(fx.repo, '.wb'), { recursive: true })
-    fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, ...project }))
+    fs.mkdirSync(path.join(fx.repo, '.lanekeeper'), { recursive: true })
+    fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, ...project }))
   }
   const notes = []
   const stateDir = path.join(fx.base, 'state')
@@ -58,7 +58,7 @@ test('missing brief marker blocks; warn mode only adds context; off skips', () =
   try {
     const out = s.run({ prompt: 'just do it', model: 'opus', description: 'implement x' })
     assert.equal(decision(out), 'deny')
-    assert.match(reason(out), /wb-brief/)
+    assert.match(reason(out), /lanekeeper-brief/)
   } finally {
     s.fx.cleanup()
   }
@@ -220,7 +220,7 @@ test('unknown task type in the marker blocks', () => {
 test('lane cap: a new lane is blocked when lanes.json is full; a known lane passes', () => {
   const s = setup()
   try {
-    const lanes = ['l1', 'l2', 'l3'].map((id) => ({ id, branch: `wb/mvp/${id}`, worktree: `/w/${id}` }))
+    const lanes = ['l1', 'l2', 'l3'].map((id) => ({ id, branch: `lanekeeper/mvp/${id}`, worktree: `/w/${id}` }))
     fs.writeFileSync(path.join(s.stateDir, 'lanes.json'), JSON.stringify({ lanes }))
     let out = s.run({ prompt: fill(tpl('impl'), 'l9'), model: 'opus' })
     assert.equal(decision(out), 'deny')
@@ -235,7 +235,7 @@ test('lane cap: a new lane is blocked when lanes.json is full; a known lane pass
 test('the hook script runs as a process and answers in the configured language', () => {
   const fx = makeEnv()
   try {
-    fs.writeFileSync(path.join(fx.env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, language: 'ko' }))
+    fs.writeFileSync(path.join(fx.env.LANEKEEPER_HOME, 'personal.json'), JSON.stringify({ version: 1, language: 'ko' }))
     const r = runScript('hooks/scripts/dispatch/dispatch-guard.mjs', { tool_name: 'Agent', tool_input: { prompt: 'x', model: 'opus' }, cwd: fx.repo }, fx.env)
     assert.equal(r.status, 0, r.err)
     assert.equal(r.out.hookSpecificOutput.permissionDecision, 'deny')

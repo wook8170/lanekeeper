@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-rules — rule catalog: what each rule says, why, where it is enforced, how to recover.
+// lanekeeper-rules — rule catalog: what each rule says, why, where it is enforced, how to recover.
 //
-//   wb-rules list [--group g] [--json]       all rules, one line each
-//   wb-rules show <id> [--json]              one rule in full
-//   wb-rules code <message-code> [--json]    the rule behind a block message (e.g. safety.git.lane_commit)
-//   wb-rules render [--lang ko|en] [--write] markdown catalog (--write updates rules/catalog.<lang>.md)
-//   wb-rules manual [--lang ko|en] [--write] user manual chapter (--write updates docs/<lang>/04-rules.md)
-//   wb-rules check                           catalog problems (exit 1 = any)
+//   lanekeeper-rules list [--group g] [--json]       all rules, one line each
+//   lanekeeper-rules show <id> [--json]              one rule in full
+//   lanekeeper-rules code <message-code> [--json]    the rule behind a block message (e.g. safety.git.lane_commit)
+//   lanekeeper-rules render [--lang ko|en] [--write] markdown catalog (--write updates rules/catalog.<lang>.md)
+//   lanekeeper-rules manual [--lang ko|en] [--write] user manual chapter (--write updates docs/<lang>/04-rules.md)
+//   lanekeeper-rules check                           catalog problems (exit 1 = any)
 //
 // Common options: --project <dir>, --lang ko|en
 import fs from 'node:fs'
@@ -33,9 +33,9 @@ if (cmd === 'list') {
   if (args.json) print(JSON.stringify(list, null, 2))
   else for (const r of list) print(`${r.id.padEnd(30)} ${r.title[lang]}`)
 } else if (cmd === 'show' || cmd === 'code') {
-  if (!arg) (print(`usage: wb-rules ${cmd} <${cmd === 'show' ? 'id' : 'message-code'}>`), process.exit(2))
+  if (!arg) (print(`usage: lanekeeper-rules ${cmd} <${cmd === 'show' ? 'id' : 'message-code'}>`), process.exit(2))
   const rule = cmd === 'show' ? R.findRule(rules, arg) : R.ruleForCode(rules, arg)
-  if (!rule) (process.stderr.write(`[wb] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
+  if (!rule) (process.stderr.write(`[lanekeeper] ${t('rules.not_found', { key: arg })}\n`), process.exit(1))
   if (args.json) print(JSON.stringify(rule, null, 2))
   else for (const l of R.describeRule(rule, lang, t)) print(l)
 } else if (cmd === 'render') {
@@ -64,6 +64,6 @@ if (cmd === 'list') {
   }
   process.exit(problems.length ? 1 : 0)
 } else {
-  print('usage: wb-rules list|show|code|render|manual|check')
+  print('usage: lanekeeper-rules list|show|code|render|manual|check')
   process.exit(2)
 }

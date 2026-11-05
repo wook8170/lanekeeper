@@ -1,4 +1,4 @@
-<!-- wb-brief v1 type=adversarial lane={{lane}} template=ux-adversarial implementer={{implementer}} role=verifier -->
+<!-- lanekeeper-brief v1 type=adversarial lane={{lane}} template=ux-adversarial implementer={{implementer}} role=verifier -->
 <!-- Cover: type=adversarial routes to a model other than the implementer's (Opus by default; a higher model first when the routing adds one). role=verifier marks a verifier lane, whose heavy runs stop first under high load. Every {{…}} must be filled before dispatch. -->
 # {{lane}} — adversarial UX check of {{title}}
 
@@ -36,7 +36,7 @@ Choose the personas of {{target}} (who comes here and why: role and experience, 
 
 ## Test rules
 - Do not run the full test suite, a typecheck of every package or the gate (the main session runs them once after merging).
-- Run browser steps through `wb-slot --kind browser -- …`; the slot waits while the load is high.
+- Run browser steps through `lanekeeper-slot --kind browser -- …`; the slot waits while the load is high.
 
 ## Report location
 - Write the findings table, the journey notes, parity findings and measurements to {{result_dir}}/findings.md, captures to {{result_dir}}/caps/ as `now-<n>.png` and `fix-<n>.png` (n = finding number), injected code to {{result_dir}}/inject/<n>.js. Return the same content as your final answer.

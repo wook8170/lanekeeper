@@ -1,5 +1,5 @@
-<!-- wb-brief v1 type=impl-multi lane={{lane}} template=fix -->
-<!-- 되돌림 지시서: /wb:review-lane 또는 /wb:integrate 가 만든다. 같은 레인에 다시 보낸다. -->
+<!-- lanekeeper-brief v1 type=impl-multi lane={{lane}} template=fix -->
+<!-- 되돌림 지시서: /lanekeeper:review-lane 또는 /lanekeeper:integrate 가 만든다. 같은 레인에 다시 보낸다. -->
 # {{lane}} 되돌림 — {{title}}
 
 ## 기준

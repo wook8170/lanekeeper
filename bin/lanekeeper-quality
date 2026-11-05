@@ -1,25 +1,25 @@
 #!/usr/bin/env node
-// wb-quality — results per kind (unit · integration · gate · e2e · uistab · usability · ux-adversarial · ship), the
+// lanekeeper-quality — results per kind (unit · integration · gate · e2e · uistab · usability · ux-adversarial · ship), the
 // results index, the version quality report and the ship precheck.
 //
-//   wb-quality list [--json]                         configured suites (project.quality.suites)
-//   wb-quality run <kind>|--category <c> [--no-slot] [--no-xlsx]
-//                                                    run the suite command through wb-slot, write
+//   lanekeeper-quality list [--json]                         configured suites (project.quality.suites)
+//   lanekeeper-quality run <kind>|--category <c> [--no-slot] [--no-xlsx]
+//                                                    run the suite command through lanekeeper-slot, write
 //                                                    <results>/<version>/<date>/<kind>-<HHMM>.{json,xlsx}, update the index
-//   wb-quality record <kind> --verdict passed|failed [--from <json>] [--report <file>]
+//   lanekeeper-quality record <kind> --verdict passed|failed [--from <json>] [--report <file>]
 //                     [--total n --passed n --failed n --skipped n --fixme n]
 //                                                    record a result produced outside (ship verdict, usability by agents)
-//   wb-quality index                                 rebuild index.json and INDEX.md from the result files
-//   wb-quality status [--json]                       ship precheck table without running anything
-//   wb-quality precheck [--run] [--json]             ship precheck; --run runs every missing, stale or failed suite
+//   lanekeeper-quality index                                 rebuild index.json and INDEX.md from the result files
+//   lanekeeper-quality status [--json]                       ship precheck table without running anything
+//   lanekeeper-quality precheck [--run] [--json]             ship precheck; --run runs every missing, stale or failed suite
 //                                                    first; exit 1 while any required kind is not ok
 //                                                    (quality.ship.advisory kinds only warn)
-//   wb-quality report [--version V] [--json] [--no-xlsx]
+//   lanekeeper-quality report [--version V] [--json] [--no-xlsx]
 //                                                    quality-<V>.{xlsx,md,html}: latest result per kind of the version
-//   wb-quality accept <kind> --reason "<text>"       owner only, from a terminal: accept a weakened result
+//   lanekeeper-quality accept <kind> --reason "<text>"       owner only, from a terminal: accept a weakened result
 //
 // Settings: project.quality.* (results_root, raw_root, version_file, suites, ship). A run holds the
-// gate lock so merges wait for it. Heavy suites wait for a slot and for the load to drop (wb-slot).
+// gate lock so merges wait for it. Heavy suites wait for a slot and for the load to drop (lanekeeper-slot).
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -44,10 +44,10 @@ const S = Q.qualitySettings(resolved.config)
 const print = (s = '') => process.stdout.write(`${s}\n`)
 const warn = (s) => process.stderr.write(`${s}\n`)
 const [cmd, ...rest] = args._
-const WB_SLOT = path.join(libDir, '..', 'bin', 'wb-slot')
+const LANEKEEPER_SLOT = path.join(libDir, '..', 'bin', 'lanekeeper-slot')
 const loadNow = () => {
-  const fake = Number(process.env.WB_LOAD_FAKE)
-  return Math.round((Number.isFinite(fake) && process.env.WB_LOAD_FAKE ? fake : os.loadavg()[0]) * 100) / 100
+  const fake = Number(process.env.LANEKEEPER_LOAD_FAKE)
+  return Math.round((Number.isFinite(fake) && process.env.LANEKEEPER_LOAD_FAKE ? fake : os.loadavg()[0]) * 100) / 100
 }
 
 function needSuites() {
@@ -75,14 +75,14 @@ function withGateLock(command, fn) {
 
 const fill = (s, vars) => String(s).replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m))
 
-// One shell command, through wb-slot unless the suite says "none" or --no-slot. Output goes to the
+// One shell command, through lanekeeper-slot unless the suite says "none" or --no-slot. Output goes to the
 // terminal and to the log. Resolves { exitCode, tail }.
 function runCommand(suite, command, vars, logFile) {
   return new Promise((resolve) => {
     const useSlot = !args['no-slot'] && suite.slot !== 'none'
     const file = useSlot ? process.execPath : 'sh'
-    const a = useSlot ? [WB_SLOT, '--kind', suite.slot, '--lane', `quality-${suite.id}`, '--', 'sh', '-c', command] : ['-c', command]
-    const env = { ...process.env, WB_QUALITY_KIND: suite.id, WB_QUALITY_DIR: vars.dir, WB_QUALITY_FILE: vars.file }
+    const a = useSlot ? [LANEKEEPER_SLOT, '--kind', suite.slot, '--lane', `quality-${suite.id}`, '--', 'sh', '-c', command] : ['-c', command]
+    const env = { ...process.env, LANEKEEPER_QUALITY_KIND: suite.id, LANEKEEPER_QUALITY_DIR: vars.dir, LANEKEEPER_QUALITY_FILE: vars.file }
     for (const [k, v] of Object.entries(suite.env)) env[k] = fill(v, vars)
     const out = fs.createWriteStream(logFile, { flags: 'a' })
     out.write(`$ ${command}\n`)
@@ -234,7 +234,7 @@ const COMMANDS = {
       process.exit(2)
     }
     let failed = 0
-    await withGateLock('wb-quality run', async () => {
+    await withGateLock('lanekeeper-quality run', async () => {
       for (const s of list) if ((await runSuite(s)).verdict !== 'passed') failed++
     })
     process.exit(failed ? 1 : 0)
@@ -299,7 +299,7 @@ const COMMANDS = {
       process.exit(1)
     }
     if (args.run && res.rows.some(Q.needsRun)) {
-      await withGateLock('wb-quality precheck --run', async () => {
+      await withGateLock('lanekeeper-quality precheck --run', async () => {
         for (const r of res.rows.filter(Q.needsRun)) {
           print(t('q.pre.running', { kind: r.kind, state: t(`q.state.${r.state}`) }))
           await runSuite(S.suites[r.kind])
@@ -350,7 +350,7 @@ const COMMANDS = {
 }
 
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-quality <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-quality <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 await COMMANDS[cmd]()

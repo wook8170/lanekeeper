@@ -1,4 +1,4 @@
-// L7: /wb:integrate — trial merge, conflict classes, abort with a return brief on a
+// L7: /lanekeeper:integrate — trial merge, conflict classes, abort with a return brief on a
 // code conflict, rule-based resolution, regeneration, number check, guards, locks.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -22,11 +22,11 @@ const commit = (repo, msg) => {
 function setup({ base = {}, lane = {}, main = {}, config = {} } = {}) {
   const fx = makeEnv()
   const { repo } = fx
-  write(repo, '.wb/config.json', { version: 1, ...config })
-  write(repo, '.gitignore', '.wb/briefs/\n')
+  write(repo, '.lanekeeper/config.json', { version: 1, ...config })
+  write(repo, '.gitignore', '.lanekeeper/briefs/\n')
   for (const [f, b] of Object.entries(base)) write(repo, f, b)
   commit(repo, 'base')
-  git(repo, 'checkout', '-q', '-b', 'wb/t/l1')
+  git(repo, 'checkout', '-q', '-b', 'lanekeeper/t/l1')
   for (const [f, b] of Object.entries(lane)) write(repo, f, b)
   commit(repo, 'lane')
   git(repo, 'checkout', '-q', 'main')
@@ -34,7 +34,7 @@ function setup({ base = {}, lane = {}, main = {}, config = {} } = {}) {
   if (Object.keys(main).length) commit(repo, 'main moves')
   const before = git(repo, 'rev-parse', 'HEAD')
   const env = { ...fx.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com' }
-  const run = (o = {}) => I.integrate({ root: repo, branch: 'wb/t/l1', lane: 'l1', config: resolveConfig({ projectDir: repo, env }).config, env, lang: 'en', ...o })
+  const run = (o = {}) => I.integrate({ root: repo, branch: 'lanekeeper/t/l1', lane: 'l1', config: resolveConfig({ projectDir: repo, env }).config, env, lang: 'en', ...o })
   const clean = () => {
     assert.equal(git(repo, 'status', '--porcelain', '--untracked-files=no'), '')
     assert.throws(() => git(repo, 'rev-parse', '-q', '--verify', 'MERGE_HEAD'))
@@ -43,7 +43,7 @@ function setup({ base = {}, lane = {}, main = {}, config = {} } = {}) {
 }
 
 test('classify: first matching rule, unmatched files are code', () => {
-  const rules = resolveConfig({ projectDir: null, env: { HOME: '/nonexistent', WB_HOME: '/nonexistent' } }).config.project.integrate.rules
+  const rules = resolveConfig({ projectDir: null, env: { HOME: '/nonexistent', LANEKEEPER_HOME: '/nonexistent' } }).config.project.integrate.rules
   assert.equal(I.classify('docs/e2e/pay.cases.json', rules), 'ledger')
   assert.equal(I.classify('defect-register.json', rules), 'ledger')
   assert.equal(I.classify('hooks/hooks.json', rules), 'union')
@@ -67,7 +67,7 @@ test('clean merge is committed with the trailer; the lane is recorded', () => {
   const r = s.run({ trailer: 'Co-Authored-By: Example <x@example.com>' })
   assert.equal(r.status, 'merged', JSON.stringify(r))
   assert.equal(git(s.repo, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').length, 3)
-  assert.match(git(s.repo, 'log', '-1', '--format=%B'), /merge wb\/t\/l1 into main\n\nCo-Authored-By/)
+  assert.match(git(s.repo, 'log', '-1', '--format=%B'), /merge lanekeeper\/t\/l1 into main\n\nCo-Authored-By/)
   assert.equal(s.run().status, 'up-to-date')
 })
 
@@ -151,7 +151,7 @@ test('reserved number used twice after the merge aborts', () => {
   })
   const r = s.run()
   assert.equal(r.reason, 'number_conflict')
-  assert.match(fs.readFileSync(r.brief, 'utf8'), /wb-number reserve migration/)
+  assert.match(fs.readFileSync(r.brief, 'utf8'), /lanekeeper-number reserve migration/)
   s.clean()
 })
 
@@ -164,22 +164,22 @@ test('dry run merges and rolls back; dirty tree, running merge and locks block',
   assert.equal(s.run().reason, 'dirty')
   git(s.repo, 'checkout', '--', 'a.txt')
   assert.equal(s.run({ branch: 'nope' }).reason, 'no_branch')
-  const sd = path.join(git(s.repo, 'rev-parse', '--absolute-git-dir'), 'wb')
+  const sd = path.join(git(s.repo, 'rev-parse', '--absolute-git-dir'), 'lanekeeper')
   fs.mkdirSync(sd, { recursive: true })
   fs.writeFileSync(path.join(sd, 'gate.lock'), JSON.stringify({ pid: process.pid }))
   assert.equal(s.run().reason, 'gate_locked')
-  const cli = bin('wb-integrate', ['wb/t/l1'], s.env, s.repo)
+  const cli = bin('lanekeeper-integrate', ['lanekeeper/t/l1'], s.env, s.repo)
   assert.equal(cli.status, 3)
   fs.writeFileSync(path.join(sd, 'gate.lock'), JSON.stringify({ pid: 999999 }))
   assert.equal(s.run().status, 'merged')
 })
 
-test('wb-integrate CLI: exit 1 on a code conflict, prints the classes and the brief', () => {
+test('lanekeeper-integrate CLI: exit 1 on a code conflict, prints the classes and the brief', () => {
   const s = setup({ base: { 'src/a.ts': '1\n' }, lane: { 'src/a.ts': 'lane\n' }, main: { 'src/a.ts': 'main\n' } })
-  const r = bin('wb-integrate', ['wb/t/l1', '--lane', 'l1'], s.env, s.repo)
+  const r = bin('lanekeeper-integrate', ['lanekeeper/t/l1', '--lane', 'l1'], s.env, s.repo)
   assert.equal(r.status, 1, r.stderr)
   assert.match(r.stdout, /code conflict\s+src\/a\.ts/)
   assert.match(r.stdout, /Return brief: .*l1-return-1\.md/)
-  const j = JSON.parse(bin('wb-integrate', ['wb/t/l1', '--json'], s.env, s.repo).stdout)
+  const j = JSON.parse(bin('lanekeeper-integrate', ['lanekeeper/t/l1', '--json'], s.env, s.repo).stdout)
   assert.equal(j.reason, 'code_conflict')
 })

@@ -77,7 +77,7 @@
     ],
     "UserPromptExpansion": [
       {
-        "matcher": "wb:approve",
+        "matcher": "lanekeeper:approve",
         "hooks": [
           {
             "type": "command",

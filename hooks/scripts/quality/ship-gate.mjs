@@ -5,7 +5,7 @@
 // project.quality.ship.skills, or an Agent prompt that names one of those skills), every kind in
 // project.quality.ship.requires needs a passed result on the current commit that is not weaker than
 // the previous passed result. Otherwise the call is denied (enforce "deny") or noted ("warn"), with
-// the kinds and states and the command that runs and fixes them (/wb:ship-verify).
+// the kinds and states and the command that runs and fixes them (/lanekeeper:ship-verify).
 // Kinds in project.quality.ship.advisory (default ux-adversarial) are checked the same way but only
 // add a warning: not run before shipping, or the newest result failed (an open blocker finding).
 // Not a safety hook: internal errors let the call through (fail-open) with a note.
@@ -37,8 +37,8 @@ export function format(r) {
   const head = r.level === 'deny' ? t('safety.blocked') : t('dispatch.warn')
   const adv = (r.advisory || []).map((x) => `${x.kind}=${t(`q.state.${x.state}`)}`).join(', ')
   const advLine = adv ? t('dispatch.ship_precheck.advisory', { items: adv }) : ''
-  if (!items.length) return `[wb] ${head}: ${advLine}`
-  return `[wb] ${head}: ${t('dispatch.ship_precheck.why', { items: items.join(', ') })}\n${t('safety.fix')}: ${t('dispatch.ship_precheck.fix')}${advLine ? `\n${advLine}` : ''}`
+  if (!items.length) return `[lanekeeper] ${head}: ${advLine}`
+  return `[lanekeeper] ${head}: ${t('dispatch.ship_precheck.why', { items: items.join(', ') })}\n${t('safety.fix')}: ${t('dispatch.ship_precheck.fix')}${advLine ? `\n${advLine}` : ''}`
 }
 
 export function handle(input, env = process.env, overrides = {}) {

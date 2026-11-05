@@ -1,4 +1,4 @@
-<!-- wb-decision v1 status=pending{{attrs}} -->
+<!-- lanekeeper-decision v1 status=pending{{attrs}} -->
 # {{title}}
 
 - 작성일: {{date}}
@@ -13,6 +13,6 @@
 {{recommend}}
 
 ## 결정
-<!-- wb:decision -->
+<!-- lanekeeper:decision -->
 결정 대기
-<!-- /wb:decision -->
+<!-- /lanekeeper:decision -->

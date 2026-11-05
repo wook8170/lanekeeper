@@ -9,14 +9,14 @@ import { resolveConfig } from '../lib/config.mjs'
 import * as cg from '../lib/codegraph.mjs'
 
 function repoFixture(projectCfg) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-l12b-')))
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-l12b-')))
   const repo = path.join(dir, 'sample')
   fs.mkdirSync(repo)
   execFileSync('git', ['init', '-q', repo])
-  const env = { HOME: dir, WB_ACTIVE: '1', WB_HOME: path.join(dir, 'home', '.wb'), PATH: process.env.PATH, LANG: 'en_US.UTF-8', WB_CODEGRAPH: 'off' }
+  const env = { HOME: dir, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(dir, 'home', '.lanekeeper'), PATH: process.env.PATH, LANG: 'en_US.UTF-8', LANEKEEPER_CODEGRAPH: 'off' }
   if (projectCfg) {
-    fs.mkdirSync(path.join(repo, '.wb'))
-    fs.writeFileSync(path.join(repo, '.wb', 'config.json'), JSON.stringify(projectCfg))
+    fs.mkdirSync(path.join(repo, '.lanekeeper'))
+    fs.writeFileSync(path.join(repo, '.lanekeeper', 'config.json'), JSON.stringify(projectCfg))
   }
   return { dir, repo, env }
 }
@@ -49,15 +49,15 @@ test('doctor: old key is flagged, new key is not', () => {
   assert.ok(!doctor(neu.repo, neu.env).checks.some((c) => c.id === 'codegraphOldKey'))
 })
 
-test('init: adds .codegraph/ and .wb/metrics/ next to .wb/briefs/, skipping lines already present', () => {
+test('init: adds .codegraph/ and .lanekeeper/metrics/ next to .lanekeeper/briefs/, skipping lines already present', () => {
   const { repo, env } = repoFixture()
   fs.mkdirSync(path.join(repo, '.git', 'info'), { recursive: true })
   fs.writeFileSync(path.join(repo, '.git', 'info', 'exclude'), '.codegraph/\n')
   const actions = initProject(repo, { kind: 'other', language: 'en' }, env)
   const added = actions.filter((a) => a.type === 'exclude').map((a) => a.line)
-  assert.deepEqual(added, ['.wb/briefs/', '.wb/metrics/'])
+  assert.deepEqual(added, ['.lanekeeper/briefs/', '.lanekeeper/metrics/'])
   const lines = excludeLines(repo)
-  for (const l of ['.wb/briefs/', '.codegraph/', '.wb/metrics/']) assert.equal(lines.filter((x) => x === l).length, 1)
+  for (const l of ['.lanekeeper/briefs/', '.codegraph/', '.lanekeeper/metrics/']) assert.equal(lines.filter((x) => x === l).length, 1)
   assert.deepEqual(initProject(repo, { kind: 'other', language: 'en' }, env).filter((a) => a.type === 'exclude'), [])
   // init-made lines are not reported as automatic
   assert.ok(!doctor(repo, env).checks.some((c) => c.id === 'codegraphAutoExclude'))

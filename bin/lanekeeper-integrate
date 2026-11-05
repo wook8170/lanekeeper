@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// wb-integrate — merge one lane branch into the integration branch checked out here.
+// lanekeeper-integrate — merge one lane branch into the integration branch checked out here.
 //
-//   wb-integrate <lane-branch> [--lane L] [--wave W] [--dry-run] [--message M] [--trailer T]
+//   lanekeeper-integrate <lane-branch> [--lane L] [--wave W] [--dry-run] [--message M] [--trailer T]
 //                [--report FILE] [--lane-dir DIR] [--json]
 //
 // Trial merge → conflict classes (project.integrate.rules) → ledger/registration union,
@@ -26,7 +26,7 @@ const t = translator(lang)
 const print = (s = '') => process.stdout.write(`${s}\n`)
 const branch = args._[0]
 if (!branch) {
-  print('usage: wb-integrate <lane-branch> [--lane L] [--wave W] [--dry-run] [--json]')
+  print('usage: lanekeeper-integrate <lane-branch> [--lane L] [--wave W] [--dry-run] [--json]')
   process.exit(2)
 }
 const r = integrate({

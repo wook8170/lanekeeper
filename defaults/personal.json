@@ -8,12 +8,12 @@
     "artifact_check": true
   },
   "auto_retry": {
-    "enabled": true,
+    "enabled": false,
     "permission_mode": "default",
     "bypass_ack": false
   },
   "paths": {
-    "scratch_root": "~/.wb-scratch/{project}"
+    "scratch_root": "~/.lanekeeper-scratch/{project}"
   },
   "token_guard": {
     "enabled": true,

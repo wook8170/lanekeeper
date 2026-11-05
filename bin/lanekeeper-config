@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-config — read, explain and validate wb settings; initialize a project.
+// lanekeeper-config — read, explain and validate lanekeeper settings; initialize a project.
 //
-//   wb-config get <key> [--json]
-//   wb-config explain <key> [--json]
-//   wb-config validate [--json]
-//   wb-config dump [--json]
-//   wb-config init --kind <web-ui|service|library|other> --lang <ko|en> [--gate <command>] [--worktree-hook yes|no]
-//   wb-config doctor [--json]
+//   lanekeeper-config get <key> [--json]
+//   lanekeeper-config explain <key> [--json]
+//   lanekeeper-config validate [--json]
+//   lanekeeper-config dump [--json]
+//   lanekeeper-config init --kind <web-ui|service|library|other> --lang <ko|en> [--gate <command>] [--worktree-hook yes|no]
+//   lanekeeper-config doctor [--json]
 //
 // Common options: --project <dir> (default: git top level of the current directory)
 import fs from 'node:fs'

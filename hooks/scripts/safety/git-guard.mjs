@@ -2,12 +2,12 @@
 //
 // Actor
 //   lane  the hook input carries agent_id (a subagent), or the target worktree
-//         is registered in <git-common-dir>/wb/lanes.json
+//         is registered in <git-common-dir>/lanekeeper/lanes.json
 //   main  everything else
 // Branch kind of the target worktree: protected · integration · lane · feature · detached
 //
-// Owner grants (/wb:approve) and gate stamps are read from the target
-// repository's <git-common-dir>/wb/.
+// Owner grants (/lanekeeper:approve) and gate stamps are read from the target
+// repository's <git-common-dir>/lanekeeper/.
 import path from 'node:path'
 import { allow, ask, deny, matchAny, inside, readJsonSafe } from './common.mjs'
 import { checkGrant, checkStamp, gateLocked } from './grant.mjs'
@@ -246,13 +246,13 @@ function describe(info, ctx) {
   let ownBranch = null
   if (byAgent) ownBranch = byAgent.branch
   else if (byPath && !(byPath.agent_id && ctx.agentId && byPath.agent_id !== ctx.agentId)) ownBranch = byPath.branch
-  else if (!byAgent && !byPath && info.linked && matchAny(info.branch, [gitCfg.lane_branch_pattern || 'wb/*/l*'])) ownBranch = info.branch
+  else if (!byAgent && !byPath && info.linked && matchAny(info.branch, [gitCfg.lane_branch_pattern || 'lanekeeper/*/l*'])) ownBranch = info.branch
   const integrations = new Set(lanes.map((l) => l?.integration).filter(Boolean))
   if (ledger && typeof ledger.integration === 'string') integrations.add(ledger.integration)
-  const isIntegration = (b) => !!b && (integrations.has(b) || matchAny(b, [gitCfg.integration_branch_pattern || 'wb/*/int']))
+  const isIntegration = (b) => !!b && (integrations.has(b) || matchAny(b, [gitCfg.integration_branch_pattern || 'lanekeeper/*/int']))
   const isProtected = (b) => matchAny(b, protectedGlobs, { wide: true })
   const kindOf = (b) =>
-    !b ? 'detached' : isProtected(b) ? 'protected' : isIntegration(b) ? 'integration' : lanes.some((l) => l?.branch === b) || matchAny(b, [gitCfg.lane_branch_pattern || 'wb/*/l*']) ? 'lane' : 'feature'
+    !b ? 'detached' : isProtected(b) ? 'protected' : isIntegration(b) ? 'integration' : lanes.some((l) => l?.branch === b) || matchAny(b, [gitCfg.lane_branch_pattern || 'lanekeeper/*/l*']) ? 'lane' : 'feature'
   return {
     actor,
     lane: byAgent || byPath || null,

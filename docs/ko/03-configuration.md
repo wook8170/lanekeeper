@@ -1,20 +1,20 @@
 # 설정
 
-wb 의 설정은 파일 네 층으로 나뉜다. 팀이 함께 정할 값은 저장소에 커밋하는 프로젝트 설정에 두고, 머신 사양과 개인 선호는 커밋하지 않는 홈 폴더 파일에 둔다. 이 문서는 층별 파일, 값을 합치는 규칙, 키 전체의 기본값과 뜻을 정리했다.
+Lanekeeper 의 설정은 파일 네 층으로 나뉜다. 팀이 함께 정할 값은 저장소에 커밋하는 프로젝트 설정에 두고, 머신 사양과 개인 선호는 커밋하지 않는 홈 폴더 파일에 둔다. 이 문서는 층별 파일, 값을 합치는 규칙, 키 전체의 기본값과 뜻을 정리했다.
 
 ## 1. 설정 층
 
 | 층 | 파일 | git 추적 | 담는 것 |
 |---|---|---|---|
 | 기본값 | 플러그인 `defaults/config.json`, `machine.json`, `personal.json`, `routing.json` | 플러그인 저장소 | 모든 키의 기본값 |
-| 프로젝트 | `<저장소>/.wb/config.json` | 커밋 | 프로젝트 종류, 브랜치 규칙, 저장 위치, 검증 명령, 문체 지도 |
-| 머신 | `~/.wb/machine.json` | 안 함 | 레인 수, 실행 슬롯, 부하 문턱, 보호 포트, 레인 포트 대역 |
-| 플러그인 설정 화면 | `/plugin configure wb@wb-plugin` | 안 함 | 메시지 언어, 보고 분량. 훅 실행 때만 읽힌다 |
-| 개인 | `~/.wb/routing.json`, `~/.wb/personal.json` | 안 함 | 모델 라우팅과 금지 모델, 언어, 보고 분량, 자동 재개, 인계, 토큰 가드 |
+| 프로젝트 | `<저장소>/.lanekeeper/config.json` | 커밋 | 프로젝트 종류, 브랜치 규칙, 저장 위치, 검증 명령, 문체 지도 |
+| 머신 | `~/.lanekeeper/machine.json` | 안 함 | 레인 수, 실행 슬롯, 부하 문턱, 보호 포트, 레인 포트 대역 |
+| 플러그인 설정 화면 | `/plugin configure lanekeeper@lanekeeper` | 안 함 | 메시지 언어, 보고 분량. 훅 실행 때만 읽힌다 |
+| 개인 | `~/.lanekeeper/routing.json`, `~/.lanekeeper/personal.json` | 안 함 | 모델 라우팅과 금지 모델, 언어, 보고 분량, 자동 재개, 인계, 토큰 가드 |
 
-프로젝트 설정 파일의 최상위 키는 `project` 영역이다. 같은 파일에 `machine`, `personal`, `routing` 절을 두면 그 영역의 값으로 읽는다. 예를 들어 프로젝트가 레인 수를 2 로 낮추려면 `.wb/config.json` 에 `"machine": { "lanes": { "max": 2 } }` 를 둔다.
+프로젝트 설정 파일의 최상위 키는 `project` 영역이다. 같은 파일에 `machine`, `personal`, `routing` 절을 두면 그 영역의 값으로 읽는다. 예를 들어 프로젝트가 레인 수를 2 로 낮추려면 `.lanekeeper/config.json` 에 `"machine": { "lanes": { "max": 2 } }` 를 둔다.
 
-`~/.wb` 대신 다른 폴더를 쓰려면 환경 변수 `WB_HOME` 을 지정한다. 예시 파일은 플러그인의 `examples/` 에 있다.
+`~/.lanekeeper` 대신 다른 폴더를 쓰려면 환경 변수 `LANEKEEPER_HOME` 을 지정한다. 예시 파일은 플러그인의 `examples/` 에 있다.
 
 ## 2. 값을 합치는 규칙
 
@@ -29,17 +29,17 @@ wb 의 설정은 파일 네 층으로 나뉜다. 팀이 함께 정할 값은 저
 ## 3. 설정 확인 명령
 
 ```
-wb-config get <키>          합친 값
-wb-config explain <키>      합치는 규칙, 적용된 층, 값을 둔 모든 층
-wb-config validate          파일별 형식 검사. 오류가 있으면 종료 코드 1
-wb-config dump              합친 설정 전체
-wb-config doctor            점검과 주요 값의 출처
+lanekeeper-config get <키>          합친 값
+lanekeeper-config explain <키>      합치는 규칙, 적용된 층, 값을 둔 모든 층
+lanekeeper-config validate          파일별 형식 검사. 오류가 있으면 종료 코드 1
+lanekeeper-config dump              합친 설정 전체
+lanekeeper-config doctor            점검과 주요 값의 출처
 ```
 
 모르는 키는 무시하고 경고로만 알린다. 형식이 틀린 값은 오류다. 설정에 오류가 있는 동안 안전 훅은 git 반영·프로세스 종료·삭제·브라우저 실행을 막는다.
 
 ```
-wb-config validate
+lanekeeper-config validate
 설정에 오류가 없습니다.
 ```
 
@@ -49,7 +49,7 @@ wb-config validate
 
 ### 4.1 모델 라우팅(`routing`)
 
-개인 파일 `~/.wb/routing.json` 에 둔다.
+개인 파일 `~/.lanekeeper/routing.json` 에 둔다.
 
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
@@ -79,7 +79,7 @@ wb-config validate
 
 ### 4.2 머신(`machine`)
 
-개인 파일 `~/.wb/machine.json` 에 둔다. 포트 숫자는 이 파일에만 둔다.
+개인 파일 `~/.lanekeeper/machine.json` 에 둔다. 포트 숫자는 이 파일에만 둔다.
 
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
@@ -96,7 +96,7 @@ wb-config validate
 | `machine.slots.heavy.patterns` | `["full-test","e2e","typecheck-all","build","install","codegraph-index"]` | 무거운 실행으로 볼 패턴 묶음 이름(`defaults/heavy-patterns.json`) | `["full-test","e2e"]` |
 | `machine.slots.browser.count` | `2` | 브라우저 슬롯 수. 상한 규칙 | `1` |
 | `machine.slots.browser.patterns` | `["chrome-headless","playwright","cdp"]` | 브라우저 실행으로 볼 패턴 묶음 이름 | `["playwright"]` |
-| `machine.slots.lease_dir` | `"~/.wb/run/slots"` | 슬롯 임대 파일 폴더 | 기본값 유지 |
+| `machine.slots.lease_dir` | `"~/.lanekeeper/run/slots"` | 슬롯 임대 파일 폴더 | 기본값 유지 |
 | `machine.slots.stale_after_min` | `90` | 이 시간(분) 동안 갱신이 없는 임대를 회수 | `120` |
 | `machine.slots.guard` | `"warn"` | 슬롯 없이 실행한 무거운 명령 처리. `warn` 은 안내, `deny` 는 차단 | `"deny"` |
 | `machine.ports.protected` | `[]` | 종료하면 안 되는 포트 목록. 항목은 `name`, `port`, `project`, `note`. 보호 목록 규칙 | `[{"name":"my-api","port":8080,"project":"*"}]` |
@@ -104,12 +104,12 @@ wb-config validate
 | `machine.ports.lane_range.step` | `20` | 레인 하나가 차지하는 포트 칸 수 | `10` |
 | `machine.ports.lane_range.per_lane` | `["web","web2","api","db","aux"]` | 레인마다 빌려 주는 포트 이름 | `["web","api"]` |
 | `machine.ports.lane_range.max_lanes` | `9` | 대역 안의 최대 레인 수 | `6` |
-| `machine.ports.leases` | `"{git_common_dir}/wb/ports.json"` | 포트 임대 대장 위치 | 기본값 유지 |
+| `machine.ports.leases` | `"{git_common_dir}/lanekeeper/ports.json"` | 포트 임대 대장 위치 | 기본값 유지 |
 | `machine.servers` | `[]` | 취합 뒤 다시 띄울 서버 목록. 항목은 `name`, `port_ref`, `restart`, `verify_url_path`(스킬 참고) | `[{"name":"my-web","port_ref":"my-api","restart":"manual"}]` |
 
 ### 4.3 개인(`personal`)
 
-개인 파일 `~/.wb/personal.json` 에 둔다. `language` 와 `report.chat_detail` 은 플러그인 설정 화면에서도 고를 수 있다. 두 곳에 모두 값이 있으면 이 파일의 값을 쓴다.
+개인 파일 `~/.lanekeeper/personal.json` 에 둔다. `language` 와 `report.chat_detail` 은 플러그인 설정 화면에서도 고를 수 있다. 두 곳에 모두 값이 있으면 이 파일의 값을 쓴다.
 
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
@@ -119,25 +119,25 @@ wb-config validate
 | `personal.report.viewer` | `"local"` | 보고를 보는 곳. `remote` 면 원격 기기에서 열 수 있는 형태로 만든다(스킬 참고) | `"remote"` |
 | `personal.report.artifact_fallback` | `"html-file"` | 아티팩트 도구가 없을 때 대신 쓸 방식. `html-file` · `none` | `"none"` |
 | `personal.report.artifact_check` | `true` | 보고 단계가 아티팩트 없이 끝나면 한 번 막을지 | `false` |
-| `personal.auto_retry.enabled` | `true` | 사용 한도 뒤 자동 재개 | `false` |
+| `personal.auto_retry.enabled` | `false` | 사용 한도 뒤 자동 재개. 사용자가 켜기 전까지 꺼져 있다(`lanekeeper-retry on`) | `true` |
 | `personal.auto_retry.permission_mode` | `"default"` | 재개 세션의 권한 모드. `default` · `acceptEdits` · `plan` · `bypassPermissions` | `"acceptEdits"` |
-| `personal.auto_retry.bypass_ack` | `false` | `bypassPermissions` 위험 확인 기록. `wb-retry mode bypassPermissions --i-understand` 가 쓴다 | 직접 쓰지 않음 |
+| `personal.auto_retry.bypass_ack` | `false` | `bypassPermissions` 위험 확인 기록. `lanekeeper-retry mode bypassPermissions --i-understand` 가 쓴다 | 직접 쓰지 않음 |
 | `personal.handoff.enabled` | `true` | `progress.md` 인계 훅 | `false` |
 | `personal.handoff.inject` | `"summary"` | 세션 시작에 넣는 `progress.md` 분량. `summary` 는 첫 절(최대 40줄·2,500자)만 넣고 전체는 파일을 읽게 한다. `full` 은 현재 상태 전체 | `"full"` |
 | `personal.handoff.file` | `"progress.md"` | 인계 파일 경로(저장소 기준) | `"docs/progress.md"` |
 | `personal.handoff.throttle_min` | `20` | 같은 세션을 다시 막지 않는 시간(분) | `30` |
 | `personal.handoff.max_lines` | `300` | 인계 파일 기준 줄 수(20 이상) | `200` |
 | `personal.handoff.archive_dir` | `"docs/progress-archive"` | 아카이브 폴더 | `"docs/history"` |
-| `personal.checkpoint.enabled` | `true` | 한도·서브에이전트 종료·대화 압축 때 `wip(wb)` 커밋 | `false` |
-| `personal.paths.scratch_root` | `"~/.wb-scratch/{project}"` | 커밋하지 않는 스크래치 폴더. `{project}` 는 저장소 폴더 이름 | `"~/scratch/{project}"` |
+| `personal.checkpoint.enabled` | `true` | 한도·서브에이전트 종료·대화 압축 때 `wip(lanekeeper)` 커밋 | `false` |
+| `personal.paths.scratch_root` | `"~/.lanekeeper-scratch/{project}"` | 커밋하지 않는 스크래치 폴더. `{project}` 는 저장소 폴더 이름 | `"~/scratch/{project}"` |
 | `personal.token_guard.enabled` | `true` | 토큰 가드 | `false` |
 | `personal.token_guard.stages` | `[90,95,99]` | 단계별 비율(%) | `[85,95,99]` |
-| `personal.token_guard.budget` | `0` | 공식 사용량이 없을 때 쓰는 대체 예산(가중 토큰). 0 이면 계정의 보정 계수에서 100% 를 환산하고, 그것도 없으면 가드가 동작하지 않는다. `wb-token calibrate <n>` 이 쓴다 | `250000000` |
+| `personal.token_guard.budget` | `0` | 공식 사용량이 없을 때 쓰는 대체 예산(가중 토큰). 0 이면 계정의 보정 계수에서 100% 를 환산하고, 그것도 없으면 가드가 동작하지 않는다. `lanekeeper-token calibrate <n>` 이 쓴다 | `250000000` |
 | `personal.token_guard.window_hours` | `5` | 대체 예산으로 판정할 때 사용량을 합치는 최근 시간 | `5` |
 | `personal.token_guard.fresh_min` | `10` | 공식 사용량을 그대로 쓰는 시간(분). 이보다 오래되면 그 뒤 로컬 사용 추정을 더한다 | `5` |
 | `personal.token_guard.source` | `"auto"` | 사용량 출처. `auto` 는 공식 값과 추정, `official` 은 공식 값만, `local` 은 대체 예산 방식만 쓴다 | `"official"` |
 | `personal.terse` | `false` | 스위치가 없는 모든 저장소에서 간결 모드 | `true` |
-| `personal.global_hooks` | `"defer"` | Claude Code 설정(`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`)에 같은 종류의 훅(핸드오프·토큰 가드·자동 재개·간결 모드)이 이미 있으면 wb 의 그 훅을 끈다. `ignore` 면 그대로 켠다 | `"ignore"` |
+| `personal.global_hooks` | `"defer"` | Claude Code 설정(`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`)에 같은 종류의 훅(핸드오프·토큰 가드·자동 재개·간결 모드)이 이미 있으면 Lanekeeper 의 그 훅을 끈다. `ignore` 면 그대로 켠다 | `"ignore"` |
 | `personal.search.rg_hint` | `true` | `grep -r` 류 재귀 검색에 `rg` 안내(세션당 한 번, 막지 않음) | `false` |
 | `personal.session_rules.language` | `true` | `personal.language` 가 `ko`·`en` 일 때 세션 시작에 출력 언어 규칙을 넣는다 | `false` |
 | `personal.session_rules.remote` | `true` | `personal.report.viewer` 가 `remote` 일 때 세션 시작에 원격 사용자 규칙(아티팩트·base64 이미지·2배율 캡처)을 넣는다 | `false` |
@@ -146,7 +146,7 @@ wb-config validate
 
 ### 4.4 프로젝트(`project`)
 
-저장소의 `.wb/config.json` 최상위에 둔다. 표의 키 이름에서 `project.` 를 뺀 것이 파일 안의 경로다.
+저장소의 `.lanekeeper/config.json` 최상위에 둔다. 표의 키 이름에서 `project.` 를 뺀 것이 파일 안의 경로다.
 
 **기본 정보와 git**
 
@@ -155,12 +155,12 @@ wb-config validate
 | `project.version` | `1` | 파일 형식 판 | `1` |
 | `project.project_kind` | `"other"` | `web-ui` · `service` · `library` · `other`. `web-ui` 면 화면 파일 변경을 화면 변경으로 본다 | `"web-ui"` |
 | `project.git.protected_branches` | `["main","master","release/*"]` | 보호 브랜치. 보호 목록 규칙 | `["develop"]` |
-| `project.git.integration_branch_pattern` | `"wb/*/int"` | 통합 브랜치 이름 규칙 | `"team/*/int"` |
-| `project.git.lane_branch_pattern` | `"wb/*/l*"` | 레인 브랜치 이름 규칙 | `"team/*/l*"` |
+| `project.git.integration_branch_pattern` | `"lanekeeper/*/int"` | 통합 브랜치 이름 규칙 | `"team/*/int"` |
+| `project.git.lane_branch_pattern` | `"lanekeeper/*/l*"` | 레인 브랜치 이름 규칙 | `"team/*/l*"` |
 | `project.git.worktree_root` | `"{repo}/../wt-{task}"` | 레인 워크트리 경로. `{repo}` 는 주 체크아웃, `{task}` 는 레인 이름 | `"{repo}/../lanes/{task}"` |
 | `project.git.main_checkout` | `"auto"` | 주 체크아웃 위치(예약) | 기본값 유지 |
 | `project.git.feature_push` | `"ask"` | 메인 세션의 기능 브랜치 push. `ask` · `allow` · `deny` | `"allow"` |
-| `project.git.gate_stamp` | `"wb-gate-pass"` | 게이트 통과 표식 파일 이름(`<git 공용 폴더>/wb/<이름>.json`) | 기본값 유지 |
+| `project.git.gate_stamp` | `"lanekeeper-gate-pass"` | 게이트 통과 표식 파일 이름(`<git 공용 폴더>/lanekeeper/<이름>.json`) | 기본값 유지 |
 | `project.git.owner_grant_ttl_min` | `15` | 소유자 허가 유효 시간(분) | `30` |
 
 **저장 위치(`project.paths`)**
@@ -169,7 +169,7 @@ wb-config validate
 
 | 키 | 기본값 | 뜻 | 예 |
 |---|---|---|---|
-| `project.paths.briefs` | `".wb/briefs/{lane}.md"` | 지시서 | `".wb/briefs/{lane}.md"` |
+| `project.paths.briefs` | `".lanekeeper/briefs/{lane}.md"` | 지시서 | `".lanekeeper/briefs/{lane}.md"` |
 | `project.paths.lane_reports` | `"{scratch_root}/reports/{lane}.md"` | 레인 보고 파일(커밋 안 함) | 기본값 유지 |
 | `project.paths.reports_final` | `"docs/reports/{date}/{slug}.md"` | 최종 보고 원문(커밋) | `"docs/reports/{slug}.md"` |
 | `project.paths.artifacts_temp` | `"{scratch_root}/art/{slug}/"` | 일회성 캡처와 보고 HTML | 기본값 유지 |
@@ -178,7 +178,7 @@ wb-config validate
 | `project.paths.decisions` | `"docs/decisions/{date}-{slug}.md"` | 결정 문서(커밋) | 기본값 유지 |
 | `project.paths.test_results` | `"docs/test-results/{date}/{name}-{HHMM}.xlsx"` | 시험 결과 엑셀(커밋). 같은 이름의 `.json` 이 함께 생긴다 | 기본값 유지 |
 | `project.paths.test_runs_raw` | `"test-results/runs/{name}-{stamp}/"` | 원본 로그(커밋 안 함) | 기본값 유지 |
-| `project.paths.metrics` | `".wb/metrics/"` | codegraph 응답 기록 | 기본값 유지 |
+| `project.paths.metrics` | `".lanekeeper/metrics/"` | codegraph 응답 기록 | 기본값 유지 |
 | `project.paths.e2e_ledger` | `"docs/e2e/"` | 시험 케이스 원장과 결함 대장 | `"tests/ledger/"` |
 
 **검증과 문서**
@@ -217,7 +217,7 @@ wb-config validate
 | 항목 | 뜻 |
 |---|---|
 | `category` | `unit` · `integration` · `gate` · `e2e` · `uistab` · `usability` · `ux-adversarial` · `ship`. 품질 스킬이 이 범주로 스위트를 고른다. 없으면 종류 이름이 범주 이름일 때 그 범주, 아니면 `unit` |
-| `command` | 실행할 셸 명령. `{file}` 은 결과 파일, `{dir}` 은 원자료 폴더, `{root}` 는 저장소 경로로 바뀐다. 없고 `steps` 도 없으면 스킬이 시험한 뒤 `wb-quality record` 로 기록하는 종류다 |
+| `command` | 실행할 셸 명령. `{file}` 은 결과 파일, `{dir}` 은 원자료 폴더, `{root}` 는 저장소 경로로 바뀐다. 없고 `steps` 도 없으면 스킬이 시험한 뒤 `lanekeeper-quality record` 로 기록하는 종류다 |
 | `steps` | `[{ "name": "docs", "cmd": "…" }]`. 단계마다 따로 실행하고 단계 하나를 시험 하나로 센다 |
 | `parser` | 결과 형식. `vitest` · `jest` · `playwright` · `pytest`(JUnit XML) · `vitest-log`(로그의 `Tests` 줄 합계) · `json`(`counts` 를 담은 파일) · `exit`(종료 코드만) · `steps`. 기본값은 `steps` 가 있으면 `steps`, 없으면 `exit` |
 | `result` | 결과 파일 경로. 기본 `{dir}/result.json`(pytest 는 `result.xml`). 마지막 경로 조각에 `*` 를 쓰면 여러 파일을 합친다 |
@@ -250,10 +250,10 @@ wb-config validate
 | `project.docs_sync.shots.scripts` | `[]` | 캡처 스크립트 `[{ "file", "call_pattern", "key_pattern", "key_scope", "entry_functions", "image", "ref", "command" }]` | 예시 파일 |
 | `project.docs_sync.shots.command` | `""` | 재촬영 명령. `{keys}` 에 장면 키 목록 | `"SCENES={keys} node scripts/capture.mjs"` |
 | `project.docs_sync.screen_registry` | `{}` | 화면 목록 파일 `{ "file", "list", "sources", "id", "title" }`. 바뀐 파일이 소스인 화면을 보여 준다 | `{"file":"e2e/screens.json","list":"screens"}` |
-| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs apply` 가 해당하는 것만 실행한다 | 예시 파일 |
-| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `wb-docs verify` 가 실행한다. `when` 이 비면 항상 실행한다 | 예시 파일 |
+| `project.docs_sync.autofix` | `[]` | `[{ "name", "when", "command" }]`. `lanekeeper-docs apply` 가 해당하는 것만 실행한다 | 예시 파일 |
+| `project.docs_sync.checks` | `[]` | `[{ "name", "when", "command" }]`. `lanekeeper-docs verify` 가 실행한다. `when` 이 비면 항상 실행한다 | 예시 파일 |
 | `project.docs_sync.manual_items` | `[]` | `[{ "when", "text" }]`. 사람이 할 일로 지도 끝에 나온다 | 예시 파일 |
-| `project.docs_sync.ack_file` | `".wb/docs-sync-acks.json"` | 일부러 고치지 않는 필수 항목의 확인 기록(`{ "acks": [ … ] }`) | 기본값 유지 |
+| `project.docs_sync.ack_file` | `".lanekeeper/docs-sync-acks.json"` | 일부러 고치지 않는 필수 항목의 확인 기록(`{ "acks": [ … ] }`) | 기본값 유지 |
 | `project.docs_sync.style` | `""` | 수정 초안 끝에 붙는 문체 안내 | `"짧은 문장, 화면 문구는 그대로 인용"` |
 | `project.docs_sync.fail_on` | `"required"` | 관문이 실패로 보는 수준. `required` · `review`(검토 항목도 실패) | `"review"` |
 
@@ -268,8 +268,8 @@ wb-config validate
 | `project.codegraph.index_on_worktree` | 없음 | `auto_index` 의 옛 이름. 한 판 동안 별칭으로 읽는다 | 쓰지 않음 |
 | `project.slots.heavy` | `[]` | 무거운 실행으로 볼 정규식 추가 | `["^make all$"]` |
 | `project.slots.browser` | `[]` | 브라우저 실행으로 볼 정규식 추가 | `["^npm run shots$"]` |
-| `project.worktree.setup` | `""` | 새 레인 워크트리에서 슬롯 안에 실행할 설치 명령. `WB_LANE`, `WB_PORT_<이름>` 을 받는다 | `"npm ci"` |
-| `project.worktree.hook` | `false` | Claude Code 의 워크트리 생성도 wb 방식으로 할지 | `true` |
+| `project.worktree.setup` | `""` | 새 레인 워크트리에서 슬롯 안에 실행할 설치 명령. `LANEKEEPER_LANE`, `LANEKEEPER_PORT_<이름>` 을 받는다 | `"npm ci"` |
+| `project.worktree.hook` | `false` | Claude Code 의 워크트리 생성도 Lanekeeper 방식으로 할지 | `true` |
 | `project.protected_paths` | `[]` | 에이전트가 쓰면 안 되는 경로(glob). 보호 목록 규칙 | `["db/prod/**"]` |
 | `project.protected_data.paths` | `[]` | 시험이 쓰면 안 되는 DB 파일·폴더(glob, 프로젝트 기준 또는 절대 경로, `~` 가능). 보호 목록 규칙 | `["data/owner.db"]` |
 | `project.protected_data.ports` | `[]` | 시험이 쓰면 안 되는 DB 서버 포트. psql·mysql 이 이 포트로 쓰기 SQL 을 보내면 레인은 막고 메인 세션은 확인을 받는다 | `[5432]` |
@@ -284,7 +284,7 @@ wb-config validate
 "numbers": { "migration": { "dir": "db/migrations", "pattern": "^(\\d+)_", "width": 3, "start": 1 } }
 ```
 
-`wb-number reserve migration --lane l3` 은 폴더의 파일과 살아 있는 예약보다 큰 번호를 돌려준다.
+`lanekeeper-number reserve migration --lane l3` 은 폴더의 파일과 살아 있는 예약보다 큰 번호를 돌려준다.
 
 **검수·취합·설명**
 
@@ -295,13 +295,13 @@ wb-config validate
 | `project.integrate.rules` | 아래 설명 | 충돌 분류 규칙. 항목은 `glob`, `kind`(`ledger` · `union` · `generated` · `code`). 앞에서부터 처음 맞는 규칙 | `[{"glob":"**/*.snap","kind":"generated"}]` |
 | `project.integrate.regenerate` | `[]` | 생성물 충돌 뒤 다시 만들 명령. 항목은 `name`, `command`, `glob` | `[{"name":"lock","command":"npm install","glob":"**/package-lock.json"}]` |
 | `project.integrate.guards` | `[]` | 병합한 작업 트리에서 돌릴 명령. 하나라도 실패하면 병합을 되돌린다 | `[{"name":"typecheck","command":"npm run typecheck"}]` |
-| `project.explain.links` | `[]` | `wb-explain links` 가 보여 줄 교육 자료. 항목은 `title`, `href` | `[{"title":"팀 안내서","href":"docs/guide.md"}]` |
+| `project.explain.links` | `[]` | `lanekeeper-explain links` 가 보여 줄 교육 자료. 항목은 `title`, `href` | `[{"title":"팀 안내서","href":"docs/guide.md"}]` |
 
 `project.integrate.rules` 의 기본값은 다음 일곱 규칙이다. `**/*.cases.json`, `**/defect-register.json` 은 원장(`ledger`), `**/hooks/hooks.json` 은 등록 파일(`union`), `**/*.xlsx`, `**/package-lock.json`, `**/pnpm-lock.yaml`, `**/yarn.lock` 은 생성물(`generated`)이다. 맞는 규칙이 없는 파일은 코드로 본다.
 
 ## 5. 설정 예
 
-**프로젝트(`.wb/config.json`)**
+**프로젝트(`.lanekeeper/config.json`)**
 
 ```json
 {
@@ -319,7 +319,7 @@ wb-config validate
 }
 ```
 
-**품질 스위트(`.wb/config.json` 의 `quality`)**
+**품질 스위트(`.lanekeeper/config.json` 의 `quality`)**
 
 pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI 안정성·사용성으로 나눈 예다. 전체는 플러그인의 [examples/quality-config.json](../../examples/quality-config.json) 에 있다.
 
@@ -335,7 +335,7 @@ pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI �
 }
 ```
 
-**머신(`~/.wb/machine.json`)**
+**머신(`~/.lanekeeper/machine.json`)**
 
 ```json
 {
@@ -353,15 +353,15 @@ pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI �
 
 이 두 파일이 함께 있으면 `machine.lanes.max` 는 상한 규칙에 따라 2 가 된다. 머신 파일의 6 보다 프로젝트의 2 가 작기 때문이다.
 
-**개인(`~/.wb/personal.json`)**
+**개인(`~/.lanekeeper/personal.json`)**
 
 ```json
 {
   "version": 1,
   "language": "ko",
   "report": { "chat_detail": "detailed", "viewer": "remote" },
-  "auto_retry": { "enabled": true, "permission_mode": "default" },
-  "paths": { "scratch_root": "~/.wb-scratch/{project}" }
+  "auto_retry": { "enabled": false, "permission_mode": "default" },
+  "paths": { "scratch_root": "~/.lanekeeper-scratch/{project}" }
 }
 ```
 
@@ -369,9 +369,9 @@ pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI �
 
 | 변수 | 뜻 |
 |---|---|
-| `WB_HOME` | 개인·머신 설정 폴더(기본 `~/.wb`) |
-| `WB_PROJECT_DIR` | 프로젝트 루트를 직접 지정 |
-| `WB_CODEGRAPH` | `off` 면 codegraph 기능 전체를 끈다. 경로를 주면 그 실행 파일을 쓴다 |
-| `WB_SLOT_HELD` | `wb-slot` 이 실행하는 명령에 넣어 주는 값. 직접 설정하지 않는다 |
-| `WB_LOAD_FAKE` | 부하 평균 대신 쓸 숫자. 시험용이며 평소에는 설정하지 않는다 |
-| `WB_LANE`, `WB_PORT_<이름>` | `project.worktree.setup` 명령에 넣어 주는 레인 이름과 포트 |
+| `LANEKEEPER_HOME` | 개인·머신 설정 폴더(기본 `~/.lanekeeper`) |
+| `LANEKEEPER_PROJECT_DIR` | 프로젝트 루트를 직접 지정 |
+| `LANEKEEPER_CODEGRAPH` | `off` 면 codegraph 기능 전체를 끈다. 경로를 주면 그 실행 파일을 쓴다 |
+| `LANEKEEPER_SLOT_HELD` | `lanekeeper-slot` 이 실행하는 명령에 넣어 주는 값. 직접 설정하지 않는다 |
+| `LANEKEEPER_LOAD_FAKE` | 부하 평균 대신 쓸 숫자. 시험용이며 평소에는 설정하지 않는다 |
+| `LANEKEEPER_LANE`, `LANEKEEPER_PORT_<이름>` | `project.worktree.setup` 명령에 넣어 주는 레인 이름과 포트 |

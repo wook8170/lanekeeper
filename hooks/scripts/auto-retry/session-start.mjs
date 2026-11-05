@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // SessionStart: show waiting and finished automatic resumes, only when there are any.
+// Silent while automatic resume is off (the default; `lanekeeper-retry on` turns it on).
 import { resolveConfig, projectRoot, getPath } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { pendingList } from '../../../lib/retry.mjs'
@@ -9,7 +10,7 @@ export function handle(input, env = process.env) {
   const resolved = resolveConfig({ projectDir: projectRoot(input.cwd || process.cwd(), env), env })
   if (resolved.errors.length) return null
   const t = translator(resolved.effective.language)
-  if (getPath(resolved.config, 'personal.auto_retry.enabled') === false) return ctxOutput('SessionStart', t('retry.session.off'))
+  if (getPath(resolved.config, 'personal.auto_retry.enabled') !== true) return null
   const { pending, done } = pendingList(env)
   const lines = []
   if (pending.length) {

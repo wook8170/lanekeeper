@@ -20,7 +20,7 @@ test('serving check: only loopback addresses are fetched', () => {
   for (const u of ['http://example.com/', 'http://203.0.113.5/', 'http://localhost.example.com/', 'file:///etc/passwd', 'ftp://127.0.0.1/', 'not a url', '']) assert.ok(!isLoopbackUrl(u), u)
 })
 
-test('wb-art: a slug cannot leave the artifact folder', () => {
+test('lanekeeper-art: a slug cannot leave the artifact folder', () => {
   for (const s of ['2026-10-17', 'list-search', '목록_검색.v2']) assert.ok(slugOk(s), s)
   for (const s of ['../x', 'a/b', '..', 'a..b', '/abs', '', '.hidden', 'a\\b']) assert.ok(!slugOk(s), s)
   assert.throws(() => artPath('/tmp/r', {}, 'artifacts_keep', '../../etc'), /bad slug/)
@@ -28,7 +28,7 @@ test('wb-art: a slug cannot leave the artifact folder', () => {
   try {
     const png = path.join(fx.base, 'a.png')
     fs.writeFileSync(png, 'x')
-    const r = bin('wb-art', ['keep', png, '--slug', '../../outside'], fx.env, fx.repo)
+    const r = bin('lanekeeper-art', ['keep', png, '--slug', '../../outside'], fx.env, fx.repo)
     assert.equal(r.status, 2)
     assert.match(r.stderr, /slug/)
     assert.ok(!fs.existsSync(path.join(fx.base, 'outside')))
@@ -38,20 +38,20 @@ test('wb-art: a slug cannot leave the artifact folder', () => {
 })
 
 test('return brief: the lane id must be a plain id', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-l14-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-l14-'))
   try {
     assert.throws(() => writeReturnBrief({ root, config: {}, lang: 'en', lane: '../../x', title: 't', findings: [] }), /bad lane id/)
     const file = writeReturnBrief({ root, config: {}, lang: 'en', lane: 'l3', title: 't', findings: ['a'] })
-    assert.ok(file.startsWith(path.join(root, '.wb', 'briefs')))
+    assert.ok(file.startsWith(path.join(root, '.lanekeeper', 'briefs')))
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('wb-check lane: a lane id with a path separator is refused', () => {
+test('lanekeeper-check lane: a lane id with a path separator is refused', () => {
   const fx = makeEnv()
   try {
-    const r = bin('wb-check', ['lane', '../x'], fx.env, fx.repo)
+    const r = bin('lanekeeper-check', ['lane', '../x'], fx.env, fx.repo)
     assert.equal(r.status, 2)
   } finally {
     fx.cleanup()
@@ -67,7 +67,7 @@ test('codegraph index copy: sqlite3 is used only for paths it reads literally', 
 // ---- gate lock -------------------------------------------------------------
 
 test('gate lock: held during a run, refused while a live run holds it, stale locks replaced', () => {
-  const sd = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-l14-sd-'))
+  const sd = fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-l14-sd-'))
   try {
     const a = acquireGateLock(sd, { command: 'x' })
     assert.ok(a.ok)
@@ -92,24 +92,24 @@ test('gate lock: held during a run, refused while a live run holds it, stale loc
   }
 })
 
-test('wb-test-report gate: takes the lock while running and removes it after', () => {
+test('lanekeeper-test-report gate: takes the lock while running and removes it after', () => {
   const fx = makeEnv()
   try {
-    const sd = path.join(fx.repo, '.git', 'wb')
+    const sd = path.join(fx.repo, '.git', 'lanekeeper')
     const probe = path.join(fx.base, 'seen.txt')
     const script = path.join(fx.base, 'probe.mjs')
     fs.writeFileSync(script, `import fs from 'node:fs'\nfs.writeFileSync(${JSON.stringify(probe)}, String(fs.existsSync(${JSON.stringify(path.join(sd, 'gate.lock'))})))\n`)
-    fs.mkdirSync(path.join(fx.repo, '.wb'), { recursive: true })
-    fs.writeFileSync(path.join(fx.repo, '.wb', 'verify.config.json'), JSON.stringify({ version: 1, gate: { steps: [{ name: 'probe', cmd: `node ${script}` }], slot: 'none' }, stages: [] }))
-    const r = bin('wb-test-report', ['gate', '--results-dir', path.join(fx.base, 'res')], fx.env, fx.repo)
+    fs.mkdirSync(path.join(fx.repo, '.lanekeeper'), { recursive: true })
+    fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'verify.config.json'), JSON.stringify({ version: 1, gate: { steps: [{ name: 'probe', cmd: `node ${script}` }], slot: 'none' }, stages: [] }))
+    const r = bin('lanekeeper-test-report', ['gate', '--results-dir', path.join(fx.base, 'res')], fx.env, fx.repo)
     assert.equal(r.status, 0, r.stderr + r.stdout)
     assert.equal(fs.readFileSync(probe, 'utf8'), 'true')
     assert.ok(!fs.existsSync(path.join(sd, 'gate.lock')))
     fs.mkdirSync(sd, { recursive: true })
     fs.writeFileSync(path.join(sd, 'gate.lock'), JSON.stringify({ pid: process.pid }))
-    const busy = bin('wb-test-report', ['gate', '--results-dir', path.join(fx.base, 'res2')], fx.env, fx.repo)
+    const busy = bin('lanekeeper-test-report', ['gate', '--results-dir', path.join(fx.base, 'res2')], fx.env, fx.repo)
     assert.equal(busy.status, 3)
-    assert.match(busy.stderr, /wb-reap --gate-lock/)
+    assert.match(busy.stderr, /lanekeeper-reap --gate-lock/)
   } finally {
     fx.cleanup()
   }
@@ -120,7 +120,7 @@ test('wb-test-report gate: takes the lock while running and removes it after', (
 const hooksJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'hooks', 'hooks.json'), 'utf8'))
 const hookCommands = Object.entries(hooksJson.hooks).flatMap(([event, list]) => list.flatMap((m) => m.hooks.map((h) => ({ event, command: h.command }))))
 const scriptOf = (c) => /hooks\/scripts\/[\w./-]+\.mjs/.exec(c)[0]
-// Safety hooks fail closed: the tool call is denied, or the /wb:approve prompt is blocked
+// Safety hooks fail closed: the tool call is denied, or the /lanekeeper:approve prompt is blocked
 // (no grant is made). Every other hook fails open.
 const SAFETY = new Map([
   ['hooks/scripts/safety/pretool.mjs', /"permissionDecision":"deny"/],
@@ -147,23 +147,23 @@ test('hooks.json: every command runs a node script of this plugin through a quot
 })
 
 function hookEnv() {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-l14-hook-')))
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-l14-hook-')))
   const home = path.join(base, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
   const broken = path.join(base, 'broken')
-  fs.mkdirSync(path.join(broken, '.wb'), { recursive: true })
+  fs.mkdirSync(path.join(broken, '.lanekeeper'), { recursive: true })
   git(broken, 'init', '-q', '-b', 'main')
   fs.writeFileSync(path.join(broken, 'a.txt'), 'a\n')
   git(broken, 'add', '.')
   git(broken, 'commit', '-q', '-m', 'init')
-  fs.writeFileSync(path.join(broken, '.wb', 'config.json'), '{ not json')
+  fs.writeFileSync(path.join(broken, '.lanekeeper', 'config.json'), '{ not json')
   const env = {
     HOME: home,
-    WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'),
+    LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'),
     CLAUDE_PLUGIN_DATA: path.join(base, 'data'),
     CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
-    WB_NO_NOTIFY: '1',
-    WB_CODEGRAPH: 'off',
+    LANEKEEPER_NO_NOTIFY: '1',
+    LANEKEEPER_CODEGRAPH: 'off',
     LANG: 'en_US.UTF-8',
     PATH: process.env.PATH,
     GIT_CONFIG_GLOBAL: '/dev/null',
@@ -178,7 +178,7 @@ test('hooks on bad input: the safety hook blocks; every other hook exits 0 and l
     const scripts = [...new Set(hookCommands.map((c) => scriptOf(c.command)))]
     const inputs = [
       { name: 'garbage stdin', raw: 'not json {', cwd: h.base },
-      { name: 'broken project config', raw: JSON.stringify({ cwd: h.broken, session_id: 's1', hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git push origin main' }, command_name: 'wb:approve', command_args: 'push-main' }), cwd: h.broken },
+      { name: 'broken project config', raw: JSON.stringify({ cwd: h.broken, session_id: 's1', hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git push origin main' }, command_name: 'lanekeeper:approve', command_args: 'push-main' }), cwd: h.broken },
     ]
     for (const s of scripts) {
       for (const inp of inputs) {
@@ -194,7 +194,7 @@ test('hooks on bad input: the safety hook blocks; every other hook exits 0 and l
       }
     }
     // the approve hook made no grant from these inputs
-    assert.ok(!fs.existsSync(path.join(h.broken, '.git', 'wb', 'owner-grant.json')))
+    assert.ok(!fs.existsSync(path.join(h.broken, '.git', 'lanekeeper', 'owner-grant.json')))
   } finally {
     fs.rmSync(h.base, { recursive: true, force: true })
   }
@@ -219,12 +219,12 @@ test('commands through a shell only where the user or project supplies the comma
   // Each place runs a command string written by the user or the project config, the same
   // trust as running it by hand. Adding a new place needs a security review.
   const allowed = new Map([
-    ['bin/wb-docs', 'project.docs_sync.autofix and checks (apply · verify)'],
-    ['bin/wb-slot', 'the command the user wraps'],
-    ['bin/wb-test-report', 'project.gate.command (gate-pass)'],
+    ['bin/lanekeeper-docs', 'project.docs_sync.autofix and checks (apply · verify)'],
+    ['bin/lanekeeper-slot', 'the command the user wraps'],
+    ['bin/lanekeeper-test-report', 'project.gate.command (gate-pass)'],
     ['lib/review.mjs', 'project.review.guards'],
     ['lib/worktree.mjs', 'project.worktree.setup'],
-    ['templates/test-results/project/run-gate.mjs', 'gate steps in .wb/verify.config.json'],
+    ['templates/test-results/project/run-gate.mjs', 'gate steps in .lanekeeper/verify.config.json'],
     ['templates/test-results/project/verify-all.mjs', 'fixed git queries'],
   ])
   const found = new Set()

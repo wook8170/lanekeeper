@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// wb-style — writing style per file (project.style.map).
+// lanekeeper-style — writing style per file (project.style.map).
 //
-//   wb-style of <path...> [--json]          style of each path (first matching glob wins)
-//   wb-style rules [haeyo|report|plain]     full rule text for a style (all three when omitted)
-//   wb-style text <path...>                 the one-line text that fills {{style}} in a brief
-//   wb-style brief <type|file> [--owned a,b] [--var k=v]...
+//   lanekeeper-style of <path...> [--json]          style of each path (first matching glob wins)
+//   lanekeeper-style rules [haeyo|report|plain]     full rule text for a style (all three when omitted)
+//   lanekeeper-style text <path...>                 the one-line text that fills {{style}} in a brief
+//   lanekeeper-style brief <type|file> [--owned a,b] [--var k=v]...
 //                                           brief template with {{style}} (and any --var) filled in
 //
 // Common options: --project <dir>, --lang ko|en
@@ -36,7 +36,7 @@ const print = (s = '') => process.stdout.write(`${s}\n`)
 const [cmd, ...rest] = args._
 
 if (cmd === 'of') {
-  if (!rest.length) (print('usage: wb-style of <path...>'), process.exit(2))
+  if (!rest.length) (print('usage: lanekeeper-style of <path...>'), process.exit(2))
   const rows = rest.map((p) => ({ path: p, ...(S.styleFor(map, p) || { style: null, glob: null }) }))
   if (args.json) print(JSON.stringify(rows, null, 2))
   else for (const r of rows) print(`${r.path}\t${r.style ? `${t(`style.${r.style}.name`)} (${r.style}, ${r.glob})` : t('style.none')}`)
@@ -44,21 +44,21 @@ if (cmd === 'of') {
   const which = rest[0] ? [rest[0]] : S.STYLES
   for (const s of which) {
     const body = S.styleRules(s, lang)
-    if (!body) (process.stderr.write(`[wb] ${t('style.unknown', { style: s })}\n`), process.exit(2))
+    if (!body) (process.stderr.write(`[lanekeeper] ${t('style.unknown', { style: s })}\n`), process.exit(2))
     print(`## ${t(`style.${s}.name`)} (${s})\n${body}\n`)
   }
 } else if (cmd === 'text') {
   print(S.renderStyle(map, rest, t))
 } else if (cmd === 'brief') {
-  if (!rest[0]) (print('usage: wb-style brief <type|file> [--owned a,b]'), process.exit(2))
+  if (!rest[0]) (print('usage: lanekeeper-style brief <type|file> [--owned a,b]'), process.exit(2))
   const named = path.join(PLUGIN_ROOT, 'templates', 'briefs', lang, `${rest[0]}.md`)
   const file = fs.existsSync(rest[0]) ? rest[0] : named
-  if (!fs.existsSync(file)) (process.stderr.write(`[wb] ${t('style.no_template', { name: rest[0] })}\n`), process.exit(2))
+  if (!fs.existsSync(file)) (process.stderr.write(`[lanekeeper] ${t('style.no_template', { name: rest[0] })}\n`), process.exit(2))
   const owned = args.owned ? String(args.owned).split(',').map((s) => s.trim()).filter(Boolean) : []
   const all = { style: S.renderStyle(map, owned, t), ...vars }
   if (owned.length && !('owned_files' in all)) all.owned_files = owned.join(', ')
   process.stdout.write(S.fillTemplate(fs.readFileSync(file, 'utf8'), all))
 } else {
-  print('usage: wb-style of|rules|text|brief …')
+  print('usage: lanekeeper-style of|rules|text|brief …')
   process.exit(2)
 }

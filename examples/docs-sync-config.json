@@ -60,7 +60,7 @@
     "manual_items": [
       { "when": ["VERSION"], "text": "Make the release brochure for this version and keep the previous ones" }
     ],
-    "ack_file": ".wb/docs-sync-acks.json",
+    "ack_file": ".lanekeeper/docs-sync-acks.json",
     "style": "Short plain sentences, one fact each; quote screen text exactly as shown",
     "fail_on": "required"
   }

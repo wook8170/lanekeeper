@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// wb-slot — run a heavy command or a headless browser inside a machine-wide slot.
+// lanekeeper-slot — run a heavy command or a headless browser inside a machine-wide slot.
 //
-//   wb-slot [--kind heavy|browser|heavy,browser] [--lane <id>] [--timeout <sec>] [--poll <sec>] -- <command...>
-//   wb-slot status [--json]
-//   wb-slot reap [--json]
-//   wb-slot reap --orphans [--dry-run | --kill] [--json]
-//   wb-slot check [--json]
+//   lanekeeper-slot [--kind heavy|browser|heavy,browser] [--lane <id>] [--timeout <sec>] [--poll <sec>] -- <command...>
+//   lanekeeper-slot status [--json]
+//   lanekeeper-slot reap [--json]
+//   lanekeeper-slot reap --orphans [--dry-run | --kill] [--json]
+//   lanekeeper-slot check [--json]
 //
 // The command starts only when a slot of every requested kind is free and the
 // load average is below machine.load.max. A lease is renewed while the command
 // runs and released when it ends. Leases of dead processes, and leases not
 // renewed for machine.slots.stale_after_min, are reclaimed by the next caller.
-// Commands run by wb-slot see WB_SLOT_HELD, so a nested wb-slot for a kind
+// Commands run by lanekeeper-slot see LANEKEEPER_SLOT_HELD, so a nested lanekeeper-slot for a kind
 // already held does not wait for itself.
 //
 // Load tiers (machine.load.tiers): at or above stop_heavy a verifier lane
@@ -55,7 +55,7 @@ const cwd = process.cwd()
 const root = projectRoot(cwd, env)
 const resolved = resolveConfig({ projectDir: root, env })
 const t = translator(resolved.effective.language)
-const err = (s) => process.stderr.write(`[wb-slot] ${s}\n`)
+const err = (s) => process.stderr.write(`[lanekeeper-slot] ${s}\n`)
 const settings = slots.slotSettings(resolved, (p) => expandHome(p, env.HOME))
 const deps = slots.defaultDeps()
 
@@ -143,12 +143,12 @@ for (const k of kinds) {
     process.exit(2)
   }
 }
-const held = new Set(String(env.WB_SLOT_HELD || '').split(',').filter(Boolean))
+const held = new Set(String(env.LANEKEEPER_SLOT_HELD || '').split(',').filter(Boolean))
 const need = kinds.filter((k) => !held.has(k))
 
 function laneOf() {
   if (opts.lane) return String(opts.lane)
-  if (env.WB_LANE) return env.WB_LANE
+  if (env.LANEKEEPER_LANE) return env.LANEKEEPER_LANE
   const sd = stateDir(root)
   if (!sd) return null
   try {
@@ -204,7 +204,7 @@ const beat = setInterval(() => {
 }, Math.max(1000, Math.min(60_000, Math.floor(settings.staleMs / 3))))
 beat.unref()
 
-const childEnv = { ...env, WB_SLOT_HELD: [...new Set([...held, ...kinds])].join(',') }
+const childEnv = { ...env, LANEKEEPER_SLOT_HELD: [...new Set([...held, ...kinds])].join(',') }
 const child = command.length === 1 && /\s/.test(command[0])
   ? spawn('sh', ['-c', command[0]], { stdio: 'inherit', env: childEnv })
   : spawn(command[0], command.slice(1), { stdio: 'inherit', env: childEnv })

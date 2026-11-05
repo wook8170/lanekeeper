@@ -5,7 +5,7 @@ A fix capture shows the proposal on the real page without touching product code.
 Use only the design system's tokens and classes in the injection (for example `var(--space-4)` or an existing button class). A raw colour or pixel value in the injection is a look-alike, not a proposal.
 
 ```js
-// inject/01.js — run with: wb-slot --kind browser -- node inject/01.js
+// inject/01.js — run with: lanekeeper-slot --kind browser -- node inject/01.js
 import { chromium } from 'playwright'
 
 const BASE = process.env.UXADV_BASE_URL // the lane port, from the brief

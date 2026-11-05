@@ -1,4 +1,4 @@
-// wb-slot: concurrent acquisition, reclaiming dead and expired leases, load
+// lanekeeper-slot: concurrent acquisition, reclaiming dead and expired leases, load
 // waiting (time and load are injected), and the CLI under a real race.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import * as slots from '../lib/slots.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'wb-slot-')))
+const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-slot-')))
 
 function setup({ heavy = 2, browser = 2, staleMin = 90, loadMax = 100 } = {}) {
   const dir = tmp()
@@ -138,7 +138,7 @@ test('heavy + browser are taken together or not at all', async () => {
 
 function runSlot(args, env) {
   return new Promise((resolve) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'bin', 'wb-slot'), ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const p = spawn(process.execPath, [path.join(ROOT, 'bin', 'lanekeeper-slot'), ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] })
     let out = ''
     let err = ''
     p.stdout.on('data', (c) => (out += c))
@@ -149,12 +149,12 @@ function runSlot(args, env) {
 
 function cliEnv(dir, machine) {
   const home = path.join(dir, 'home')
-  fs.mkdirSync(path.join(home, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(home, '.wb', 'machine.json'), JSON.stringify(machine))
-  return { PATH: process.env.PATH, HOME: home, WB_ACTIVE: '1', WB_HOME: path.join(home, '.wb'), WB_PROJECT_DIR: dir, LANG: 'en_US.UTF-8' }
+  fs.mkdirSync(path.join(home, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(home, '.lanekeeper', 'machine.json'), JSON.stringify(machine))
+  return { PATH: process.env.PATH, HOME: home, LANEKEEPER_ACTIVE: '1', LANEKEEPER_HOME: path.join(home, '.lanekeeper'), LANEKEEPER_PROJECT_DIR: dir, LANG: 'en_US.UTF-8' }
 }
 
-test('CLI race: three wb-slot processes with two heavy slots never run more than two at once', async () => {
+test('CLI race: three lanekeeper-slot processes with two heavy slots never run more than two at once', async () => {
   const dir = tmp()
   const env = cliEnv(dir, { load: { max: 100000 }, slots: { lease_dir: path.join(dir, 'slots') } })
   const log = path.join(dir, 'log')
@@ -172,10 +172,10 @@ test('CLI race: three wb-slot processes with two heavy slots never run more than
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
-test('CLI: exit code passes through, WB_SLOT_HELD is set, a nested wb-slot does not wait for itself', async () => {
+test('CLI: exit code passes through, LANEKEEPER_SLOT_HELD is set, a nested lanekeeper-slot does not wait for itself', async () => {
   const dir = tmp()
   const env = cliEnv(dir, { load: { max: 100000 }, slots: { lease_dir: path.join(dir, 'slots'), heavy: { count: 1 } } })
-  const nested = `${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(ROOT, 'bin', 'wb-slot'))} --kind heavy --timeout 2 -- sh -c 'echo held=$WB_SLOT_HELD; exit 7'`
+  const nested = `${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(ROOT, 'bin', 'lanekeeper-slot'))} --kind heavy --timeout 2 -- sh -c 'echo held=$LANEKEEPER_SLOT_HELD; exit 7'`
   const r = await runSlot(['--kind', 'heavy', '--', 'sh', '-c', nested], env)
   assert.equal(r.code, 7)
   assert.match(r.out, /held=heavy/)

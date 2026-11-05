@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// wb-number — number reservation ledger for parallel lanes.
+// lanekeeper-number — number reservation ledger for parallel lanes.
 //
-//   wb-number reserve <series> [--lane L] [--note N] [--count K]   prints the reserved number(s)
-//   wb-number release <series> <n>
-//   wb-number list [<series>] [--json]
-//   wb-number check <series>                                      duplicate files / reservations (exit 1 on problems)
-// A series is declared in .wb/config.json under "numbers" (dir, pattern, width, start).
+//   lanekeeper-number reserve <series> [--lane L] [--note N] [--count K]   prints the reserved number(s)
+//   lanekeeper-number release <series> <n>
+//   lanekeeper-number list [<series>] [--json]
+//   lanekeeper-number check <series>                                      duplicate files / reservations (exit 1 on problems)
+// A series is declared in .lanekeeper/config.json under "numbers" (dir, pattern, width, start).
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -27,18 +27,18 @@ const roots = () => {
     return [ctx.root]
   }
 }
-const lane = () => args.lane || process.env.WB_LANE || null
+const lane = () => args.lane || process.env.LANEKEEPER_LANE || null
 
 const COMMANDS = {
   reserve() {
-    if (!series) ctx.fail('usage', { usage: 'wb-number reserve <series> [--lane L] [--count K]' }, 2)
+    if (!series) ctx.fail('usage', { usage: 'lanekeeper-number reserve <series> [--lane L] [--count K]' }, 2)
     const cfg = N.seriesConfig(ctx.resolved.config, series)
     const recs = N.reserve(ctx.needState(), series, cfg, roots(), { lane: lane(), note: args.note, count: args.count ? Number(args.count) : 1 })
     if (args.json) return ctx.json(recs.map((r) => ({ ...r, text: N.format(cfg, r.n) })))
     for (const r of recs) print(N.format(cfg, r.n))
   },
   release() {
-    if (!series || !n) ctx.fail('usage', { usage: 'wb-number release <series> <n>' }, 2)
+    if (!series || !n) ctx.fail('usage', { usage: 'lanekeeper-number release <series> <n>' }, 2)
     N.release(ctx.needState(), series, n)
     print(t('numbers.released', { series, n }))
   },
@@ -53,7 +53,7 @@ const COMMANDS = {
     }
   },
   check() {
-    if (!series) ctx.fail('usage', { usage: 'wb-number check <series>' }, 2)
+    if (!series) ctx.fail('usage', { usage: 'lanekeeper-number check <series>' }, 2)
     const cfg = N.seriesConfig(ctx.resolved.config, series)
     const r = N.check(ctx.needState(), series, cfg, roots())
     if (args.json) ctx.json(r)
@@ -63,7 +63,7 @@ const COMMANDS = {
   },
 }
 if (!COMMANDS[cmd]) {
-  print(`usage: wb-number <${Object.keys(COMMANDS).join('|')}> …`)
+  print(`usage: lanekeeper-number <${Object.keys(COMMANDS).join('|')}> …`)
   process.exit(2)
 }
 await guarded(ctx, () => COMMANDS[cmd]())

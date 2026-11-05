@@ -5,14 +5,14 @@
   "slots": {
     "heavy":   { "count": 2, "patterns": ["full-test", "e2e", "typecheck-all", "build", "install", "codegraph-index"] },
     "browser": { "count": 2, "patterns": ["chrome-headless", "playwright", "cdp"] },
-    "lease_dir": "~/.wb/run/slots",
+    "lease_dir": "~/.lanekeeper/run/slots",
     "stale_after_min": 90,
     "guard": "warn"
   },
   "ports": {
     "protected": [],
     "lane_range": { "base": 41000, "step": 20, "per_lane": ["web", "web2", "api", "db", "aux"], "max_lanes": 9 },
-    "leases": "{git_common_dir}/wb/ports.json"
+    "leases": "{git_common_dir}/lanekeeper/ports.json"
   },
   "servers": []
 }

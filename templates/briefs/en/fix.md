@@ -1,5 +1,5 @@
-<!-- wb-brief v1 type=impl-multi lane={{lane}} template=fix -->
-<!-- Marker: type is the routing task type (wb-route tasks), lane is the lane name. Every {{…}} placeholder must be filled before dispatch. -->
+<!-- lanekeeper-brief v1 type=impl-multi lane={{lane}} template=fix -->
+<!-- Marker: type is the routing task type (lanekeeper-route tasks), lane is the lane name. Every {{…}} placeholder must be filled before dispatch. -->
 # {{lane}} — {{title}}
 
 ## Base

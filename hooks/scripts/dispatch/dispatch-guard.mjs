@@ -113,7 +113,7 @@ export function format(lang, verdicts, decision) {
   }
   if (decision?.ok) lines.push(t('dispatch.route', { task: decision.task, model: decision.agent_param }))
   if (verdicts.some((v) => v.level === 'deny')) lines.push(`${t('safety.help')}: ${t('dispatch.where')}`)
-  return `[wb] ${lines.join('\n')}`
+  return `[lanekeeper] ${lines.join('\n')}`
 }
 
 export function handle(input, env = process.env, overrides = {}) {

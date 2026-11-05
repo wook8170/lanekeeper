@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // PreToolUse(Bash) slot guard: a heavy command (full test suite, build,
-// install, e2e, index) or a headless browser run should go through wb-slot so
+// install, e2e, index) or a headless browser run should go through lanekeeper-slot so
 // the machine-wide slot counts and the load threshold apply.
 //
 // machine.slots.guard:
 //   warn (default)  the call goes ahead; Claude gets a note with the wrapped command
 //   deny            the call is blocked with the same three-part message as the safety hooks
 // Load tiers: at or above machine.load.tiers.stop_heavy a verifier lane's heavy
-// run (wrapped in wb-slot or not) is blocked whatever the guard mode
+// run (wrapped in lanekeeper-slot or not) is blocked whatever the guard mode
 // (safety.slot.load_stop_heavy). Executor lanes and the main session keep the
-// wb-slot wait (machine.load.max). Slots already held are not touched.
+// lanekeeper-slot wait (machine.load.max). Slots already held are not touched.
 // This guard limits resource use; it is not a safety guard, so it fails open.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -66,7 +66,7 @@ export function runHook(raw, env = process.env) {
     }
     const t = translator(lang)
     return JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: `[wb] ${t('slot.guard.warn', r.vars)}` },
+      hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: `[lanekeeper] ${t('slot.guard.warn', r.vars)}` },
     })
   } catch {
     return ''

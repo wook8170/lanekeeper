@@ -24,7 +24,7 @@ export function parseArgs(argv) {
   return o
 }
 
-export const loadConfig = (root, file) => JSON.parse(fs.readFileSync(path.resolve(root, file || path.join('.wb', 'verify.config.json')), 'utf8'))
+export const loadConfig = (root, file) => JSON.parse(fs.readFileSync(path.resolve(root, file || path.join('.lanekeeper', 'verify.config.json')), 'utf8'))
 
 /** "npm run a && npm run b" -> [{name, cmd}] */
 export function splitChain(script) {

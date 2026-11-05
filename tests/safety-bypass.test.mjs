@@ -109,7 +109,7 @@ test('unresolvable targets are blocked, not guessed', () => {
 test('lane: the same tricks do not get a lane past its branch', () => {
   const opts = { cwd: f.wt.l1, agent: 'agent-l1' }
   blocked(`cd ${f.wt.int} && git commit -m x`, opts)
-  blocked(`git -C ${f.repo} merge wb/t/l1`, opts)
+  blocked(`git -C ${f.repo} merge lanekeeper/t/l1`, opts)
   blocked("bash -c 'git push'", opts)
   blocked('alias g=git; g switch main', opts)
 })

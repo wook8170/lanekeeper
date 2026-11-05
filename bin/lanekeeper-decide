@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// wb-decide — owner decisions as files in project.paths.decisions.
+// lanekeeper-decide — owner decisions as files in project.paths.decisions.
 //
-//   wb-decide new <slug> --title T --question Q --option "A=text" [--option "B=text"]... [--recommend A]
+//   lanekeeper-decide new <slug> --title T --question Q --option "A=text" [--option "B=text"]... [--recommend A]
 //                 [--kind mockup --scope "src/list/**,src/shared/Pager.tsx"]
 //                 a decided mockup record unlocks the mockup-first hook for its scope
-//   wb-decide list [--pending] [--json]
-//   wb-decide answer <slug|file> --choice "<text>" [--note N]
+//   lanekeeper-decide list [--pending] [--json]
+//   lanekeeper-decide answer <slug|file> --choice "<text>" [--note N]
 //
 // `new` and `answer` write a file and print a commit suggestion; they never commit.
 // Common options: --project <dir>, --lang ko|en
@@ -28,7 +28,7 @@ const { root, resolved } = load(args)
 const lang = args.lang === 'ko' || args.lang === 'en' ? args.lang : resolved.effective.language
 const t = translator(lang)
 const print = (s = '') => process.stdout.write(`${s}\n`)
-const die = (key, vars, code = 1) => (process.stderr.write(`[wb] ${t(key, vars)}\n`), process.exit(code))
+const die = (key, vars, code = 1) => (process.stderr.write(`[lanekeeper] ${t(key, vars)}\n`), process.exit(code))
 const pattern = getPath(resolved.config, 'project.paths.decisions') || 'docs/decisions/{date}-{slug}.md'
 const dir = path.dirname(D.decisionPath(root, pattern, { date: 'D', slug: 'S' }))
 const [cmd, arg] = args._
@@ -69,6 +69,6 @@ if (cmd === 'new') {
   print(t('decide.recorded', { file: path.relative(root, files[0]) }))
   print(t('decide.commit_hint', { file: path.relative(root, files[0]) }))
 } else {
-  print('usage: wb-decide new|list|answer')
+  print('usage: lanekeeper-decide new|list|answer')
   process.exit(2)
 }

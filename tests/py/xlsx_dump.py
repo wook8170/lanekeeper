@@ -44,9 +44,9 @@ def build_full(lang=None, env=None):
 
 def dump(out, tmp):
     import openpyxl
-    wb = openpyxl.load_workbook(out)
-    res = {'sheets': wb.sheetnames, 'data': {}}
-    for ws in wb.worksheets:
+    book = openpyxl.load_workbook(out)
+    res = {'sheets': book.sheetnames, 'data': {}}
+    for ws in book.worksheets:
         cells, labels = {}, {}
         for row in ws.iter_rows():
             for c in row:

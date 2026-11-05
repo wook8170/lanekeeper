@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// wb-route — model routing for subagent dispatch.
+// lanekeeper-route — model routing for subagent dispatch.
 //
-//   wb-route tasks [--json]                                 task types with chain and floor
-//   wb-route resolve <task> [--implementer <model>] [--json] model to use (exit 3 = wait, 4 = none)
-//   wb-route explain <task> [--implementer <model>]          resolution trace, step by step
-//   wb-route check <task> --model <model> [--implementer <model>] [--json]
+//   lanekeeper-route tasks [--json]                                 task types with chain and floor
+//   lanekeeper-route resolve <task> [--implementer <model>] [--json] model to use (exit 3 = wait, 4 = none)
+//   lanekeeper-route explain <task> [--implementer <model>]          resolution trace, step by step
+//   lanekeeper-route check <task> --model <model> [--implementer <model>] [--json]
 //                                                           judge a model choice (exit 1 = blocked)
-//   wb-route classify [--brief <file>] [--subagent <type>] [--description <text>] [--json]
+//   lanekeeper-route classify [--brief <file>] [--subagent <type>] [--description <text>] [--json]
 //
 // Common options: --project <dir>
 import fs from 'node:fs'
@@ -42,7 +42,7 @@ const routing = getPath(resolved.config, 'routing') || {}
 const print = (s) => process.stdout.write(`${s}\n`)
 const json = (v) => print(JSON.stringify(v, null, 2))
 const usage = () => {
-  print('usage: wb-route tasks | resolve <task> | explain <task> | check <task> --model <m> | classify [--brief f] [--subagent s] [--description d]')
+  print('usage: lanekeeper-route tasks | resolve <task> | explain <task> | check <task> --model <m> | classify [--brief f] [--subagent s] [--description d]')
   process.exit(2)
 }
 const decide = () => resolveRoute(routing, task, { limits: limitsMap(limitsFile(resolved, env)), implementer: args.implementer || null })

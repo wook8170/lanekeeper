@@ -1,10 +1,10 @@
-// Owner grant (/wb:approve) and gate stamp files under <git-common-dir>/wb/.
+// Owner grant (/lanekeeper:approve) and gate stamp files under <git-common-dir>/lanekeeper/.
 //
 // owner-grant.json  { version, action, ref, head, created, expires, used, used_at?, used_by? }
 //   written only by the UserPromptExpansion hook when a person types
-//   /wb:approve <action>; valid for one use, until expires, for exactly `head`.
+//   /lanekeeper:approve <action>; valid for one use, until expires, for exactly `head`.
 // <gate_stamp>.json { head, at, command }
-//   written by `wb-test-report run` / `wb-test-report gate-pass` after a full pass on a clean `head`.
+//   written by `lanekeeper-test-report run` / `lanekeeper-test-report gate-pass` after a full pass on a clean `head`.
 // gate.lock         present while a gate run is in progress (L7); merges into
 //   non-protected branches wait for it.
 import fs from 'node:fs'
@@ -16,7 +16,7 @@ export const GATE_LOCK = 'gate.lock'
 export const ACTIONS = ['merge-main', 'push-main', 'commit-main']
 
 export const grantPath = (stateDir) => path.join(stateDir, GRANT_FILE)
-export const stampPath = (stateDir, name) => path.join(stateDir, `${name || 'wb-gate-pass'}.json`)
+export const stampPath = (stateDir, name) => path.join(stateDir, `${name || 'lanekeeper-gate-pass'}.json`)
 
 // -> { ok, why: 'missing'|'action'|'used'|'expired'|'head', grant }
 export function checkGrant(stateDir, action, head, now) {

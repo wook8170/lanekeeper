@@ -1,5 +1,5 @@
-<!-- wb-brief v1 type=impl-multi lane={{lane}} template=fix -->
-<!-- Return brief: written by /wb:review-lane or /wb:integrate. Send it back to the same lane. -->
+<!-- lanekeeper-brief v1 type=impl-multi lane={{lane}} template=fix -->
+<!-- Return brief: written by /lanekeeper:review-lane or /lanekeeper:integrate. Send it back to the same lane. -->
 # {{lane}} return — {{title}}
 
 ## Base

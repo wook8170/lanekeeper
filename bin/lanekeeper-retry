@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// wb-retry — automatic resume after a usage limit.
+// lanekeeper-retry — automatic resume after a usage limit.
 //
-//   wb-retry status | list      switch state and waiting resumes
-//   wb-retry on | off           switch (personal.auto_retry.enabled)
-//   wb-retry cancel <id|all>    cancel waiting resumes
-//   wb-retry mode <mode> [--i-understand]   permission mode of the resumed session
-//   wb-retry limits [--clear[=model]]       models recorded as out of quota
-//   wb-retry run <id>           (used by the scheduled job)
-//   wb-retry wait-run <id> <epoch>          (fallback waiter without a system scheduler)
+//   lanekeeper-retry status | list      switch state and waiting resumes
+//   lanekeeper-retry on | off           switch (personal.auto_retry.enabled)
+//   lanekeeper-retry cancel <id|all>    cancel waiting resumes
+//   lanekeeper-retry mode <mode> [--i-understand]   permission mode of the resumed session
+//   lanekeeper-retry limits [--clear[=model]]       models recorded as out of quota
+//   lanekeeper-retry run <id>           (used by the scheduled job)
+//   lanekeeper-retry wait-run <id> <epoch>          (fallback waiter without a system scheduler)
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'

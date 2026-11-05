@@ -50,12 +50,12 @@
       "usability": {
         "category": "usability",
         "stale_paths": ["apps/**", "packages/tokens/**"],
-        "note": "beginner stand-in agents; /wb:quality-usability records the result"
+        "note": "beginner stand-in agents; /lanekeeper:quality-usability records the result"
       },
       "ux-adversarial": {
         "category": "ux-adversarial",
         "stale_paths": ["apps/**", "packages/tokens/**"],
-        "note": "adversarial UX checker in a separate context; /wb:quality-ux-adversarial records the result"
+        "note": "adversarial UX checker in a separate context; /lanekeeper:quality-ux-adversarial records the result"
       }
     },
     "ship": {

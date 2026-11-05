@@ -65,7 +65,7 @@ test('dispatch -> SubagentStart -> SubagentStop: binds agent, counts rounds/retu
   const { sd, base } = tmp()
   W.initWave(sd, { id: 'w', title: 'w' })
   W.addLane(sd, 'w', { lane: 'l1' })
-  upsertLane(sd, { id: 'l1', branch: 'wb/x/l1', worktree: base, integration: 'wb/x/int' })
+  upsertLane(sd, { id: 'l1', branch: 'lanekeeper/x/l1', worktree: base, integration: 'lanekeeper/x/int' })
   W.recordDispatch(sd, { agent_type: 'general-purpose', lane: 'l1', task: 'implement', model: 'opus', source: 'marker', files: [] }, T0)
   const s = W.onSubagentStart(sd, { agent_id: 'a1', agent_type: 'general-purpose' }, T0 + 1000)
   assert.deepEqual(s, { lane: 'l1', wave: 'w' })
@@ -113,7 +113,7 @@ test('unmatched agent is logged without a lane; stale pending dispatch is droppe
 
 test('dispatch guard remembers an allowed dispatch and hands it to the SubagentStart hook process', () => {
   const { sd, env, repo, base } = tmp()
-  const brief = '<!-- wb:brief type=implement lane=l1 -->\n'
+  const brief = '<!-- lanekeeper:brief type=implement lane=l1 -->\n'
   const r = dispatch({ tool_name: 'Agent', tool_input: { prompt: brief, subagent_type: 'general-purpose', model: 'opus' }, cwd: repo }, env, { stateDir: sd, notify() {} })
   // the brief is incomplete (denied) so nothing is remembered
   assert.equal(r.hookSpecificOutput.permissionDecision, 'deny')
@@ -121,23 +121,23 @@ test('dispatch guard remembers an allowed dispatch and hands it to the SubagentS
   const ok = dispatch({ tool_name: 'Agent', tool_input: { prompt: 'x', subagent_type: 'Explore' }, cwd: repo }, env, { stateDir: sd, notify() {}, resolved: undefined })
   assert.ok(ok === null || ok.hookSpecificOutput)
   // hook process: SubagentStart then SubagentStop with state in the repo's git dir
-  W.initWave(path.join(repo, '.git', 'wb'), { id: 'w' })
-  W.addLane(path.join(repo, '.git', 'wb'), 'w', { lane: 'l1' })
-  W.recordDispatch(path.join(repo, '.git', 'wb'), { agent_type: 'general-purpose', lane: 'l1', task: 'implement', model: 'opus' })
+  W.initWave(path.join(repo, '.git', 'lanekeeper'), { id: 'w' })
+  W.addLane(path.join(repo, '.git', 'lanekeeper'), 'w', { lane: 'l1' })
+  W.recordDispatch(path.join(repo, '.git', 'lanekeeper'), { agent_type: 'general-purpose', lane: 'l1', task: 'implement', model: 'opus' })
   const a = runScript('hooks/scripts/ledger/subagent.mjs', { hook_event_name: 'SubagentStart', agent_id: 'p1', agent_type: 'general-purpose', cwd: repo }, env)
   assert.equal(a.status, 0)
   const tr = path.join(base, 'p1.jsonl')
   transcript(tr, [{ type: 'assistant', message: { id: 'z', model: 'm', usage: { input_tokens: 3, output_tokens: 4 } } }])
   const b = runScript('hooks/scripts/ledger/subagent.mjs', { hook_event_name: 'SubagentStop', agent_id: 'p1', agent_type: 'general-purpose', agent_transcript_path: tr, cwd: repo }, env)
   assert.equal(b.status, 0)
-  const l = W.readWaves(path.join(repo, '.git', 'wb')).waves[0].lanes[0]
+  const l = W.readWaves(path.join(repo, '.git', 'lanekeeper')).waves[0].lanes[0]
   assert.equal(l.status, 'review')
   assert.equal(l.tokens.output, 4)
 })
 
 test('dispatch guard stores the brief file hash with the dispatch', () => {
   const { sd, env, repo } = tmp()
-  const briefs = path.join(repo, '.wb', 'briefs')
+  const briefs = path.join(repo, '.lanekeeper', 'briefs')
   fs.mkdirSync(briefs, { recursive: true })
   const tpl = fs.readFileSync(path.join(ROOT, 'templates', 'briefs', 'en', 'impl.md'), 'utf8')
     .replace(/\{\{\s*lane\s*\}\}/g, 'l1').replace(/\{\{\s*base_sha\s*\}\}/g, '1a2b3c4d').replace(/\{\{\s*implementer\s*\}\}/g, 'opus').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, 'x-$1')
@@ -154,7 +154,7 @@ test('dispatch guard stores the brief file hash with the dispatch', () => {
 function threeLanes(sd, base) {
   W.initWave(sd, { id: 'w4', title: 'Wave four' })
   for (const [l, o] of [['l6', { task: 'implement', model: 'sonnet', todos: ['x', 'y'] }], ['l12', { task: 'implement', model: 'opus', todos: ['z'] }], ['l7', { task: 'review', model: 'opus' }]]) W.addLane(sd, 'w4', { lane: l, ...o })
-  upsertLane(sd, { id: 'l6', branch: 'wb/x/l6', worktree: path.join(base, 'gone'), integration: 'wb/x/int' })
+  upsertLane(sd, { id: 'l6', branch: 'lanekeeper/x/l6', worktree: path.join(base, 'gone'), integration: 'lanekeeper/x/int' })
   W.setStatus(sd, 'w4', 'l6', 'running')
   W.setTodo(sd, 'w4', 'l6', 1, true)
   W.recordDispatch(sd, { agent_type: 'general-purpose', lane: 'l12', task: 'implement', model: 'opus' })
@@ -190,7 +190,7 @@ test('status line is one line with live/max and open lanes', () => {
   threeLanes(sd, base)
   const line = statusLine(boardRows(sd), t, 3)
   assert.equal(line.includes('\n'), false)
-  assert.match(line, /^wb 1\/3 running · /)
+  assert.match(line, /^lanekeeper 1\/3 running · /)
   assert.match(line, /l12:running/)
   assert.equal(statusLine([], t), t('board.statusline.none'))
 })
@@ -249,19 +249,19 @@ test('resume: an oversized progress.md is a stale item and shows only its newest
   assert.doesNotMatch(rep.progress.excerpt, /^old$/m)
   const s = rep.stale.find((x) => x.code === 'progress_oversize')
   assert.deepEqual(s.vars, { file: 'progress.md', lines: 37, max: 20, archive: 'docs/hist' })
-  assert.match(t('resume.stale.progress_oversize', s.vars), /wb-waves handoff migrate/)
-  fs.mkdirSync(path.join(env.WB_HOME), { recursive: true })
-  fs.writeFileSync(path.join(env.WB_HOME, 'personal.json'), JSON.stringify({ version: 1, handoff: { max_lines: 20 } }))
-  const out = bin('wb-waves', ['resume'], env, repo).stdout
+  assert.match(t('resume.stale.progress_oversize', s.vars), /lanekeeper-waves handoff migrate/)
+  fs.mkdirSync(path.join(env.LANEKEEPER_HOME), { recursive: true })
+  fs.writeFileSync(path.join(env.LANEKEEPER_HOME, 'personal.json'), JSON.stringify({ version: 1, handoff: { max_lines: 20 } }))
+  const out = bin('lanekeeper-waves', ['resume'], env, repo).stdout
   assert.match(out, /37\/20 lines\. Past history is in `docs\/progress-archive\/`/)
   assert.match(out, /grep -n '<keyword>' docs\/progress-archive\/\*\.md/)
   assert.match(out, /has 37 lines, over the 20-line target/)
 })
 
-test('wb-waves CLI: create, status, todo, board, metrics, resume --prompt (ko)', () => {
+test('lanekeeper-waves CLI: create, status, todo, board, metrics, resume --prompt (ko)', () => {
   const { env, repo } = tmp()
   env.LANG = 'ko_KR.UTF-8'
-  const run = (...a) => bin('wb-waves', a, env, repo)
+  const run = (...a) => bin('lanekeeper-waves', a, env, repo)
   assert.equal(run('init-wave', 'w1', '--title', 'T').status, 0)
   assert.equal(run('lane', 'w1', 'l1', '--task', 'implement', '--model', 'opus', '--todo', 'one', '--todo', 'two').status, 0)
   assert.equal(run('status', 'w1', 'l1', 'running').status, 0)
@@ -274,7 +274,7 @@ test('wb-waves CLI: create, status, todo, board, metrics, resume --prompt (ko)',
   assert.equal(j[0].lane, 'l1')
   assert.match(run('metrics').stdout, /끝난 실행 기록이 없습니다/)
   assert.match(run('resume', '--prompt', 'w1/l1').stdout, /two/)
-  assert.match(run('statusline').stdout, /^wb 0\/3 /)
+  assert.match(run('statusline').stdout, /^lanekeeper 0\/3 /)
   const bad = run('status', 'w1', 'zz', 'running')
   assert.equal(bad.status, 1)
   assert.match(bad.stderr, /레인 "zz" 이 없습니다/)
@@ -288,15 +288,15 @@ test('hooks.json registers SubagentStart and SubagentStop for the ledger; plugin
   assert.ok(cmds('SubagentStop').some((c) => c.includes('ledger/subagent.mjs')))
   assert.ok(cmds('SubagentStop').some((c) => c.includes('checkpoint.mjs')), 'checkpoint kept')
   const s = JSON.parse(fs.readFileSync(path.join(ROOT, 'settings.json'), 'utf8'))
-  assert.match(s.subagentStatusLine.command, /wb-waves statusline/)
+  assert.match(s.subagentStatusLine.command, /lanekeeper-waves statusline/)
 })
 
 // ---------------------------------------------------------------- numbers
 
 function numberRepo() {
   const fx = tmp()
-  fs.mkdirSync(path.join(fx.repo, '.wb'), { recursive: true })
-  fs.writeFileSync(path.join(fx.repo, '.wb', 'config.json'), JSON.stringify({ version: 1, numbers: { migration: { dir: 'db/migrations', pattern: '^(\\d+)_', width: 3 } } }))
+  fs.mkdirSync(path.join(fx.repo, '.lanekeeper'), { recursive: true })
+  fs.writeFileSync(path.join(fx.repo, '.lanekeeper', 'config.json'), JSON.stringify({ version: 1, numbers: { migration: { dir: 'db/migrations', pattern: '^(\\d+)_', width: 3 } } }))
   fs.mkdirSync(path.join(fx.repo, 'db/migrations'), { recursive: true })
   for (const f of ['001_a.sql', '002_b.sql', '007_c.sql']) fs.writeFileSync(path.join(fx.repo, 'db/migrations', f), '-- x\n')
   return fx
@@ -329,10 +329,10 @@ test('numbers: a second root (main checkout) is scanned; check finds duplicates 
   assert.ok(r.problems.some((p) => p.code === 'duplicate_file' && p.vars.n === '013'))
 })
 
-test('wb-number CLI: reserve prints the padded number, list, check exit code, release', () => {
+test('lanekeeper-number CLI: reserve prints the padded number, list, check exit code, release', () => {
   const { env, repo } = numberRepo()
   env.LANG = 'en_US.UTF-8'
-  const run = (...a) => bin('wb-number', a, env, repo)
+  const run = (...a) => bin('lanekeeper-number', a, env, repo)
   assert.equal(run('reserve', 'migration', '--lane', 'l1').stdout.trim(), '008')
   assert.equal(run('reserve', 'migration', '--lane', 'l2').stdout.trim(), '009')
   assert.match(run('list').stdout, /migration\s+008\s+reserved\s+l1/)
@@ -397,11 +397,11 @@ test('cases check catches reused retired ids, duplicate ids, unknown defects and
   assert.throws(() => C.addDefect(dir, { title: 'x', severity: 'huge' }), (e) => e.code === 'defects.bad_severity')
 })
 
-test('wb-cases and wb-defects CLI use paths.e2e_ledger; check exits 1 on problems', () => {
+test('lanekeeper-cases and lanekeeper-defects CLI use paths.e2e_ledger; check exits 1 on problems', () => {
   const { env, repo } = tmp()
   env.LANG = 'en_US.UTF-8'
-  const cases = (...a) => bin('wb-cases', a, env, repo)
-  const defects = (...a) => bin('wb-defects', a, env, repo)
+  const cases = (...a) => bin('lanekeeper-cases', a, env, repo)
+  const defects = (...a) => bin('lanekeeper-defects', a, env, repo)
   assert.match(cases('init', 'orders').stdout, /docs\/e2e\/orders\.cases\.json/)
   assert.equal(cases('add', 'orders', '--title', 'create', '--expected', 'saved', '--step', 'open', '--step', 'save', '--priority', 'P1').status, 0)
   const file = JSON.parse(fs.readFileSync(path.join(repo, 'docs/e2e/orders.cases.json'), 'utf8'))
@@ -424,14 +424,14 @@ test('wb-cases and wb-defects CLI use paths.e2e_ledger; check exits 1 on problem
 
 test('templates and defaults: case templates parse; project.waves.stale_min and numbers are valid settings', () => {
   for (const f of ['cases.json', 'defect-register.json']) JSON.parse(fs.readFileSync(path.join(ROOT, 'templates/test-cases', f), 'utf8'))
-  const r = bin('wb-config', ['validate'], { ...process.env }, ROOT)
+  const r = bin('lanekeeper-config', ['validate'], { ...process.env }, ROOT)
   assert.equal(r.status, 0, r.stdout + r.stderr)
 })
 
 test('every static message key used by the L6 files exists in both locales', () => {
   const ko = JSON.parse(fs.readFileSync(path.join(ROOT, 'locales/ko.json'), 'utf8'))
   const en = JSON.parse(fs.readFileSync(path.join(ROOT, 'locales/en.json'), 'utf8'))
-  const files = ['bin/wb-waves', 'bin/wb-number', 'bin/wb-cases', 'bin/wb-defects', 'lib/board.mjs', 'lib/resume.mjs', 'lib/ledger-cli.mjs']
+  const files = ['bin/lanekeeper-waves', 'bin/lanekeeper-number', 'bin/lanekeeper-cases', 'bin/lanekeeper-defects', 'lib/board.mjs', 'lib/resume.mjs', 'lib/ledger-cli.mjs']
   const keys = new Set()
   for (const f of files) {
     const s = fs.readFileSync(path.join(ROOT, f), 'utf8')

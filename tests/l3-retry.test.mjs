@@ -76,10 +76,10 @@ test('scheduleRetry on macOS writes a launchd plist (reset + 2 minutes) and boot
     const plan = scheduleRetry({ sid: 'abc-123', cwd: f.repo, epoch: NOW + 3600, env: f.env, deps })
     assert.equal(plan.mechanism, 'launchd')
     assert.equal(plan.runAt, NOW + 3600 + 120)
-    const plist = fs.readFileSync(path.join(f.env.HOME, 'Library', 'LaunchAgents', 'wb.auto-retry.abc-123.plist'), 'utf8')
-    assert.match(plist, /<key>Label<\/key><string>wb\.auto-retry\.abc-123<\/string>/)
+    const plist = fs.readFileSync(path.join(f.env.HOME, 'Library', 'LaunchAgents', 'lanekeeper.auto-retry.abc-123.plist'), 'utf8')
+    assert.match(plist, /<key>Label<\/key><string>lanekeeper\.auto-retry\.abc-123<\/string>/)
     assert.match(plist, /<string>run<\/string>\s*<string>abc-123<\/string>/)
-    assert.match(plist, /<key>WB_HOME<\/key>/)
+    assert.match(plist, /<key>LANEKEEPER_HOME<\/key>/)
     assert.match(plist, /<key>CLAUDE_PLUGIN_DATA<\/key>/)
     assert.ok(calls.some((c) => c[0] === 'launchctl' && c[1] === 'bootstrap'))
     const state = JSON.parse(fs.readFileSync(path.join(retryDirs(f.env).state, 'abc-123.json'), 'utf8'))
@@ -107,7 +107,7 @@ test('scheduleRetry on Linux uses a systemd user timer when available, else a de
     let plan = scheduleRetry({ sid: 's2', cwd: f.repo, epoch: NOW + 600, env: f.env, deps: r.deps })
     assert.equal(plan.mechanism, 'systemd')
     const run = r.calls.find((c) => c[0] === 'systemd-run' && c[1].startsWith('--user'))
-    assert.ok(run.some((a) => a === '--unit=wb.auto-retry.s2'))
+    assert.ok(run.some((a) => a === '--unit=lanekeeper.auto-retry.s2'))
     assert.ok(run.some((a) => a.startsWith('--on-calendar=')))
     r = fakeDeps('linux', { exec: () => ({ status: 1, stdout: '', stderr: '' }) })
     plan = scheduleRetry({ sid: 's3', cwd: f.repo, epoch: NOW + 600, env: f.env, deps: r.deps })
@@ -160,11 +160,12 @@ function transcript(f, lines) {
 }
 test('detect -> schedule chain (dry run): limit in the transcript tail', () => {
   const f = makeEnv()
+  f.personal({ auto_retry: { enabled: true } })
   try {
     const t = transcript(f, [{ type: 'assistant', message: { model: 'claude-opus-4-8', content: 'working' } }, { type: 'error', message: 'Claude AI usage limit reached|1754903600' }])
     const { calls, deps } = fakeDeps('darwin')
     const plan = detectAndSchedule({ session_id: 'selftest-sid', transcript_path: t, cwd: f.repo }, { env: f.env, dryRun: true, deps })
-    assert.equal(plan.label, 'wb.auto-retry.selftest-sid')
+    assert.equal(plan.label, 'lanekeeper.auto-retry.selftest-sid')
     assert.equal(plan.runAt, 1754903720)
     assert.equal(calls.length, 0)
     const lim = readLimits(path.join(f.env.CLAUDE_PLUGIN_DATA, 'limits.json'))
@@ -175,6 +176,7 @@ test('detect -> schedule chain (dry run): limit in the transcript tail', () => {
 })
 test('detect: StopFailure fields count as evidence; normal completion does nothing', () => {
   const f = makeEnv()
+  f.personal({ auto_retry: { enabled: true } })
   try {
     const { deps } = fakeDeps('darwin')
     const plan = detectAndSchedule({ session_id: 's7', cwd: f.repo, error: 'rate_limit', error_details: 'You have hit your usage limit. resets 3pm' }, { env: f.env, dryRun: true, deps })
@@ -185,11 +187,13 @@ test('detect: StopFailure fields count as evidence; normal completion does nothi
     f.cleanup()
   }
 })
-test('detect: disabled in personal settings does nothing', () => {
+test('detect: off by default and when disabled in personal settings, nothing is scheduled', () => {
   const f = makeEnv()
   try {
-    f.personal({ auto_retry: { enabled: false } })
     const { deps } = fakeDeps('darwin')
+    assert.equal(detectAndSchedule({ session_id: 's9', cwd: f.repo, error_details: 'usage limit reached|1754903600' }, { env: f.env, dryRun: true, deps }), null, 'default is off')
+    assert.equal(runScript('hooks/scripts/auto-retry/session-start.mjs', { cwd: f.repo }, f.env).out, null, 'session hook silent while off')
+    f.personal({ auto_retry: { enabled: false } })
     assert.equal(detectAndSchedule({ session_id: 's9', cwd: f.repo, error_details: 'usage limit reached|1754903600' }, { env: f.env, dryRun: true, deps }), null)
   } finally {
     f.cleanup()
@@ -212,7 +216,8 @@ test('limits.json: unidentified model is recorded as "*", expired entries are dr
   }
 })
 test('detect hook process: writes limits.json at the configured path and schedules in dry-run', () => {
-  const f = makeEnv({ WB_DRYRUN: '1' })
+  const f = makeEnv({ LANEKEEPER_DRYRUN: '1' })
+  f.personal({ auto_retry: { enabled: true } })
   try {
     const r = runScript('hooks/scripts/auto-retry/detect.mjs', { hook_event_name: 'StopFailure', session_id: 'p1', cwd: f.repo, error_details: 'usage limit reached|4102444800' }, f.env)
     assert.equal(r.status, 0)
@@ -237,17 +242,17 @@ test('permission mode defaults to "default"; bypassPermissions needs the acknowl
     f.cleanup()
   }
 })
-test('wb-retry mode: bypassPermissions is refused without --i-understand and records the acknowledgement with it', () => {
+test('lanekeeper-retry mode: bypassPermissions is refused without --i-understand and records the acknowledgement with it', () => {
   const f = makeEnv()
   try {
-    let r = bin('wb-retry', ['mode', 'bypassPermissions'], f.env, f.repo)
+    let r = bin('lanekeeper-retry', ['mode', 'bypassPermissions'], f.env, f.repo)
     assert.equal(r.status, 1)
     assert.match(r.stdout, /bypassPermissions/)
-    assert.equal(fs.existsSync(path.join(f.env.WB_HOME, 'personal.json')), false)
-    r = bin('wb-retry', ['mode', 'bypassPermissions', '--i-understand'], f.env, f.repo)
+    assert.equal(fs.existsSync(path.join(f.env.LANEKEEPER_HOME, 'personal.json')), false)
+    r = bin('lanekeeper-retry', ['mode', 'bypassPermissions', '--i-understand'], f.env, f.repo)
     assert.equal(r.status, 0)
     assert.deepEqual([f.readPersonal().auto_retry.permission_mode, f.readPersonal().auto_retry.bypass_ack], ['bypassPermissions', true])
-    r = bin('wb-retry', ['mode', 'plan'], f.env, f.repo)
+    r = bin('lanekeeper-retry', ['mode', 'plan'], f.env, f.repo)
     assert.deepEqual([f.readPersonal().auto_retry.permission_mode, f.readPersonal().auto_retry.bypass_ack], ['plan', false])
   } finally {
     f.cleanup()
@@ -262,6 +267,7 @@ function seedState(f, sid, extra = {}) {
 }
 test('runRetry resumes with the default permission mode, updates the session id and files the state as done', async () => {
   const f = makeEnv()
+  f.personal({ auto_retry: { enabled: true } })
   try {
     seedState(f, 'r1')
     const seen = []
@@ -283,6 +289,7 @@ test('runRetry resumes with the default permission mode, updates the session id 
 })
 test('runRetry reschedules when the resumed run hits a limit again', async () => {
   const f = makeEnv()
+  f.personal({ auto_retry: { enabled: true } })
   try {
     seedState(f, 'r2')
     const { deps } = fakeDeps('darwin', { runClaude: () => ({ status: 0, stdout: JSON.stringify({ session_id: 'r2b', result: 'usage limit reached|1754909000' }), stderr: '' }) })
@@ -296,6 +303,7 @@ test('runRetry reschedules when the resumed run hits a limit again', async () =>
 })
 test('runRetry: failure files the state under failed; off skips the resume', async () => {
   const f = makeEnv()
+  f.personal({ auto_retry: { enabled: true } })
   try {
     seedState(f, 'r3')
     let ran = 0
@@ -324,22 +332,23 @@ test('cancelRetry removes waiting resumes by id prefix or all', () => {
     f.cleanup()
   }
 })
-test('wb-retry status / off / on work as a process and the session hook reports waiting resumes', () => {
+test('lanekeeper-retry status / off / on work as a process and the session hook reports waiting resumes', () => {
   const f = makeEnv()
+  f.personal({ auto_retry: { enabled: true } })
   try {
     seedState(f, 'st123456')
-    let r = bin('wb-retry', ['status'], f.env, f.repo)
+    let r = bin('lanekeeper-retry', ['status'], f.env, f.repo)
     assert.match(r.stdout, /Automatic resume: on/)
     assert.match(r.stdout, /permission mode: default/)
     assert.match(r.stdout, /Waiting resumes: 1/)
     const h = runScript('hooks/scripts/auto-retry/session-start.mjs', { hook_event_name: 'SessionStart', cwd: f.repo }, f.env)
     assert.match(h.out.hookSpecificOutput.additionalContext, /1 automatic resume\(s\) waiting/)
-    bin('wb-retry', ['off'], f.env, f.repo)
+    bin('lanekeeper-retry', ['off'], f.env, f.repo)
     assert.equal(f.readPersonal().auto_retry.enabled, false)
-    assert.match(runScript('hooks/scripts/auto-retry/session-start.mjs', { cwd: f.repo }, f.env).out.hookSpecificOutput.additionalContext, /off/)
-    bin('wb-retry', ['on'], f.env, f.repo)
+    assert.equal(runScript('hooks/scripts/auto-retry/session-start.mjs', { cwd: f.repo }, f.env).out, null, 'silent while off')
+    bin('lanekeeper-retry', ['on'], f.env, f.repo)
     assert.equal(f.readPersonal().auto_retry.enabled, true)
-    r = bin('wb-retry', ['limits'], f.env, f.repo)
+    r = bin('lanekeeper-retry', ['limits'], f.env, f.repo)
     assert.equal(JSON.parse(r.stdout).version, 1)
   } finally {
     f.cleanup()
