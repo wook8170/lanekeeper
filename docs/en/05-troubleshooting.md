@@ -39,7 +39,7 @@ Inside Claude Code, `/lanekeeper:explain` and `/lanekeeper:doctor` do the same. 
 | `This action (…) on the protected branch … needs an owner grant, and there is none.` | Merge, push or commit on a protected branch | The owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`). When a push is blocked, the branch name in the message is the branch checked out now, not the target |
 | `There is no gate pass stamp for commit …` | In a project with `project.gate.command`, the gate has not passed on the commit being applied | In the folder that has that commit checked out (usually the integration branch), pass `lanekeeper-test-report gate-pass` or `lanekeeper-test-report run` to the end. No stamp is written while there are uncommitted changes |
 | `The gate pass stamp belongs to another commit (…)` | Changes other than result files were committed after the stamp | Run the gate again on the current commit |
-| `A verification gate is running` | `lanekeeper-test-report run` holds the gate lock | Run again when it ends. If a crash left the lock, remove it with `lanekeeper-reap --gate-lock` |
+| `A verification gate is running` | `lanekeeper-test-report run` holds the gate lock | Run again when it ends. If a crash left the lock, the owner types `/lanekeeper:approve clear-gate-lock` in the prompt once the lock is older than `machine.slots.stale_after_min` |
 | `Feature branch pushes need confirmation` | `project.git.feature_push` is `ask` (default) | Approve in the confirmation prompt. To always allow, set it to `allow` |
 | `` `git reset --hard` discards uncommitted changes for good `` | A command that throws away changes | Check what would be lost with `git status`, leave a WIP commit if needed, then approve |
 
@@ -96,7 +96,7 @@ Inside Claude Code, `/lanekeeper:explain` and `/lanekeeper:doctor` do the same. 
 | `lanekeeper-worktree create` says `This repository has no commits yet` | A new repository with no commit | Make a first commit, then run again |
 | `lanekeeper-number reserve` says the number series is not declared | `.lanekeeper/config.json` has no `numbers` series | Declare the series as in the `project.numbers` example of [Configuration](03-configuration.md) |
 | A codegraph call is blocked with `… has no codegraph index` | This session already got a "no index" response for that path | Go on with grep and Read until the index exists. Check with `lanekeeper-index status` |
-| `lanekeeper-config: command not found` in an ordinary terminal | The `lanekeeper-*` commands are not on `PATH` | Use them inside a Claude Code session, or put the plugin's `bin` folder on `PATH` |
+| `lanekeeper-config: command not found` in an ordinary terminal | The `lanekeeper-*` commands are only on the `PATH` of the Bash commands Claude runs in a session | Ask Claude to run the command, or type the matching `/lanekeeper:*` command in the prompt. Do not add the plugin's `bin` folder to your `PATH`: its install path has the version in it and changes with every update |
 
 ## 3. Frequently asked questions
 
@@ -113,7 +113,7 @@ Put `"lanes": { "max": 6 }` in `~/.lanekeeper/machine.json`. If the project sett
 Add the model name to `denied` in `~/.lanekeeper/routing.json`. It is removed from every fallback order.
 
 **Can Claude run `/lanekeeper:approve` for me?**
-No. The skill creates a grant only when a person types it in the prompt. Subagent reports and messages from other sessions never create one.
+No. The skill creates a grant only when a person types it in the prompt. Subagent reports and messages from other sessions never create one. The same holds for `accept-quality`, `retry-bypass` and `clear-gate-lock`.
 
 **Do I need codegraph?**
 No. Without it the related hooks and commands do nothing. With it, every new worktree gets its index through the queue.
@@ -133,7 +133,7 @@ Check the fetch time of the official value in `lanekeeper-token status`. If it i
 **An automatically resumed session stops halfway.**
 In the default permission mode (`default`), tools that need approval are refused in an unattended run. Open the session with the `claude --resume <id>` line from `lanekeeper-retry status` and continue.
 
-## 4. Known limitations (0.1.0)
+## 4. Known limitations
 
 | Item | Effect | What you can do now |
 |---|---|---|

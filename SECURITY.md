@@ -79,7 +79,7 @@ Conversation text is not stored. Secrets and environment variables are not writt
 
 ## Permissions of an unattended resume
 
-Automatic resume is off until the user runs `lanekeeper-retry on`, because it registers a launchd agent or a systemd user timer. It runs in the default permission mode (`default`). `bypassPermissions` is used only after the risk was accepted with `lanekeeper-retry mode bypassPermissions --i-understand`; without that record the resume falls back to `default`. No credentials are stored.
+Automatic resume is off until the user runs `/lanekeeper:auto-retry on`, because it registers a launchd agent or a systemd user timer. It runs in the default permission mode (`default`). `bypassPermissions` is used only after a person accepted the risk by typing `/lanekeeper:approve retry-bypass` in the prompt. That record is read only from `~/.lanekeeper/personal.json`, so a repository's settings cannot supply it. Without it the resume falls back to `default`. No credentials are stored.
 
 ## Licenses of companion tools
 

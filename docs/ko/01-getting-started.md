@@ -41,24 +41,27 @@ export LANEKEEPER_PYTHON=$HOME/.lanekeeper/venv/bin/python3
 
 ### 2.1 마켓플레이스에서 설치
 
-터미널에서 마켓플레이스를 추가하고 플러그인을 설치한다. 마켓플레이스 이름은 `lanekeeper`, 플러그인 이름은 `lanekeeper` 다.
+터미널에서 마켓플레이스를 추가하고 플러그인을 설치한다. 아래 두 가지 중 하나만 쓴다. 두 방법 모두 같은 플러그인을 설치하며, 둘 다 설치하면 모든 훅이 두 번씩 실행된다.
 
 ```
-claude plugin marketplace add <저장소 주소>
+# 통합 마켓플레이스에서 설치
+claude plugin marketplace add wook8170/claude-plugins
+claude plugin install lanekeeper@wook8170-plugins
+
+# 또는 이 저장소에서 바로 설치
+claude plugin marketplace add wook8170/lanekeeper
 claude plugin install lanekeeper@lanekeeper
 ```
 
-출력 예시:
-
 ```
-Adding marketplace…✔ Successfully added marketplace: lanekeeper (declared in user settings)
-Installing plugin "lanekeeper@lanekeeper"...✔ Successfully installed plugin: lanekeeper@lanekeeper (scope: user)
-2 userConfig options not yet set — run /plugin configure lanekeeper@lanekeeper in Claude Code, or pass --config KEY=VALUE.
+Adding marketplace…✔ Successfully added marketplace: wook8170-plugins (declared in user settings)
+Installing plugin "lanekeeper@wook8170-plugins"...✔ Successfully installed plugin: lanekeeper@wook8170-plugins (scope: user)
+2 userConfig options not yet set — run /plugin configure lanekeeper@wook8170-plugins in Claude Code, or pass --config KEY=VALUE.
 ```
 
-마지막 줄은 플러그인 설정 화면의 두 값(메시지 언어 `language`, 보고 분량 `chat_detail`)을 아직 고르지 않았다는 안내다. 고르지 않아도 기본값(`auto`, `summary`)으로 동작한다. 고르려면 Claude Code 안에서 `/plugin configure lanekeeper@lanekeeper` 을 실행한다.
+마지막 줄은 플러그인 설정 화면의 두 값(메시지 언어 `language`, 보고 분량 `chat_detail`)을 아직 고르지 않았다는 안내다. 고르지 않아도 기본값(`auto`, `summary`)으로 동작한다. 고르려면 Claude Code 안에서 `/plugin configure lanekeeper@wook8170-plugins` 을 실행한다.
 
-Claude Code 세션 안에서는 같은 일을 `/plugin marketplace add <저장소 주소>` 와 `/plugin install lanekeeper@lanekeeper` 으로 한다.
+Claude Code 세션 안에서는 같은 일을 `/plugin marketplace add wook8170/claude-plugins` 와 `/plugin install lanekeeper@wook8170-plugins` 으로 한다.
 
 ### 2.2 내려받은 폴더에서 설치
 
@@ -86,29 +89,58 @@ claude plugin list
 ```
 Installed plugins:
 
-  ❯ lanekeeper@lanekeeper
-    Version: 0.1.0
-    Read from: ~/src/lanekeeper
+  ❯ lanekeeper@wook8170-plugins
+    Version: 0.2.1
+    Read from: ~/.claude/plugins/cache/wook8170-plugins/lanekeeper/0.2.1
     Scope: user
     Status: ✔ enabled
 ```
 
-`lanekeeper-config`, `lanekeeper-waves` 같은 `lanekeeper-*` 명령은 Claude Code 세션 안에서 Claude 가 실행하는 Bash 명령으로 바로 쓸 수 있다. 일반 터미널에서 쓰려면 `claude plugin list` 의 `Read from` 경로 아래 `bin` 폴더를 `PATH` 에 넣는다.
-
-```
-export PATH="$HOME/src/lanekeeper/bin:$PATH"
-```
+사람이 입력하는 것은 Claude Code 프롬프트의 슬래시 명령이다. 예를 들면 `/lanekeeper:init`, `/lanekeeper:doctor`, `/lanekeeper:approve` 가 있다. 이 문서에 나오는 `lanekeeper-config`, `lanekeeper-waves` 같은 `lanekeeper-*` 명령은 세션 안에서 Claude 가 Bash 로 실행한다. 이 명령들은 일반 터미널의 `PATH` 에 없으므로 Claude 에게 실행을 요청한다. 플러그인의 `bin` 폴더는 `PATH` 에 넣지 않는다. 설치 경로에 판 번호가 들어 있어서 갱신할 때마다 경로가 바뀐다.
 
 ### 2.5 wb 에서 옮기기
 
-0.2.0 이전에는 플러그인 이름이 `wb` 였다. 옛 플러그인을 지우고 새 이름으로 설치한다.
+0.2.0 이전에는 플러그인 이름이 `wb` 였다. 옛 플러그인과 그 마켓플레이스를 지운 뒤 새 이름으로 설치한다.
 
 ```
 claude plugin uninstall wb@wb-plugin
-claude plugin install lanekeeper@lanekeeper
+claude plugin marketplace remove wb-plugin
+claude plugin install lanekeeper@wook8170-plugins
 ```
 
-옛 설정은 그대로 동작한다. 새 이름이 없는 동안에는 `~/.wb`, `<repo>/.wb/config.json`, `<git 공용 폴더>/wb`, `WB_*` 변수를 읽는다. 그리고 옛 이름을 쓰는 첫 세션에서 한 번 알린다. 플러그인은 파일을 대신 옮기지 않는다. 새 이름으로 바꾸려면 세션을 닫은 뒤 폴더 이름을 직접 바꾼다(`mv ~/.wb ~/.lanekeeper`, `git mv .wb .lanekeeper`, `mv .git/wb .git/lanekeeper`). 자세한 내용은 README 의 「wb 에서 이름 변경(0.2.0)」에 있다.
+**`wb` 를 `lanekeeper` 와 함께 켜 두지 않는다.** 함께 켜면 모든 훅이 두 번씩 실행된다. `--plugin-dir` 로 옛 폴더를 읽는 습관도 없앤다. `claude plugin list` 에는 `lanekeeper` 만 보여야 한다.
+
+옛 설정은 그대로 동작한다. 새 이름이 없는 동안에는 `~/.wb`, `<repo>/.wb/config.json`, `<git 공용 폴더>/wb`, `WB_*` 변수를 읽는다. 그리고 옛 이름을 쓰는 첫 세션에서 한 번 알린다. `wb-gate-pass.json` 으로 남은 게이트 통과 표식도 그 커밋에는 계속 유효하다. 플러그인은 파일을 대신 옮기지 않는다. 새 이름으로 바꾸려면 세션을 닫은 뒤 폴더 이름을 직접 바꾼다(`mv ~/.wb ~/.lanekeeper`, `git mv .wb .lanekeeper`, `mv .git/wb .git/lanekeeper`). 자세한 내용은 README 의 「wb 에서 이름 변경(0.2.0)」에 있다.
+
+옛 `wb-*` 명령의 별칭은 없다. 그래서 직접 만든 스크립트, `CLAUDE.md`, `Bash(wb-config:*)` 같은 권한 규칙에서 이름을 바꿔야 한다.
+
+| 0.2.0 이전 | 지금 |
+|---|---|
+| `wb-art` | `lanekeeper-art` |
+| `wb-cases` | `lanekeeper-cases` |
+| `wb-check` | `lanekeeper-check` |
+| `wb-config` | `lanekeeper-config` |
+| `wb-decide` | `lanekeeper-decide` |
+| `wb-defects` | `lanekeeper-defects` |
+| `wb-docs` | `lanekeeper-docs` |
+| `wb-explain` | `lanekeeper-explain` |
+| `wb-index` | `lanekeeper-index` |
+| `wb-integrate` | `lanekeeper-integrate` |
+| `wb-number` | `lanekeeper-number` |
+| `wb-port` | `lanekeeper-port` |
+| `wb-quality` | `lanekeeper-quality` |
+| `wb-reap` | `lanekeeper-reap` |
+| `wb-retry` | `lanekeeper-retry` |
+| `wb-route` | `lanekeeper-route` |
+| `wb-rules` | `lanekeeper-rules` |
+| `wb-slot` | `lanekeeper-slot` |
+| `wb-style` | `lanekeeper-style` |
+| `wb-terse` | `lanekeeper-terse` |
+| `wb-test-report` | `lanekeeper-test-report` |
+| `wb-token` | `lanekeeper-token` |
+| `wb-waves` | `lanekeeper-waves` |
+| `wb-work` | `lanekeeper-work` |
+| `wb-worktree` | `lanekeeper-worktree` |
 
 ## 3. 프로젝트 초기화
 

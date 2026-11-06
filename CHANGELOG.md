@@ -4,6 +4,26 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-06
+
+### Changed
+- 소유자가 해야 하는 결정 세 가지를 `/lanekeeper:approve` 로 옮겼다. 전에는 일반 터미널에 없는 명령이나, 에이전트도 붙일 수 있는 플래그에 맡겨서 실제로 막지 못하거나 사람이 쓸 수 없었다
+  - 약화 결과 승인: `/lanekeeper:approve accept-quality <종류> --reason 사유`. `lanekeeper-quality accept` 는 안내만 출력하고 종료 코드 4 로 끝난다. TTY 검사는 뺐다. 가상 터미널을 만들면 에이전트도 통과할 수 있어서 사람을 확인하는 수단이 아니기 때문이다
+  - 자동 재개의 `bypassPermissions`: `/lanekeeper:approve retry-bypass`. `lanekeeper-retry mode bypassPermissions` 는 `--i-understand` 를 붙여도 거절한다
+  - 오래된 게이트 잠금 삭제: `/lanekeeper:approve clear-gate-lock`. `lanekeeper-reap --gate-lock` 은 안내만 출력하고 종료 코드 4 로 끝난다
+- 사람이 입력하는 명령을 슬래시 명령 중심으로 안내한다. 판 번호가 든 `bin` 경로를 `PATH` 에 넣으라는 안내를 뺐다(`docs/*/01-getting-started.md`, `docs/*/05-troubleshooting.md`)
+- 설치 안내를 README 와 같게 맞췄다(통합 마켓플레이스 먼저, 단독 설치 다음). 문서의 판 번호 예시를 현재 판으로 고쳤고, 시험이 어긋남을 잡는다
+
+### Fixed
+- 보안: 저장소의 `.lanekeeper/config.json` 에 `personal.auto_retry` 를 넣으면 자동 재개가 `bypassPermissions` 로 실행될 수 있었다. 이제 확인 기록은 `~/.lanekeeper/personal.json` 에 있을 때만 인정한다
+- 안전 훅이 `accepted.json` 쓰기와 `personal.json` 의 `bypass_ack` 쓰기를 막지 않아서, 소유자 결정을 에이전트가 파일로 직접 만들 수 있었다. 이제 Write·Edit·Bash 모두 권한 모드와 관계없이 거절한다(`safety.paths.accepted`, `safety.paths.ack`). Bash 로 `personal.json` 을 쓰는 것도 함께 막힌다
+- 안전 훅이 `claude -p "/lanekeeper:approve …"` 를 막지 않아서, 에이전트가 Bash 로 띄운 헤드리스 세션에서 허가를 만들 수 있었다. 이제 명령줄에 `claude` 와 `lanekeeper:approve` 가 함께 있으면 거절한다. 변수나 파일로 간접 전달하는 경우는 스크립트 파일 안의 명령처럼 검사 범위 밖이다
+- 0.2.0 이전에 남긴 게이트 통과 표식(`wb-gate-pass.json`)을 읽지 못해, 같은 커밋인데도 게이트를 다시 돌려야 했다. 기본 표식 이름을 쓰는 경우 옛 표식도 그 커밋에 유효하다
+
+### Added
+- 옛 이름에서 옮기는 절(README 영문·한국어, `docs/*/01-getting-started.md`)에 `wb-*` → `lanekeeper-*` 대응표, `claude plugin marketplace remove wb-plugin`, `wb` 를 함께 켜면 훅이 두 번 실행된다는 경고를 더했다
+- 시험 `tests/owner-decisions.test.mjs`: 슬래시 승인, 모델 호출 거부, 권한 모드별 처리, 묶인 명령 거부, 옛 표식
+
 ## [0.2.0] - 2026-11-05
 
 ### Changed

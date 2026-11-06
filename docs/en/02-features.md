@@ -97,7 +97,7 @@ $ git reset --hard HEAD~1
 [lanekeeper] Needs your confirmation: `git reset --hard` discards uncommitted changes for good (current `lanekeeper/search/int`).
 ```
 
-**Owner grant.** Changes to a protected branch are granted only when the owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`) in the prompt. A grant is valid once, for 15 minutes, and only for the commit current when it was typed. Claude cannot call this skill or write the grant file.
+**Owner grant.** Changes to a protected branch are granted only when the owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`) in the prompt. A grant is valid once, for 15 minutes, and only for the commit current when it was typed. Claude cannot call this skill or write the grant file. The same command takes three other owner decisions (accepting a weakened test result, `bypassPermissions` for the automatic resume, clearing an old gate lock). They do not use a confirmation dialog, because a dialog does not appear in every permission mode.
 
 **Outside the check.** The safety hooks judge command strings. Commands inside script files, and git calls made from python or node, are not judged.
 
@@ -237,7 +237,7 @@ With a ledger, the ledger comparison sheet lists mismatches between the ledger a
 
 **Results per kind and the ship precheck.** `lanekeeper-quality` keeps a result per test kind (unit, integration, gate, e2e, UI stability, usability, adversarial UX check, ship verification). The commands are set per kind in the project setting `quality.suites` (command, result format `parser`, slot, threshold files, stale paths). A result is a common head JSON (kind, version, commit, branch, start, end, environment, verdict, total, passed, failed, skipped, fixme, flaky, raw file location) and a workbook with the same content, saved as `docs/test-results/<version>/<date>/<kind>-<HHMM>.json` and `.xlsx`. The version is read from `quality.version_file` (default `VERSION`). Raw files such as logs stay in `quality.raw_root` and are not committed. `index.json` and `INDEX.md` in the results folder are an index rebuilt from the result files. Older date folders (`docs/test-results/<date>/`) are not moved; the index lists them as the older layout.
 
-Before ship verification starts (`quality.ship.skills`, `quality.ship.agents`), the newest result of each kind in `quality.ship.requires` is checked. When there is none (missing), when it belongs to another commit or ran with uncommitted changes (stale), or when it did not pass (failed), the gate blocks and `lanekeeper-quality precheck --run` runs that kind again. When it has fewer tests, more skipped or fixme tests, or a changed or loosened threshold file compared with the previous passed result (weakened), running again does not help. When the change is intended, the repository owner accepts it with `lanekeeper-quality accept` in their own terminal. A commit that only changes files in the results folder counts as the same commit.
+Before ship verification starts (`quality.ship.skills`, `quality.ship.agents`), the newest result of each kind in `quality.ship.requires` is checked. When there is none (missing), when it belongs to another commit or ran with uncommitted changes (stale), or when it did not pass (failed), the gate blocks and `lanekeeper-quality precheck --run` runs that kind again. When it has fewer tests, more skipped or fixme tests, or a changed or loosened threshold file compared with the previous passed result (weakened), running again does not help. When the change is intended, the repository owner accepts it by typing `/lanekeeper:approve accept-quality <kind> --reason why` in the prompt. A commit that only changes files in the results folder counts as the same commit.
 
 Kinds in `quality.ship.advisory` (default `["ux-adversarial"]`) are checked the same way but only warn. When the adversarial UX check was not done before shipping (manual, missing), or its newest result has an open blocker finding (failed), a warning appears under the precheck table and in the hook note. Move the kind to `quality.ship.requires` to make it block, or set `[]` to drop the warning.
 
@@ -370,7 +370,7 @@ Calibration five-hour: 1% ≈ 4,375,643 weighted tokens (since the window starte
 Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window started, approximate, 10-17 06:59 → 10-17 22:35).
 ```
 
-The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only after the risk is confirmed with `lanekeeper-retry mode bypassPermissions --i-understand`.
+The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only when a person types `/lanekeeper:approve retry-bypass` in the prompt. An agent cannot turn it on, and a repository's project settings cannot confirm it.
 
 ## 13. The 28 skills
 
@@ -402,7 +402,7 @@ Type a skill in the Claude Code prompt as `/lanekeeper:<name>`. Claude also call
 | `/lanekeeper:quality-report` | Builds the quality report of a version (workbook, Markdown, HTML) |
 | `/lanekeeper:docs-sync` | Brings documents and screenshots up to date with a change of screens or features |
 | `/lanekeeper:report` | Publishes the final report as an artifact |
-| `/lanekeeper:approve` | Grants one change to a protected branch (typed by a person only) |
+| `/lanekeeper:approve` | Owner decisions, typed by a person only: one change to a protected branch, accepting a weakened result, `bypassPermissions` for the automatic resume, clearing an old gate lock |
 | `/lanekeeper:auto-retry` | Manages the automatic resume after a limit |
 | `/lanekeeper:token-guard` | Shows and calibrates the token guard |
 | `/lanekeeper:terse` | Turns terse mode on and off |
@@ -630,14 +630,15 @@ Blocked: 1 items did not pass. Ship verification cannot start.
 
 ### /lanekeeper:approve
 
-- When: a merge, push or commit on a protected branch (such as `main`) is needed. Only the repository owner types it.
+- When: a merge, push or commit on a protected branch (such as `main`) is needed, a weakened test result is intended, the automatic resume should run without asking, or a stopped gate left its lock behind. Only the repository owner types it.
 - How: type `/lanekeeper:approve merge-main|push-main|commit-main [branch or commit]` in the prompt. A grant is valid once, for 15 minutes by default, and only for the commit current when it was typed. A project with a gate command also needs a gate pass stamp for the same commit. `/lanekeeper:approve status` shows the grant and `/lanekeeper:approve revoke` deletes it. Force pushes stay blocked even with a grant.
+- Other decisions, which take effect at once and leave an active grant as it is: `accept-quality <kind> --reason why` records the acceptance for the commit of that kind's newest result, in `accepted.json` of the results folder (commit that file afterwards). `retry-bypass` lets the automatic resume use `bypassPermissions`, and `lanekeeper-retry mode default` turns it off. `clear-gate-lock` removes `gate.lock` when it is older than `machine.slots.stale_after_min`.
 - Example: `/lanekeeper:approve merge-main lanekeeper/search/int`
 
 ### /lanekeeper:auto-retry
 
 - When: checking, turning on or off, or cancelling the automatic resume after a limit.
-- How: runs `lanekeeper-retry status`, `lanekeeper-retry on|off`, `lanekeeper-retry cancel <session prefix|all>`, `lanekeeper-retry mode <mode>` or `lanekeeper-retry limits`. Claude never turns on `bypassPermissions` on its own.
+- How: runs `lanekeeper-retry status`, `lanekeeper-retry on|off`, `lanekeeper-retry cancel <session prefix|all>`, `lanekeeper-retry mode <mode>` or `lanekeeper-retry limits`. Claude cannot turn on `bypassPermissions`: `lanekeeper-retry mode bypassPermissions` only prints the warning, and a person types `/lanekeeper:approve retry-bypass`.
 - Example:
 
 ```

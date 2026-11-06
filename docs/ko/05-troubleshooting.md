@@ -39,7 +39,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | `보호 브랜치 … 에 대한 이 작업(…)은 소유자 허가가 필요한데 허가가 없습니다` | 보호 브랜치 병합·push·커밋 | 소유자가 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력한다. push 를 막았을 때 메시지의 브랜치 이름은 대상이 아니라 지금 체크아웃한 브랜치로 나온다 |
 | `커밋 … 에 대한 게이트 통과 표식이 없습니다` | `project.gate.command` 가 설정된 프로젝트에서 반영할 커밋으로 게이트를 통과시킨 적이 없다 | 그 커밋을 체크아웃한 폴더(보통 통합 브랜치)에서 `lanekeeper-test-report gate-pass` 나 `lanekeeper-test-report run` 을 끝까지 통과시킨다. 커밋하지 않은 변경이 있으면 표식을 남기지 않는다 |
 | `게이트 통과 표식이 다른 커밋(…)의 것입니다` | 표식을 남긴 뒤 결과 파일 말고 다른 변경이 커밋됐다 | 지금 커밋에서 게이트를 다시 돌린다 |
-| `검증 게이트가 실행 중입니다` | `lanekeeper-test-report run` 이 게이트 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다. 비정상 종료로 잠금이 남았으면 `lanekeeper-reap --gate-lock` 으로 지운다 |
+| `검증 게이트가 실행 중입니다` | `lanekeeper-test-report run` 이 게이트 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다. 비정상 종료로 잠금이 남았으면, 잠금이 `machine.slots.stale_after_min` 보다 오래된 뒤 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력한다 |
 | `기능 브랜치 push 는 확인 후 진행합니다` | `project.git.feature_push` 가 `ask`(기본) | 확인 창에서 승인한다. 늘 허용하려면 `allow` 로 바꾼다 |
 | `` `git reset --hard` 는 커밋하지 않은 변경을 되돌릴 수 없게 지웁니다`` | 변경을 지우는 명령 | `git status` 로 지워질 내용을 확인하고 필요하면 WIP 커밋을 남긴 뒤 승인한다 |
 
@@ -96,7 +96,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | `lanekeeper-worktree create` 가 `이 저장소에는 커밋이 하나도 없어` 라고 안내 | 커밋이 없는 새 저장소다 | 첫 커밋을 만든 뒤 다시 실행한다 |
 | `lanekeeper-number reserve` 가 `번호 계열 … 가 없습니다` | `.lanekeeper/config.json` 에 `numbers` 계열이 없다 | [설정](03-configuration.md)의 `project.numbers` 예처럼 계열을 선언한다 |
 | codegraph 호출이 `… 에는 codegraph 색인이 없어요` 로 막힘 | 이 세션에서 색인 없음 응답을 이미 받은 경로다 | 색인이 생길 때까지 grep 과 Read 로 진행한다. 상태는 `lanekeeper-index status` 로 본다 |
-| 일반 터미널에서 `lanekeeper-config: command not found` | `lanekeeper-*` 명령이 `PATH` 에 없다 | Claude Code 세션 안에서 쓰거나, 플러그인 폴더의 `bin` 을 `PATH` 에 넣는다 |
+| 일반 터미널에서 `lanekeeper-config: command not found` | `lanekeeper-*` 명령은 세션 안에서 Claude 가 실행하는 Bash 명령의 `PATH` 에만 있다 | Claude 에게 실행을 요청하거나, 맞는 `/lanekeeper:*` 명령을 프롬프트에 입력한다. 플러그인의 `bin` 폴더는 `PATH` 에 넣지 않는다. 설치 경로에 판 번호가 들어 있어서 갱신할 때마다 경로가 바뀐다 |
 
 ## 3. 자주 묻는 질문
 
@@ -113,7 +113,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 `~/.lanekeeper/routing.json` 의 `denied` 에 모델 이름을 넣는다. 그 모델은 대체 순서에서 빠진다.
 
 **`/lanekeeper:approve` 를 Claude 에게 시킬 수 있나?**
-없다. 이 스킬은 사람이 프롬프트에 직접 입력할 때만 허가를 만든다. 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다.
+없다. 이 스킬은 사람이 프롬프트에 직접 입력할 때만 허가를 만든다. 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. `accept-quality`·`retry-bypass`·`clear-gate-lock` 도 같다.
 
 **codegraph 가 없어도 되나?**
 된다. 관련 훅과 명령은 아무것도 하지 않는다. 설치하면 새 워크트리마다 색인 작업을 대기열에 넣어 만든다.
@@ -133,7 +133,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 **자동 재개된 세션이 중간에 멈춘다.**
 기본 권한 모드(`default`)에서는 승인이 필요한 도구가 무인 실행에서 거절된다. 이때는 `lanekeeper-retry status` 의 `claude --resume <id>` 줄로 세션을 열어 이어서 진행한다.
 
-## 4. 알려진 제한(0.1.0)
+## 4. 알려진 제한
 
 | 항목 | 영향 | 지금 할 수 있는 것 |
 |---|---|---|

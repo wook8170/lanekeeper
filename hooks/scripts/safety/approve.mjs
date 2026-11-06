@@ -12,14 +12,23 @@
 //   /lanekeeper:approve commit-main [ref]  allow one commit on a protected branch at <ref>
 //   /lanekeeper:approve status             show the current grant
 //   /lanekeeper:approve revoke             delete the current grant
+//
+// Owner decisions that take effect at once, with no grant left behind (an active
+// merge, push or commit grant stays as it is):
+//   /lanekeeper:approve accept-quality <kind> --reason <why>   accept a weakened result of <kind>
+//   /lanekeeper:approve retry-bypass       let the automatic resume use bypassPermissions
+//   /lanekeeper:approve clear-gate-lock    remove a gate.lock older than machine.slots.stale_after_min
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { resolveConfig, projectRoot, stateDir } from '../../../lib/config.mjs'
+import { resolveConfig, projectRoot, stateDir, expandHome } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
+import * as Q from '../../../lib/quality.mjs'
+import { setPersonal } from '../../../lib/runtime.mjs'
+import { slotSettings } from '../../../lib/slots.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
-import { ACTIONS, grantPath, writeGrant } from './grant.mjs'
+import { ACTIONS, GATE_LOCK, OWNER_ACTIONS, grantPath, writeGrant } from './grant.mjs'
 
 // Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
 export function localTime(iso) {
@@ -59,6 +68,35 @@ export function defaultRef(action, cwd, gitCfg) {
   return ints.length === 1 ? ints[0] : null
 }
 
+// `<kind> --reason <why>`, the reason running to the end and optionally quoted.
+export function parseAccept(args) {
+  const m = /^(\S+)\s+--reason(?:=|\s+)([\s\S]+)$/.exec(String(args).trim())
+  if (!m) return null
+  const reason = m[2].trim().replace(/^(["'])([\s\S]*)\1$/, '$2').trim()
+  return reason ? { kind: m[1], reason } : null
+}
+
+function acceptQuality(args, root, resolved, t, block, context) {
+  const parsed = parseAccept(args)
+  if (!parsed) return block('approve.accept.usage', {})
+  const settings = Q.qualitySettings(resolved.config)
+  const entry = Q.latestOf(Q.buildIndex(root, settings).entries, parsed.kind)
+  if (!entry) return block('q.accept.none', { kind: parsed.kind })
+  const file = Q.recordAcceptance(root, settings, { kind: parsed.kind, commit: entry.commit, reason: parsed.reason })
+  Q.writeIndex(root, settings, t)
+  return context(t('q.accept.done', { kind: parsed.kind, commit: entry.commit.slice(0, 9), file: path.relative(root, file) }))
+}
+
+function clearGateLock(sd, resolved, env, now, t, block, context) {
+  const lock = path.join(sd, GATE_LOCK)
+  if (!fs.existsSync(lock)) return context(t('approve.gate_lock.none'))
+  const ageMs = now - fs.statSync(lock).mtimeMs
+  const ageMin = Math.round(ageMs / 60000)
+  if (ageMs <= slotSettings(resolved, (p) => expandHome(p, env.HOME)).staleMs) return block('reap.gate_active', { ageMin })
+  fs.rmSync(lock, { force: true })
+  return context(t('reap.gate_removed', { ageMin }))
+}
+
 export function handleApprove(input, env = process.env, now = Date.now()) {
   const cwd = input.cwd || process.cwd()
   const root = projectRoot(cwd, env)
@@ -69,9 +107,17 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
 
   if (input.command_name !== 'lanekeeper:approve') return null
   if (resolved.errors.length) return block('approve.config_broken', { file: resolved.errors[0].file, key: resolved.errors[0].path })
+  const rawArgs = String(input.command_args || '').trim()
+  const [action = '', ref] = rawArgs.split(/\s+/)
+  if (action === 'retry-bypass') {
+    setPersonal(env, 'auto_retry.permission_mode', 'bypassPermissions')
+    setPersonal(env, 'auto_retry.bypass_ack', true)
+    return context(t('approve.retry_bypass'))
+  }
   const sd = stateDir(root)
   if (!sd) return block('approve.not_git', {})
-  const [action = '', ref] = String(input.command_args || '').trim().split(/\s+/)
+  if (action === 'accept-quality') return acceptQuality(rawArgs.slice(action.length), root, resolved, t, block, context)
+  if (action === 'clear-gate-lock') return clearGateLock(sd, resolved, env, now, t, block, context)
   const file = grantPath(sd)
 
   if (action === 'status') {
@@ -84,7 +130,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
     fs.rmSync(file, { force: true })
     return context(t('approve.revoked'))
   }
-  if (!ACTIONS.includes(action)) return block('approve.usage', { actions: ACTIONS.join(' | ') })
+  if (!ACTIONS.includes(action)) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
 
   const gitCfg = resolved.config.project?.git || {}
   const useRef = ref || defaultRef(action, cwd, gitCfg)

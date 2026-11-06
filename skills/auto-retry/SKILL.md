@@ -13,12 +13,12 @@ Run the matching command and report the output briefly in the user's language:
 - `status` (default): `lanekeeper-retry status`
 - `on` / `off`: `lanekeeper-retry on` / `lanekeeper-retry off`
 - `cancel <session id prefix | all>`: `lanekeeper-retry cancel <arg>`
-- `mode <mode>`: `lanekeeper-retry mode <default|acceptEdits|plan|bypassPermissions>`
+- `mode <mode>`: `lanekeeper-retry mode <default|acceptEdits|plan>`
 - `limits`: `lanekeeper-retry limits` (add `--clear` to forget the records)
 
 Rules:
 
 - The resumed session uses `personal.auto_retry.permission_mode`, default `default`. In that mode tools that need approval are refused in the unattended run, so the resumed work may stop at the first such tool and wait for the user.
-- Never set `bypassPermissions` on your own initiative. If the user asks for it, show them the warning that `lanekeeper-retry mode bypassPermissions` prints and run it with `--i-understand` only when the user confirms in their own message.
+- You cannot set `bypassPermissions`. If the user asks for it, show the warning that `lanekeeper-retry mode bypassPermissions` prints: the user turns it on by typing `/lanekeeper:approve retry-bypass` in the prompt.
 - To continue a resumed session in chat, give the user the `claude --resume <id>` line from `lanekeeper-retry status`.
 - Logs and state live in the Lanekeeper data folder under `auto-retry/`.

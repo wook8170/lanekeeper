@@ -50,14 +50,18 @@ Claude Code 2.1.295 이상이 필요하다(안전 훅의 `onFailure: block`). �
 
 ```
 claude plugin uninstall wb@wb-plugin             # 또는 wb@wook8170-plugins
+claude plugin marketplace remove wb-plugin       # 옛 이름의 마켓플레이스
 claude plugin install lanekeeper@wook8170-plugins  # 또는 lanekeeper@lanekeeper
 ```
+
+**`wb` 를 `lanekeeper` 와 함께 켜 두지 않는다.** 함께 켜면 모든 훅이 두 번씩 실행된다. `--plugin-dir` 로 옛 폴더를 읽는 습관도 없앤다. `claude plugin list` 에는 `lanekeeper` 만 보여야 한다.
 
 옛 설정은 그대로 동작한다. 그리고 플러그인이 파일을 대신 옮기지 않는다.
 
 - `~/.lanekeeper` 가 없으면 `~/.wb` 를 읽는다. `<repo>/.lanekeeper/config.json` 이 없으면 `<repo>/.wb/config.json` 을 읽는다. `<git 공용 폴더>/wb` 의 레인 상태도 같은 방식으로 쓴다.
 - `WB_*` 환경 변수는 `LANEKEEPER_*` 로 읽는다. 둘 다 있으면 `LANEKEEPER_*` 를 쓴다.
 - 첫 줄이 `<!-- wb-brief` 나 `<!-- wb-decision` 인 지시서와 결정 파일도 그대로 인식한다.
+- `wb-gate-pass.json` 으로 남은 게이트 통과 표식도 그 커밋에는 계속 유효하다. 다음 게이트 실행부터는 `lanekeeper-gate-pass.json` 을 쓴다.
 - 옛 이름을 쓰는 첫 세션에서, 어떤 옛 이름을 읽었는지 한 번 알린다.
 
 새 이름으로 바꾸려면 실행 중인 세션을 모두 닫은 뒤 폴더 이름을 직접 바꾼다.
@@ -69,6 +73,36 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 ```
 
 새 기본 브랜치 이름은 `lanekeeper/*/int` 와 `lanekeeper/*/l*` 이다. `wb/…` 이름으로 시작한 레인을 이어서 쓰려면, `.lanekeeper/config.json` 의 `git.integration_branch_pattern` 과 `git.lane_branch_pattern` 을 `wb/*/int` 와 `wb/*/l*` 로 되돌린다. 또 Claude Code 는 플러그인 데이터를 플러그인 이름별로 보관한다. 그래서 한도 기록, 토큰 가드의 합계, 자동 재개의 기록은 새 이름에서 처음부터 다시 쌓인다.
+
+옛 `wb-*` 명령의 별칭은 없다. 그래서 직접 만든 스크립트, `CLAUDE.md`, `Bash(wb-config:*)` 같은 권한 규칙에서 이름을 바꿔야 한다.
+
+| 0.2.0 이전 | 지금 |
+|---|---|
+| `wb-art` | `lanekeeper-art` |
+| `wb-cases` | `lanekeeper-cases` |
+| `wb-check` | `lanekeeper-check` |
+| `wb-config` | `lanekeeper-config` |
+| `wb-decide` | `lanekeeper-decide` |
+| `wb-defects` | `lanekeeper-defects` |
+| `wb-docs` | `lanekeeper-docs` |
+| `wb-explain` | `lanekeeper-explain` |
+| `wb-index` | `lanekeeper-index` |
+| `wb-integrate` | `lanekeeper-integrate` |
+| `wb-number` | `lanekeeper-number` |
+| `wb-port` | `lanekeeper-port` |
+| `wb-quality` | `lanekeeper-quality` |
+| `wb-reap` | `lanekeeper-reap` |
+| `wb-retry` | `lanekeeper-retry` |
+| `wb-route` | `lanekeeper-route` |
+| `wb-rules` | `lanekeeper-rules` |
+| `wb-slot` | `lanekeeper-slot` |
+| `wb-style` | `lanekeeper-style` |
+| `wb-terse` | `lanekeeper-terse` |
+| `wb-test-report` | `lanekeeper-test-report` |
+| `wb-token` | `lanekeeper-token` |
+| `wb-waves` | `lanekeeper-waves` |
+| `wb-work` | `lanekeeper-work` |
+| `wb-worktree` | `lanekeeper-worktree` |
 
 ## 실행하는 것 · 보내는 것 · 가져오는 것
 
@@ -98,7 +132,7 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 
 `settings.json` 은 서브에이전트 상태줄을 `lanekeeper-waves statusline` 으로 정한다. `bin/lanekeeper-*` 도구 25개는 사용자나 Claude 가 부를 때만 실행된다. 이 도구들은 필요할 때 외부 프로그램을 실행한다. 대상은 `git`, `gh`(PR 조회), `lsof`, `ps`, `codegraph`, `sqlite3`, `nice`, `python3`(엑셀), `cwebp`(그림 변환), `osascript`·`notify-send`(데스크톱 알림)이다. 프로젝트 설정에 사용자가 적은 명령도 실행한다. `lanekeeper-slot reap --orphans --kill` 은 목록에 오른 고아 프로세스를 PID 하나씩 종료하며, `--kill` 을 붙였을 때만 종료한다. `lanekeeper-worktree remove` 와 `lanekeeper-index orphans --apply` 도 사용자가 요청할 때만 지운다.
 
-**자동 재개(기본 꺼짐).** `lanekeeper-retry on` 으로 켠 뒤 사용량 한도로 턴이 끝나면, Stop 훅이 한 번만 실행되는 작업을 등록한다. 등록 위치는 macOS 에서는 launchd 에이전트 `~/Library/LaunchAgents/lanekeeper.auto-retry.<id>.plist`, Linux 에서는 systemd 사용자 타이머, 그 밖에서는 백그라운드에서 기다리는 프로세스다. 리셋 시각이 되면 이 작업이 기본 권한 모드로 `claude --resume <id> -p <프롬프트>` 를 실행하고, 실행이 끝나면 등록을 지운다. 되돌리려면 `lanekeeper-retry off` 와 `lanekeeper-retry cancel all` 을 실행한다.
+**자동 재개(기본 꺼짐).** `/lanekeeper:auto-retry on` 으로 켠 뒤 사용량 한도로 턴이 끝나면, Stop 훅이 한 번만 실행되는 작업을 등록한다. 등록 위치는 macOS 에서는 launchd 에이전트 `~/Library/LaunchAgents/lanekeeper.auto-retry.<id>.plist`, Linux 에서는 systemd 사용자 타이머, 그 밖에서는 백그라운드에서 기다리는 프로세스다. 리셋 시각이 되면 이 작업이 기본 권한 모드로 `claude --resume <id> -p <프롬프트>` 를 실행하고, 실행이 끝나면 등록을 지운다. 되돌리려면 `lanekeeper-retry off` 와 `lanekeeper-retry cancel all` 을 실행한다.
 
 ### 보내는 것
 
@@ -204,6 +238,8 @@ lanekeeper-route check review --model sonnet            모델 선택 판정(차
 
 **소유자 허가.** 보호 브랜치 반영은 저장소 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분(`git.owner_grant_ttl_min`) 동안 한 번, 입력 시점의 커밋에만 유효하다. 프로젝트에 게이트 명령(`gate.command`)이 있으면 같은 커밋의 게이트 통과 표식도 있어야 한다. 허가는 `UserPromptExpansion` 훅이 만든다. 이 이벤트는 사람이 슬래시 명령을 입력할 때만 발생하므로 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. 모델은 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다.
 
+**소유자의 다른 결정.** 에이전트가 스스로 정하면 안 되는 결정 세 가지도 같은 명령으로 받으며, 입력하는 즉시 적용된다. `/lanekeeper:approve accept-quality <종류> --reason 사유` 는 약화된 시험 결과를 승인한다. `/lanekeeper:approve retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. `/lanekeeper:approve clear-gate-lock` 은 오래된 게이트 잠금을 지운다. 확인 창 대신 슬래시 명령을 쓰는 이유는 `dontAsk` 모드와 무인 실행에서는 확인 창이 뜨지 않기 때문이다. 이 명령이 쓰는 파일은 Bash 나 파일 도구로도 쓸 수 없다. 다만 다른 안전 훅과 마찬가지로 스크립트 파일 안의 명령은 검사하지 못한다.
+
 **그 밖의 차단.**
 - 프로세스 종료: `pkill`·`killall`·`kill $(pgrep …)` 처럼 이름으로 끄는 명령은 차단한다. `kill <PID>`·`lsof -ti :포트 | xargs kill`·`fuser -k` 는 대상이 보호 포트(`machine.ports.protected`)를 쓰면 차단한다.
 - 삭제: `/`·홈·시스템 폴더·프로젝트 루트·`.git` 를 지우는 `rm -r` 는 차단한다. 프로젝트 밖은 확인 요청, 프로젝트 안과 임시 폴더는 허용한다.
@@ -226,7 +262,7 @@ lanekeeper-route check review --model sonnet            모델 선택 판정(차
 | 세션 규칙 | 훅으로 판정할 수 없는 작업 규칙을 세션 시작·`/clear`·압축 뒤에 넣는다. 출력 언어(`personal.language` 가 `ko`·`en`), 원격 사용자(`personal.report.viewer: remote`: 로컬 주소 금지, 아티팩트, base64 이미지, 2배율 캡처), 보고 정확성·소통·수정 원칙(구현과 반영 구분, 모호하면 되묻기, 근본 원인 수정, 제품 화면 이모지 금지) | `personal.session_rules.{language, remote, conduct}` | |
 | 체크포인트 | 한도, 서브에이전트 종료, 컨텍스트 압축 시점에 레인 브랜치에서 추적 중인 파일의 변경만 `wip(lanekeeper)` 커밋으로 남긴다. `project.lanes.commit` 이 `on-instruction` 이면 지시서가 커밋을 허용한 레인만 커밋한다. 추적 안 된 새 파일과 비밀 파일 패턴(`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`)은 커밋하지 않고 `.git/lanekeeper/checkpoint.json` 과 알림으로 알린다. 프로젝트 훅(pre-commit)이 실패하면 체크포인트를 건너뛰고 사유를 기록한다. 보호 브랜치와 레인이 아닌 브랜치는 건드리지 않고 push 하지 않는다 | `personal.checkpoint.enabled` | |
 
-자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로, 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `lanekeeper-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜지고, 확인 기록(`bypass_ack`)이 없으면 `default` 로 재개한다.
+자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로, 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 사람이 프롬프트에 `/lanekeeper:approve retry-bypass` 를 입력할 때만 켜진다. 이 확인 기록(`~/.lanekeeper/personal.json` 의 `bypass_ack`)이 없으면 `default` 로 재개하고, 프로젝트 설정으로는 이 기록을 대신할 수 없다.
 
 토큰 가드는 `~/.claude.json` 에 저장된 공식 사용량을 먼저 쓰고, 조회한 지 10분이 지나면 그 뒤의 로컬 사용량을 계정별 보정 계수로 환산해 더한다. 보정은 자동이며, 앱에서 본 값은 `lanekeeper-token calibrate --five <n> --seven <n>` 으로 넣을 수 있다. 공식 값이 없으면 예산(`personal.token_guard.budget`, 기본 0) 방식으로 동작하고, 예산도 보정도 없으면 동작하지 않는다.
 
@@ -274,7 +310,7 @@ lanekeeper-worktree remove l3 [--force] [--delete-branch]
 
 켜면 Lanekeeper 의 훅은 Claude Code 와 같은 위치(`.claude/worktrees/<이름>`)와 브랜치 이름(`worktree-<이름>`)을 쓰고, 통합 브랜치가 하나로 정해지면 그 HEAD 를 기준으로 삼는다. 포트 임대·`.worktreeinclude` 복사·설치 명령도 같이 처리한다. 이 워크트리는 레인 대장에 등록하지 않는다. 설치 명령은 슬롯을 2분 안에 얻지 못하면 건너뛰고, 나중에 `lanekeeper-worktree setup <이름>` 으로 실행한다. 원격 기본 브랜치 기준 생성, 필터 드라이버 차단, 오래된 워크트리 자동 정리 같은 Claude Code 기본 동작은 이 경우 적용되지 않는다.
 
-**정리.** `lanekeeper-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 하고 `--gate-lock` 을 줄 때만 지운다. 프로세스는 끄지 않는다.
+**정리.** `lanekeeper-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 한다. 지우려면 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력한다. 프로세스는 끄지 않는다.
 
 ## 레인 원장·진행판·재개
 
@@ -441,7 +477,7 @@ codegraph 는 선택 도구다. 설치돼 있지 않으면 세션 시작 때 설
 ```
 lanekeeper-index add [경로]         # 대기열에 넣고 작업 프로세스를 띄운다(기본: 현재 체크아웃)
 lanekeeper-index status             # 대기 중인 항목, 작업 프로세스, 최근 결과
-lanekeeper-index run                # 대기열을 지금 이 터미널에서 처리
+lanekeeper-index run                # 대기열을 지금 바로 처리
 lanekeeper-index drop <경로>        # 대기열에서 빼고 그 경로의 .codegraph 를 지운다
 lanekeeper-index orphans [--apply]  # 워크트리가 아닌 폴더에 남은 색인과 크기, --apply 로 색인만 삭제
 lanekeeper-index metrics [--days N] # codegraph 응답 분류 집계

@@ -10,10 +10,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { readJsonSafe } from './common.mjs'
+import { LEGACY_GATE_STAMP } from '../../../lib/naming.mjs'
 
 export const GRANT_FILE = 'owner-grant.json'
 export const GATE_LOCK = 'gate.lock'
 export const ACTIONS = ['merge-main', 'push-main', 'commit-main']
+export const OWNER_ACTIONS = ['accept-quality <kind> --reason <why>', 'retry-bypass', 'clear-gate-lock']
 
 export const grantPath = (stateDir) => path.join(stateDir, GRANT_FILE)
 export const stampPath = (stateDir, name) => path.join(stateDir, `${name || 'lanekeeper-gate-pass'}.json`)
@@ -61,8 +63,15 @@ export function writeGrant(stateDir, { action, ref, head, ttlMin, now, session }
 // -> { ok, why: 'missing'|'head', stamp }
 // resultsOnly(stampHead) -> true when every commit after stampHead up to head only adds
 // result files (the workbook of that run); the stamp then still counts.
+// A stamp written before 0.2.0 under the old default name still counts.
+function readStamp(stateDir, name) {
+  const s = readJsonSafe(stampPath(stateDir, name))
+  if (s || (name && name !== 'lanekeeper-gate-pass')) return s
+  return readJsonSafe(stampPath(stateDir, LEGACY_GATE_STAMP))
+}
+
 export function checkStamp(stateDir, name, head, resultsOnly) {
-  const s = stateDir ? readJsonSafe(stampPath(stateDir, name)) : null
+  const s = stateDir ? readStamp(stateDir, name) : null
   if (!s || typeof s.head !== 'string') return { ok: false, why: 'missing' }
   if (s.head !== head && !(resultsOnly && resultsOnly(s.head))) return { ok: false, why: 'head', stamp: s }
   return { ok: true, stamp: s }

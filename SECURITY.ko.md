@@ -79,7 +79,7 @@ Lanekeeper 의 안전 훅은 에이전트가 실수로 위험한 명령을 실�
 
 ## 무인 재개 권한
 
-자동 재개는 launchd 에이전트나 systemd 사용자 타이머를 등록한다. 그래서 사용자가 `lanekeeper-retry on` 을 실행하기 전까지는 꺼져 있다. 켜면 기본 권한 모드(`default`)로 실행한다. `bypassPermissions` 는 `lanekeeper-retry mode bypassPermissions --i-understand` 로 위험을 확인한 기록이 있을 때만 쓰인다. 기록이 없으면 `default` 로 낮춰 실행한다. 자격 증명은 저장하지 않는다.
+자동 재개는 launchd 에이전트나 systemd 사용자 타이머를 등록한다. 그래서 사용자가 `/lanekeeper:auto-retry on` 을 실행하기 전까지는 꺼져 있다. 켜면 기본 권한 모드(`default`)로 실행한다. `bypassPermissions` 는 사람이 프롬프트에 `/lanekeeper:approve retry-bypass` 를 입력해 위험을 확인한 기록이 있을 때만 쓰인다. 이 기록은 `~/.lanekeeper/personal.json` 에서만 읽으므로 저장소 설정으로 대신할 수 없다. 기록이 없으면 `default` 로 낮춰 실행한다. 자격 증명은 저장하지 않는다.
 
 ## 함께 쓰는 도구의 라이선스
 

@@ -99,7 +99,7 @@ Which branches lanes and the main session may commit to, merge into and push. Th
 
 - Rule: Nothing is merged while the gate is running.
 - Why: If the code changes during a gate run, nobody can tell which commit the result belongs to.
-- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to clear it with `lanekeeper-reap --gate-lock`.
+- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to type `/lanekeeper:approve clear-gate-lock` in the prompt.
 - Message codes: `safety.git.gate_locked`
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
 
@@ -403,7 +403,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 - Rule: Ship verification starts only after every required verification (unit, integration, gate, e2e, UI stability, usability and so on) passed on the current commit. A missing result, a result of another commit or a failed one is run again until it passes. A result with fewer tests, more skipped or fixme tests, or a looser threshold than the previous passed result does not count as a pass. For a product with screens, right before the ship verdict a checker from a different context than the implementer checks the screens the version changed: a persona's real tasks done end to end, headless in an isolated stack, with 2x captures, on all nine axes (logic errors, information consistency, user context, flow context, a first-time user getting lost, the next action, a way out of errors, accessibility with narrow width and dark theme, design system visual comparison). An open blocker or high finding stops the ship; findings that change a screen are confirmed by the owner before they are fixed. Then the ship verdict (verifying-production-readiness) runs.
 - Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision. Lane tests and the design lint baseline do not catch wording a first-time user misreads, a dead end, or visual violations such as touching spacing and tight line height.
-- If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `lanekeeper-quality accept` in their own terminal.
+- If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it by typing `/lanekeeper:approve accept-quality <kind> --reason why` in the prompt.
 - Message codes: `dispatch.ship_precheck`
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
