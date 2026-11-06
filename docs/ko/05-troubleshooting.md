@@ -39,7 +39,10 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | `보호 브랜치 … 에 대한 이 작업(…)은 소유자 허가가 필요한데 허가가 없습니다` | 보호 브랜치 병합·push·커밋 | 소유자가 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력한다. push 를 막았을 때 메시지의 브랜치 이름은 대상이 아니라 지금 체크아웃한 브랜치로 나온다 |
 | `커밋 … 에 대한 게이트 통과 표식이 없습니다` | `project.gate.command` 가 설정된 프로젝트에서 반영할 커밋으로 게이트를 통과시킨 적이 없다 | 그 커밋을 체크아웃한 폴더(보통 통합 브랜치)에서 `lanekeeper-test-report gate-pass` 나 `lanekeeper-test-report run` 을 끝까지 통과시킨다. 커밋하지 않은 변경이 있으면 표식을 남기지 않는다 |
 | `게이트 통과 표식이 다른 커밋(…)의 것입니다` | 표식을 남긴 뒤 결과 파일 말고 다른 변경이 커밋됐다 | 지금 커밋에서 게이트를 다시 돌린다 |
-| `검증 게이트가 실행 중입니다` | `lanekeeper-test-report run` 이 게이트 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다. 비정상 종료로 잠금이 남았으면, 잠금이 `machine.slots.stale_after_min` 보다 오래된 뒤 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력한다 |
+| `검증 게이트가 실행 중입니다` | `lanekeeper-test-report run` 이 게이트 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다. 비정상 종료로 잠금이 남았으면, 잠금이 `machine.slots.stale_after_min` 보다 오래된 뒤 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력하거나, 메인 세션에서 `lanekeeper-reap --gate-lock` 이 띄운 창에서 허용한다 |
+| `서브에이전트가 소유자 결정을 요청했습니다` | 레인 안에서 `lanekeeper-quality accept` 나 `lanekeeper-reap --gate-lock` 을 실행했다 | 요청을 메인 세션으로 올린다. 메인 세션이 같은 명령을 단독으로 실행하거나 소유자가 슬래시 명령을 입력한다 |
+| `기본 명령을 한 줄 단독으로 실행할 때만 창을 띄웁니다` | 명령을 묶었거나 경로 · 환경 변수 · 옵션을 더했다 | 명령만 단독으로 실행한다. 사유는 일반 글자로 쓰고 따옴표로 묶는다 |
+| `창을 띄운 뒤 내용이 달라져` | 창을 띄운 뒤 새 결과가 생겼거나 잠금이 바뀌었다 | 명령을 다시 실행하고 새 창을 읽는다 |
 | `기능 브랜치 push 는 확인 후 진행합니다` | `project.git.feature_push` 가 `ask`(기본) | 확인 창에서 승인한다. 늘 허용하려면 `allow` 로 바꾼다 |
 | `` `git reset --hard` 는 커밋하지 않은 변경을 되돌릴 수 없게 지웁니다`` | 변경을 지우는 명령 | `git status` 로 지워질 내용을 확인하고 필요하면 WIP 커밋을 남긴 뒤 승인한다 |
 
@@ -113,7 +116,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 `~/.lanekeeper/routing.json` 의 `denied` 에 모델 이름을 넣는다. 그 모델은 대체 순서에서 빠진다.
 
 **`/lanekeeper:approve` 를 Claude 에게 시킬 수 있나?**
-없다. 이 스킬은 사람이 프롬프트에 직접 입력할 때만 허가를 만든다. 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. `accept-quality`·`retry-bypass`·`clear-gate-lock` 도 같다.
+없다. 이 스킬은 사람이 프롬프트에 직접 입력할 때만 허가를 만든다. 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. `accept-quality`·`retry-bypass`·`clear-gate-lock` 도 같다. 다만 메인 세션의 에이전트는 `lanekeeper-quality accept` 나 `lanekeeper-reap --gate-lock` 으로 확인 창을 띄울 수 있고, 그 창에는 사람이 답한다.
 
 **codegraph 가 없어도 되나?**
 된다. 관련 훅과 명령은 아무것도 하지 않는다. 설치하면 새 워크트리마다 색인 작업을 대기열에 넣어 만든다.
@@ -138,4 +141,5 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | 항목 | 영향 | 지금 할 수 있는 것 |
 |---|---|---|
 | UI 안정성 점검과 용어 검사 | 이 판에 포함되지 않았다. 설정 키(`project.ui_stability.*`, `project.glossary.terms_scan`·`copy_globs`)는 예약 상태다 | 이후 판에서 추가된다 |
+| 소유자 결정의 확인 창 | 허용한 쪽이 사람인지 코드로 증명하지 못한다. 거절은 기록되지 않는다. 에이전트가 하위 대화형 세션을 띄워 창에 답하는 길과, 훅이 알아보지 못하게 표 파일을 위조하는 길은 막지 못한다. 대화형 `bypassPermissions` 와 Remote Control 의 동작은 확인하지 못했다 | `/lanekeeper:approve` 를 쓴다. 조직 관리 설정과 `--allowedTools` 의 허용 규칙은 훅이 볼 수 없으므로 이 명령을 넣지 않는다 |
 | 안전 훅의 판정 범위 | 스크립트 파일 안의 명령, python·node 로 실행하는 git·kill 호출은 판정하지 않는다 | 위험한 작업을 스크립트로 감싸지 않는다 |

@@ -152,6 +152,7 @@ switch (cmd) {
       if (c.id === 'codegraphOrphans' && c.status !== 'ok') extra = ` — ${t('doctor.codegraphOrphans.detail', c.detail)}`
       if (c.id === 'codegraphOldKey') extra = ` — ${t('doctor.codegraphOldKey.detail')}`
       if (c.id === 'codegraphAutoExclude') extra = ` — ${t('doctor.codegraphAutoExclude.detail', c.detail)}`
+      if (c.id === 'ownerAllowRule') extra = ` — ${t('doctor.ownerAllowRule.detail', c.detail)}`
       if (c.id === 'git') label = `${label} (${c.detail})`
       print(`${mark[c.status]} ${label}: ${t(`doctor.${c.status}`)}${extra}`)
       if (c.id === 'config') printIssues(c)

@@ -238,7 +238,19 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 
 **Owner grants.** Changes to a protected branch need the repository owner to type `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`) in the prompt. A grant is valid once, for 15 minutes (`git.owner_grant_ttl_min`), for the commit recorded when it was typed. When the project has a gate command (`gate.command`), a gate pass stamp for the same commit is also required. Grants are written by a `UserPromptExpansion` hook. That event fires only when a person types a slash command, so subagent reports and messages from other sessions cannot create one. The model cannot invoke the skill or write the grant file.
 
-**Other owner decisions.** The same command takes three decisions that an agent must not make for itself. They take effect at once: `/lanekeeper:approve accept-quality <kind> --reason why` (accept a weakened test result), `/lanekeeper:approve retry-bypass` (let the automatic resume use `bypassPermissions`) and `/lanekeeper:approve clear-gate-lock` (remove an old gate lock). A slash command is used instead of a confirmation dialog, because `dontAsk` mode and unattended runs show no dialog. The files they write cannot be written by Bash or the file tools either. Commands inside script files are outside this check, as with every safety hook.
+**Other owner decisions.** The same command takes three decisions that an agent must not make for itself. They take effect at once: `/lanekeeper:approve accept-quality <kind> --reason why` (accept a weakened test result), `/lanekeeper:approve retry-bypass` (let the automatic resume use `bypassPermissions`) and `/lanekeeper:approve clear-gate-lock` (remove an old gate lock). The files they write cannot be written by Bash or the file tools either. Commands inside script files are outside this check, as with every safety hook.
+
+**Approving in a dialog.** Accepting a weakened result and clearing a gate lock can also be confirmed in a dialog. When the main session's agent runs `lanekeeper-quality accept <kind> --reason "why"` or `lanekeeper-reap --gate-lock` alone on one line, a dialog appears. It shows the kind, commit, weakening and reason, or the age and process of the lock. Allow runs the command, and decline changes nothing. `retry-bypass` turns permission checks off, so it stays slash-only.
+
+In these cases the hook refuses without a dialog and points at the slash command:
+
+- The permission mode is not `default`, `acceptEdits` or `auto` (`plan`, `dontAsk`, `bypassPermissions`)
+- The session is `-p` or the SDK
+- A subagent asked. A request from inside a lane goes up to the main session
+- The command is chained, piped or wrapped, or has a path, an environment prefix or added options
+- A `permissions.allow` rule covers the command. `/lanekeeper:doctor` warns about this too
+
+The hook adds a one-use ticket to the end of the allowed command. The ticket works once within 10 minutes and is tied to what the dialog showed, so a new result or a changed lock after the dialog was raised is refused. Only its hash is stored. Decisions carried out are written to `<git common dir>/lanekeeper/owner-decisions.jsonl` with their route (`dialog` or `slash`), and an acceptance also has `via` in `accepted.json`.
 
 **Other blocks.**
 - Kills: name-based kills (`pkill`, `killall`, `kill $(pgrep ...)`) are blocked. `kill <PID>`, `lsof -ti :port | xargs kill` and `fuser -k` are blocked when the target listens on a protected port (`machine.ports.protected`).
@@ -310,7 +322,7 @@ lanekeeper-worktree remove l3 [--force] [--delete-branch]
 
 When on, the Lanekeeper hook keeps Claude Code's location (`.claude/worktrees/<name>`) and branch name (`worktree-<name>`), bases the worktree on the integration HEAD when there is exactly one integration branch, and also leases ports, copies `.worktreeinclude` files and runs the setup command. These worktrees are not added to the lane registry. If no heavy slot comes free within 2 minutes the setup command is skipped; run `lanekeeper-worktree setup <name>` later. Claude Code's own extras (branching from the remote default branch, filter-driver neutralisation, the stale worktree sweep) do not apply in this mode.
 
-**Cleanup.** `lanekeeper-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and the owner removes it by typing `/lanekeeper:approve clear-gate-lock` in the prompt. It never stops processes.
+**Cleanup.** `lanekeeper-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and the owner removes it by typing `/lanekeeper:approve clear-gate-lock` in the prompt, or by allowing the dialog that `lanekeeper-reap --gate-lock` raises in the main session. It never stops processes.
 
 ## Lane ledger, progress board and resume
 
@@ -476,6 +488,7 @@ See [SECURITY.md](SECURITY.md) for the details. In short:
 - Safety hooks block when they cannot decide; every other hook lets work continue on an error. SECURITY.md lists the behaviour of each hook.
 - The safety hook judges the command text. Commands inside script files, git or kill calls made from another language (python, node), and settings edited through Bash are outside its reach.
 - The owner grant file cannot stop another process on the same machine from writing it directly. It is a guard against mistakes.
+- The dialog for owner decisions does not prove that a person allowed it, and a declined dialog fires no event, so it is not recorded. An agent that starts a nested interactive session and answers its dialog, or that forges the ticket file in a form the hook cannot recognise, is not stopped. The hook cannot see allow rules in managed settings or `--allowedTools`. Interactive `bypassPermissions` and Remote Control were not checked.
 - Only commands written by the user or the project settings run through a shell (commands wrapped in `lanekeeper-slot`, `review.guards`, `worktree.setup`, gate steps). When you open someone else's repository, read the commands in `.lanekeeper/` first.
 - The token guard reads only the usage entry (`cachedUsageUtilization`) and the account ID from `~/.claude.json`, and the token usage fields and usage-limit rejections from the conversation logs in `~/.claude/projects`. With neither an official value nor a budget, the hook reads no conversation logs. Conversation text and credentials are not read or stored.
 

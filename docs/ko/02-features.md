@@ -97,7 +97,7 @@ $ git reset --hard HEAD~1
 [lanekeeper] 확인이 필요합니다: `git reset --hard` 는 커밋하지 않은 변경을 되돌릴 수 없게 지웁니다(현재 `lanekeeper/search/int`).
 ```
 
-**소유자 허가.** 보호 브랜치 반영은 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분 동안 한 번, 입력한 시점의 커밋에만 유효하다. Claude 는 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. 소유자의 다른 결정 세 가지(약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제)도 같은 명령으로 받는다. 확인 창은 권한 모드에 따라 뜨지 않을 수 있어서 쓰지 않는다.
+**소유자 허가.** 보호 브랜치 반영은 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분 동안 한 번, 입력한 시점의 커밋에만 유효하다. Claude 는 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. 소유자의 다른 결정 세 가지(약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제)도 같은 명령으로 받는다. 약화 결과 승인과 잠금 삭제는 메인 세션의 확인 창으로도 할 수 있다. `bypassPermissions` 는 슬래시 명령으로만 받는다.
 
 **검사 범위 밖.** 안전 훅은 명령 문자열만 판정한다. 그래서 스크립트 파일 안의 명령이나 python·node 로 실행하는 git 호출은 판정하지 않는다.
 
@@ -634,6 +634,8 @@ lanekeeper-quality precheck --run
 - 언제: 보호 브랜치(`main` 등)에 병합·push·커밋해야 할 때, 시험 결과의 약화가 의도한 변경일 때, 자동 재개를 묻지 않고 실행하려 할 때, 멈춘 게이트가 잠금을 남겼을 때. 저장소 소유자만 입력한다.
 - 어떻게: `/lanekeeper:approve merge-main|push-main|commit-main [브랜치나 커밋]` 을 프롬프트에 직접 입력한다. 허가는 기본 15분 동안 한 번, 입력할 때의 커밋에만 유효하다. 게이트 명령을 설정한 프로젝트는 같은 커밋의 게이트 통과 표식도 필요하다. 상태는 `/lanekeeper:approve status`, 취소는 `/lanekeeper:approve revoke` 다. 강제 push 는 허가가 있어도 막힌다.
 - 그 밖의 결정: 아래 세 가지는 입력하는 즉시 적용되고, 유효한 허가는 그대로 둔다. `accept-quality <종류> --reason 사유` 는 그 종류의 최신 결과가 있는 커밋에 승인을 기록한다. 기록 위치는 결과 폴더의 `accepted.json` 이고, 이 파일은 나중에 커밋한다. `retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. 되돌리려면 `lanekeeper-retry mode default` 를 실행한다. `clear-gate-lock` 은 `machine.slots.stale_after_min` 보다 오래된 `gate.lock` 을 지운다.
+- 확인 창: 메인 세션의 에이전트가 `lanekeeper-quality accept <종류> --reason "사유"` 나 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행하면, `default` · `acceptEdits` · `auto` 모드에서 창이 뜬다. 허용하면 실행되고 거절하면 아무것도 바뀌지 않는다. 다른 모드, `-p` · SDK, 서브에이전트, 묶거나 바꾼 명령, 이 명령을 덮는 허용 규칙은 거부되고 슬래시 명령을 안내한다. `retry-bypass` 에는 창이 없다.
+- 기록: 실행된 결정은 `<git 공용 폴더>/lanekeeper/owner-decisions.jsonl` 에 `via`(`dialog` · `slash`)와 함께 남는다. 거절된 창은 기록되지 않는다.
 - 예시: `/lanekeeper:approve merge-main lanekeeper/search/int`
 
 ### /lanekeeper:auto-retry

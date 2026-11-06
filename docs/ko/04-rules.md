@@ -168,11 +168,11 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 
 ### 12. 허가 명령은 사람만 입력 (`human-only-approve`)
 
-- 규칙: `/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다.
+- 규칙: `/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 띄운 확인 창에 사람이 답해도 된다.
 - 왜: 에이전트가 허가를 스스로 만들 수 있으면 소유자 허가 절차가 의미가 없어진다.
-- 막혔을 때: 어떤 작업에 허가가 필요한지 소유자에게 알리고, 직접 입력해 달라고 요청한다.
-- 메시지 코드: `safety.approve.*`
-- 어디서 지키나: `hooks/scripts/safety/approve.mjs`, `skills/approve/SKILL.md`
+- 막혔을 때: 어떤 작업에 허가가 필요한지 소유자에게 알리고, 직접 입력해 달라고 요청한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 명령을 한 줄 단독으로 실행해 창을 띄워도 된다. 레인은 요청을 메인 세션으로 올린다.
+- 메시지 코드: `safety.approve.*`, `safety.owner.*`
+- 어디서 지키나: `hooks/scripts/safety/approve.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `skills/approve/SKILL.md`
 
 ### 13. 판정할 수 없으면 차단 (`safety-fails-closed`)
 

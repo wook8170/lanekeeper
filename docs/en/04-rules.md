@@ -168,11 +168,11 @@ Blocks deletions that cannot be undone and commands that cannot be judged. Risky
 
 ### 12. Only a person can grant (`human-only-approve`)
 
-- Rule: `/lanekeeper:approve` works only when a person types it in the prompt.
+- Rule: `/lanekeeper:approve` works only when a person types it in the prompt. Accepting a weakened result and clearing a gate lock can also be allowed by a person in a dialog raised from the main session.
 - Why: If an agent could create its own grant, the owner's grant would mean nothing.
-- If blocked: Tell the owner which action needs a grant and ask them to type it.
-- Message codes: `safety.approve.*`
-- Enforced in: `hooks/scripts/safety/approve.mjs`, `skills/approve/SKILL.md`
+- If blocked: Tell the owner which action needs a grant and ask them to type it. To accept a weakened result or clear a gate lock, the main session can also run the command alone on one line to raise a dialog. A lane reports the request to the main session.
+- Message codes: `safety.approve.*`, `safety.owner.*`
+- Enforced in: `hooks/scripts/safety/approve.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `skills/approve/SKILL.md`
 
 ### 13. Blocked when the check cannot decide (`safety-fails-closed`)
 

@@ -238,7 +238,19 @@ lanekeeper-route check review --model sonnet            모델 선택 판정(차
 
 **소유자 허가.** 보호 브랜치 반영은 저장소 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분(`git.owner_grant_ttl_min`) 동안 한 번, 입력 시점의 커밋에만 유효하다. 프로젝트에 게이트 명령(`gate.command`)이 있으면 같은 커밋의 게이트 통과 표식도 있어야 한다. 허가는 `UserPromptExpansion` 훅이 만든다. 이 이벤트는 사람이 슬래시 명령을 입력할 때만 발생하므로 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. 모델은 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다.
 
-**소유자의 다른 결정.** 에이전트가 스스로 정하면 안 되는 결정 세 가지도 같은 명령으로 받으며, 입력하는 즉시 적용된다. `/lanekeeper:approve accept-quality <종류> --reason 사유` 는 약화된 시험 결과를 승인한다. `/lanekeeper:approve retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. `/lanekeeper:approve clear-gate-lock` 은 오래된 게이트 잠금을 지운다. 확인 창 대신 슬래시 명령을 쓰는 이유는 `dontAsk` 모드와 무인 실행에서는 확인 창이 뜨지 않기 때문이다. 이 명령이 쓰는 파일은 Bash 나 파일 도구로도 쓸 수 없다. 다만 다른 안전 훅과 마찬가지로 스크립트 파일 안의 명령은 검사하지 못한다.
+**소유자의 다른 결정.** 에이전트가 스스로 정하면 안 되는 결정 세 가지도 같은 명령으로 받으며, 입력하는 즉시 적용된다. `/lanekeeper:approve accept-quality <종류> --reason 사유` 는 약화된 시험 결과를 승인한다. `/lanekeeper:approve retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. `/lanekeeper:approve clear-gate-lock` 은 오래된 게이트 잠금을 지운다. 이 명령이 쓰는 파일은 Bash 나 파일 도구로도 쓸 수 없다. 다만 다른 안전 훅과 마찬가지로 스크립트 파일 안의 명령은 검사하지 못한다.
+
+**확인 창으로 승인.** 약화 결과 승인과 게이트 잠금 삭제는 확인 창으로도 할 수 있다. 메인 세션의 에이전트가 `lanekeeper-quality accept <종류> --reason "사유"` 나 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행하면 창이 뜬다. 창에는 종류 · 커밋 · 약화 내용 · 사유, 또는 잠금의 나이와 프로세스가 보인다. 허용하면 실행되고, 거절하면 아무것도 바뀌지 않는다. `retry-bypass` 는 권한 검사를 끄는 승인이라 슬래시 명령으로만 받는다.
+
+다음 경우에는 창을 띄우지 않고 거부하며 슬래시 명령을 안내한다.
+
+- 권한 모드가 `default` · `acceptEdits` · `auto` 가 아닐 때(`plan` · `dontAsk` · `bypassPermissions`)
+- `-p` · SDK 세션일 때
+- 서브에이전트의 요청일 때. 레인 안의 요청은 메인 세션으로 올린다
+- 명령을 묶거나 파이프 · 감싸기 · 경로 · 환경 변수 접두 · 추가 옵션을 붙였을 때
+- 설정의 `permissions.allow` 규칙이 이 명령을 덮을 때. `/lanekeeper:doctor` 도 경고한다
+
+허용하면 훅이 명령 끝에 일회용 표를 붙인다. 표는 10분 안에 한 번만 쓸 수 있고, 창에 보인 내용에 묶여 있다. 창을 띄운 뒤 새 결과가 생기거나 잠금이 바뀌면 거부된다. 저장소에는 표의 해시만 둔다. 실행된 결정은 `<git 공용 폴더>/lanekeeper/owner-decisions.jsonl` 에 경로(`dialog` · `slash`)와 함께 남고, 약화 승인은 `accepted.json` 의 `via` 에도 남는다.
 
 **그 밖의 차단.**
 - 프로세스 종료: `pkill`·`killall`·`kill $(pgrep …)` 처럼 이름으로 끄는 명령은 차단한다. `kill <PID>`·`lsof -ti :포트 | xargs kill`·`fuser -k` 는 대상이 보호 포트(`machine.ports.protected`)를 쓰면 차단한다.
@@ -310,7 +322,7 @@ lanekeeper-worktree remove l3 [--force] [--delete-branch]
 
 켜면 Lanekeeper 의 훅은 Claude Code 와 같은 위치(`.claude/worktrees/<이름>`)와 브랜치 이름(`worktree-<이름>`)을 쓰고, 통합 브랜치가 하나로 정해지면 그 HEAD 를 기준으로 삼는다. 포트 임대·`.worktreeinclude` 복사·설치 명령도 같이 처리한다. 이 워크트리는 레인 대장에 등록하지 않는다. 설치 명령은 슬롯을 2분 안에 얻지 못하면 건너뛰고, 나중에 `lanekeeper-worktree setup <이름>` 으로 실행한다. 원격 기본 브랜치 기준 생성, 필터 드라이버 차단, 오래된 워크트리 자동 정리 같은 Claude Code 기본 동작은 이 경우 적용되지 않는다.
 
-**정리.** `lanekeeper-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 한다. 지우려면 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력한다. 프로세스는 끄지 않는다.
+**정리.** `lanekeeper-reap` 은 끝난 슬롯 임대를 회수하고, 폴더가 없어진 레인의 포트 임대와 대장 항목을 보여 준다(`--apply` 로 정리). 오래된 `gate.lock` 은 알리기만 한다. 지우려면 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력하거나, 메인 세션에서 `lanekeeper-reap --gate-lock` 이 띄운 확인 창에서 허용한다. 프로세스는 끄지 않는다.
 
 ## 레인 원장·진행판·재개
 
@@ -509,6 +521,7 @@ lanekeeper-index metrics [--days N] # codegraph 응답 분류 집계
 - 안전 훅은 판정하지 못하면 막고, 나머지 훅은 오류가 나도 작업을 막지 않는다. 훅마다의 동작은 SECURITY.ko.md 의 표에 있다.
 - 안전 훅은 명령 문자열을 판정한다. 스크립트 파일 안의 명령, 다른 언어(python·node)로 실행하는 git·kill 호출, Bash 로 설정 파일을 고치는 경우는 판정 범위 밖이다.
 - 오너 허가 파일은 같은 머신의 다른 프로세스가 직접 쓰는 경우까지 막지는 못한다. 실수를 줄이기 위한 장치다.
+- 소유자 결정의 확인 창은 허용한 쪽이 사람인지 증명하지 못한다. 거절된 창은 이벤트가 없어 기록되지 않는다. 에이전트가 하위 대화형 세션을 띄워 그 창에 답하는 길과, 훅이 알아보지 못하게 표 파일을 위조하는 길은 막지 못한다. 조직 관리 설정과 `--allowedTools` 의 허용 규칙은 훅이 볼 수 없다. 대화형 `bypassPermissions` 와 Remote Control 의 동작은 확인하지 못했다.
 - 셸로 실행하는 명령은 사용자나 프로젝트 설정이 적은 것뿐이다(`lanekeeper-slot` 으로 감싼 명령, `review.guards`, `worktree.setup`, 게이트 단계). 다른 사람의 저장소를 열 때는 `.lanekeeper/` 의 설정 명령을 먼저 확인한다.
 - 토큰 가드는 `~/.claude.json` 에서 공식 사용량 항목(`cachedUsageUtilization`)과 계정 ID 만 읽고, `~/.claude/projects` 의 대화 기록에서 토큰 사용량 필드와 사용 한도 거절 기록을 읽는다. 공식 사용량도 예산도 없으면 훅은 대화 기록을 읽지 않는다. 대화 본문과 인증 정보는 읽거나 저장하지 않는다.
 

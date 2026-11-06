@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-06
+
+### Added
+- 약화 결과 승인과 게이트 잠금 삭제를 Claude Code 확인 창으로도 할 수 있다. 메인 세션의 에이전트가 `lanekeeper-quality accept <종류> --reason "사유"` 나 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행하면, `default`·`acceptEdits`·`auto` 모드에서 창이 뜬다. 창에는 무엇을 승인하는지 보이고, 거절하면 아무것도 바뀌지 않는다
+- 허용한 명령에는 훅이 일회용 표를 붙인다. 표는 10분 안에 한 번만 쓸 수 있고 창에 보인 내용에 묶인다. 저장소에는 해시만 둔다(`<git 공용 폴더>/lanekeeper/owner-ticket.json`). 이 파일도 Bash·파일 도구로 쓸 수 없다
+- 실행된 소유자 결정을 `<git 공용 폴더>/lanekeeper/owner-decisions.jsonl` 에 경로(`dialog`·`slash`)와 함께 남긴다. `accepted.json` 항목에도 `via` 가 붙는다. 거절된 창은 이벤트가 없어 기록되지 않는다
+- `/lanekeeper:doctor` 가 이 명령을 덮는 `permissions.allow` 규칙을 경고한다
+- 시험 `tests/owner-dialog.test.mjs`: 권한 모드 6개 × 주 세션·서브에이전트, 묶인 명령, 표 재사용·위조, 승인 내용 변조
+
+### Changed
+- 다른 권한 모드, `-p`·SDK, 서브에이전트, 묶거나 바꾼 명령, 허용 규칙이 있을 때는 창 없이 거부하고 슬래시 명령을 안내한다. 표가 없으면 두 명령은 전처럼 종료 코드 4 로 끝난다
+- `claude -p` 를 함께 쓴 명령의 거절 범위를 `lanekeeper-quality accept` 와 `lanekeeper-reap --gate-lock` 까지 넓혔다
+- `retry-bypass` 는 권한 검사를 끄는 승인이라 슬래시 명령으로만 받는다. 슬래시 명령 세 가지는 그대로 쓸 수 있다
+
 ## [0.2.1] - 2026-11-06
 
 ### Changed

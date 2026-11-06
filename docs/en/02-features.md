@@ -97,7 +97,7 @@ $ git reset --hard HEAD~1
 [lanekeeper] Needs your confirmation: `git reset --hard` discards uncommitted changes for good (current `lanekeeper/search/int`).
 ```
 
-**Owner grant.** Changes to a protected branch are granted only when the owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`) in the prompt. A grant is valid once, for 15 minutes, and only for the commit current when it was typed. Claude cannot call this skill or write the grant file. The same command takes three other owner decisions (accepting a weakened test result, `bypassPermissions` for the automatic resume, clearing an old gate lock). They do not use a confirmation dialog, because a dialog does not appear in every permission mode.
+**Owner grant.** Changes to a protected branch are granted only when the owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`) in the prompt. A grant is valid once, for 15 minutes, and only for the commit current when it was typed. Claude cannot call this skill or write the grant file. The same command takes three other owner decisions (accepting a weakened test result, `bypassPermissions` for the automatic resume, clearing an old gate lock). Accepting a result and clearing a lock can also be confirmed in a dialog in the main session. `bypassPermissions` stays slash-only.
 
 **Outside the check.** The safety hooks judge command strings. Commands inside script files, and git calls made from python or node, are not judged.
 
@@ -633,6 +633,8 @@ Blocked: 1 items did not pass. Ship verification cannot start.
 - When: a merge, push or commit on a protected branch (such as `main`) is needed, a weakened test result is intended, the automatic resume should run without asking, or a stopped gate left its lock behind. Only the repository owner types it.
 - How: type `/lanekeeper:approve merge-main|push-main|commit-main [branch or commit]` in the prompt. A grant is valid once, for 15 minutes by default, and only for the commit current when it was typed. A project with a gate command also needs a gate pass stamp for the same commit. `/lanekeeper:approve status` shows the grant and `/lanekeeper:approve revoke` deletes it. Force pushes stay blocked even with a grant.
 - Other decisions, which take effect at once and leave an active grant as it is: `accept-quality <kind> --reason why` records the acceptance for the commit of that kind's newest result, in `accepted.json` of the results folder (commit that file afterwards). `retry-bypass` lets the automatic resume use `bypassPermissions`, and `lanekeeper-retry mode default` turns it off. `clear-gate-lock` removes `gate.lock` when it is older than `machine.slots.stale_after_min`.
+- Dialog: when the main session's agent runs `lanekeeper-quality accept <kind> --reason "why"` or `lanekeeper-reap --gate-lock` alone on one line, a dialog appears in `default`, `acceptEdits` and `auto`. Allow runs it, and decline changes nothing. Other modes, `-p` and the SDK, subagents, chained or changed commands and an allow rule covering the command are refused with a pointer to the slash command. `retry-bypass` has no dialog.
+- Record: decisions carried out are written to `<git common dir>/lanekeeper/owner-decisions.jsonl` with `via` (`dialog` or `slash`). A declined dialog is not recorded.
 - Example: `/lanekeeper:approve merge-main lanekeeper/search/int`
 
 ### /lanekeeper:auto-retry

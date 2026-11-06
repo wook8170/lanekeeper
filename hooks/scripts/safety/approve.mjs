@@ -14,7 +14,8 @@
 //   /lanekeeper:approve revoke             delete the current grant
 //
 // Owner decisions that take effect at once, with no grant left behind (an active
-// merge, push or commit grant stays as it is):
+// merge, push or commit grant stays as it is). accept-quality and clear-gate-lock can also be
+// confirmed in a dialog (owner-dialog.mjs); retry-bypass cannot:
 //   /lanekeeper:approve accept-quality <kind> --reason <why>   accept a weakened result of <kind>
 //   /lanekeeper:approve retry-bypass       let the automatic resume use bypassPermissions
 //   /lanekeeper:approve clear-gate-lock    remove a gate.lock older than machine.slots.stale_after_min
@@ -24,11 +25,12 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { resolveConfig, projectRoot, stateDir, expandHome } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
+import * as OD from '../../../lib/owner-decisions.mjs'
 import * as Q from '../../../lib/quality.mjs'
 import { setPersonal } from '../../../lib/runtime.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
-import { ACTIONS, GATE_LOCK, OWNER_ACTIONS, grantPath, writeGrant } from './grant.mjs'
+import { ACTIONS, OWNER_ACTIONS, grantPath, writeGrant } from './grant.mjs'
 
 // Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
 export function localTime(iso) {
@@ -76,25 +78,22 @@ export function parseAccept(args) {
   return reason ? { kind: m[1], reason } : null
 }
 
-function acceptQuality(args, root, resolved, t, block, context) {
+function acceptQuality(args, root, sd, resolved, t, block, context) {
   const parsed = parseAccept(args)
   if (!parsed) return block('approve.accept.usage', {})
   const settings = Q.qualitySettings(resolved.config)
   const entry = Q.latestOf(Q.buildIndex(root, settings).entries, parsed.kind)
   if (!entry) return block('q.accept.none', { kind: parsed.kind })
-  const file = Q.recordAcceptance(root, settings, { kind: parsed.kind, commit: entry.commit, reason: parsed.reason })
-  Q.writeIndex(root, settings, t)
+  const file = OD.acceptResult(root, settings, t, sd, { kind: parsed.kind, reason: parsed.reason, entry, via: 'slash' })
   return context(t('q.accept.done', { kind: parsed.kind, commit: entry.commit.slice(0, 9), file: path.relative(root, file) }))
 }
 
 function clearGateLock(sd, resolved, env, now, t, block, context) {
-  const lock = path.join(sd, GATE_LOCK)
-  if (!fs.existsSync(lock)) return context(t('approve.gate_lock.none'))
-  const ageMs = now - fs.statSync(lock).mtimeMs
-  const ageMin = Math.round(ageMs / 60000)
-  if (ageMs <= slotSettings(resolved, (p) => expandHome(p, env.HOME)).staleMs) return block('reap.gate_active', { ageMin })
-  fs.rmSync(lock, { force: true })
-  return context(t('reap.gate_removed', { ageMin }))
+  const lock = OD.readGateLock(sd, slotSettings(resolved, (p) => expandHome(p, env.HOME)).staleMs, now)
+  if (!lock) return context(t('approve.gate_lock.none'))
+  if (!lock.stale) return block('reap.gate_active', { ageMin: lock.ageMin })
+  OD.removeGateLock(sd, lock, 'slash')
+  return context(t('reap.gate_removed', { ageMin: lock.ageMin }))
 }
 
 export function handleApprove(input, env = process.env, now = Date.now()) {
@@ -112,11 +111,12 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   if (action === 'retry-bypass') {
     setPersonal(env, 'auto_retry.permission_mode', 'bypassPermissions')
     setPersonal(env, 'auto_retry.bypass_ack', true)
+    OD.logDecision(stateDir(root), { action: 'retry-bypass', via: 'slash' })
     return context(t('approve.retry_bypass'))
   }
   const sd = stateDir(root)
   if (!sd) return block('approve.not_git', {})
-  if (action === 'accept-quality') return acceptQuality(rawArgs.slice(action.length), root, resolved, t, block, context)
+  if (action === 'accept-quality') return acceptQuality(rawArgs.slice(action.length), root, sd, resolved, t, block, context)
   if (action === 'clear-gate-lock') return clearGateLock(sd, resolved, env, now, t, block, context)
   const file = grantPath(sd)
 

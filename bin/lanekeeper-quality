@@ -16,7 +16,8 @@
 //                                                    (quality.ship.advisory kinds only warn)
 //   lanekeeper-quality report [--version V] [--json] [--no-xlsx]
 //                                                    quality-<V>.{xlsx,md,html}: latest result per kind of the version
-//   lanekeeper-quality accept                                refused: a person types
+//   lanekeeper-quality accept <kind> --reason <why>          refused unless a person allowed the dialog the safety
+//                                                    hook raises for this line; or a person types
 //                                                    /lanekeeper:approve accept-quality <kind> --reason <why>
 //
 // Settings: project.quality.* (results_root, raw_root, version_file, suites, ship). A run holds the
@@ -34,6 +35,7 @@ const { stateDir } = await imp('config.mjs')
 const { translator } = await imp('i18n.mjs')
 const Q = await imp('quality.mjs')
 const TR = await imp('testresults.mjs')
+const OD = await imp('owner-decisions.mjs')
 
 const BOOLEANS = ['json', 'run', 'no-slot', 'no-xlsx', 'no-index']
 const argv = process.argv.slice(2)
@@ -321,8 +323,21 @@ const COMMANDS = {
     print(r.allPassed ? t('q.report.lead_ok', { n: r.latest.filter((l) => l.entry).length }) : t('q.report.lead_bad'))
   },
   accept() {
-    warn(t('q.accept.owner_only'))
-    process.exit(4)
+    const fail = (key, vars) => {
+      warn(t(key, vars))
+      process.exit(4)
+    }
+    const nonce = args['dialog-ticket']
+    const sd = stateDir(root)
+    const [kind, ...extra] = rest
+    if (typeof nonce !== 'string' || !sd || !kind || extra.length || typeof args.reason !== 'string' || !args.reason.trim()) fail('q.accept.owner_only')
+    if (resolved.errors.length) fail('approve.config_broken', { file: resolved.errors[0].file, key: resolved.errors[0].path })
+    const entry = Q.latestOf(Q.buildIndex(root, S).entries, kind)
+    const content = entry ? OD.acceptContent({ kind, reason: args.reason, entry }) : ''
+    const used = OD.consumeTicket(sd, 'accept-quality', content, nonce)
+    if (used !== 'ok') fail(`owner.ticket.${used}`, { slash: '/lanekeeper:approve accept-quality <kind> --reason why' })
+    const file = OD.acceptResult(root, S, t, sd, { kind, reason: args.reason, entry, via: 'dialog' })
+    print(t('q.accept.done', { kind, commit: entry.commit.slice(0, 9), file: path.relative(root, file) }))
   },
 }
 
