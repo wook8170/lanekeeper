@@ -8,7 +8,7 @@
       "source": "./",
       "displayName": "Lanekeeper — Agent Workbench",
       "description": "Workbench for running parallel Claude Code agent lanes",
-      "version": "0.2.2"
+      "version": "0.2.3"
     }
   ]
 }

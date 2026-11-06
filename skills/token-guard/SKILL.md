@@ -12,7 +12,7 @@ How the percentage is found:
 
 1. Official value: Claude Code caches the five-hour and seven-day usage, their reset times and the account in `~/.claude.json` (`cachedUsageUtilization`). Only that entry and the account ID are read.
 2. Estimate: when the latest point is older than `personal.token_guard.fresh_min` (default 10 minutes), the weighted local tokens since then are converted with a per-account ratio and added. The five-hour window starts five hours before its reset time; after a reset only the use since the reset counts.
-3. The higher of the five-hour and seven-day figures decides the stage.
+3. The higher of the five-hour and seven-day figures decides the stage. When the newest official value has `five_hour: null`, the five-hour window is left out and the seven-day figure alone decides (`status` says so). This reading rests on the observed response shape and is not confirmed by a policy document. A five-hour rejection logged afterwards counts as 100% again; the log scan covers only the last five hours.
 4. Calibration is automatic: every new official value is recorded, and the ratio comes from two points of the same window (or the latest point against the use since its window started). A usage-limit rejection in the logs is a 100% point. After an account switch, nothing of the previous account is used.
 5. Fallback: without an official value, the local use of the last `window_hours` hours against `personal.token_guard.budget` (or the 100% derived from the account's ratio). With neither, the guard stays silent.
 
