@@ -4,7 +4,8 @@
 //   lanekeeper-retry status | list      switch state and waiting resumes
 //   lanekeeper-retry on | off           switch (personal.auto_retry.enabled)
 //   lanekeeper-retry cancel <id|all>    cancel waiting resumes
-//   lanekeeper-retry mode <mode> [--i-understand]   permission mode of the resumed session
+//   lanekeeper-retry mode <mode>        permission mode of the resumed session; bypassPermissions is
+//                                       refused here, a person types /lanekeeper:approve retry-bypass
 //   lanekeeper-retry limits [--clear[=model]]       models recorded as out of quota
 //   lanekeeper-retry run <id>           (used by the scheduled job)
 //   lanekeeper-retry wait-run <id> <epoch>          (fallback waiter without a system scheduler)
@@ -49,12 +50,12 @@ switch (cmd) {
       say(t('retry.mode.usage', { modes: modes.join(' | ') }))
       process.exit(1)
     }
-    if (a1 === 'bypassPermissions' && !args['i-understand']) {
+    if (a1 === 'bypassPermissions') {
       say(t('retry.mode.warning'))
       process.exit(1)
     }
     setPersonal(process.env, 'auto_retry.permission_mode', a1)
-    setPersonal(process.env, 'auto_retry.bypass_ack', a1 === 'bypassPermissions')
+    setPersonal(process.env, 'auto_retry.bypass_ack', false)
     say(t('retry.mode.set', { mode: a1 }))
     break
   }

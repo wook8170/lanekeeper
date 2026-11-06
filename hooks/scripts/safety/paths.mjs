@@ -28,10 +28,18 @@ export function isProtectedPath(p, root, globs) {
   return null
 }
 
+// Owner decisions recorded in a file: the bypassPermissions acknowledgement in
+// personal.json and the accepted weakened results. Only /lanekeeper:approve writes them.
+const personalFile = (ctx) => (ctx.lanekeeperHome ? path.join(ctx.lanekeeperHome, 'personal.json') : null)
+const resultsRoot = (ctx) => ctx.config.project?.quality?.results_root || 'docs/test-results'
+const acceptedFile = (ctx) => (ctx.projectRoot ? path.join(ctx.projectRoot, resultsRoot(ctx), 'accepted.json') : null)
+
 // Write / Edit / MultiEdit / NotebookEdit
-export function judgeFileTool(file, ctx) {
+export function judgeFileTool(file, ctx, toolInput = {}) {
   if (!file) return null
   const p = path.isAbsolute(file) ? path.normalize(file) : path.resolve(ctx.cwd, file)
+  if (p === acceptedFile(ctx)) return deny('paths.accepted', { path: file })
+  if (p === personalFile(ctx) && JSON.stringify(toolInput).includes('bypass_ack')) return deny('paths.ack', { path: file })
   if (isLanekeeperConfigFile(p, ctx)) return ask('paths.config', { path: file })
   if (isStatePath(p, ctx.stateDirs)) return deny('paths.state', { path: file })
   const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
@@ -47,16 +55,24 @@ export function isLanekeeperConfigFile(p, ctx) {
 // redirected into or touched by file-writing commands.
 export function judgeBashPaths(cmd, ctx) {
   const out = []
+  const ownerCode = (t) => {
+    const p = resolvePath(cmd.cwd, t, ctx.home)
+    if (p === acceptedFile(ctx) || t.includes(`${resultsRoot(ctx)}/accepted.json`)) return 'paths.accepted'
+    if (p === personalFile(ctx) || /\.(lanekeeper|wb)\/personal\.json/.test(t)) return 'paths.ack'
+    return null
+  }
   const mentions = (t) => /owner-grant/.test(t) || /\.git\/(lanekeeper|wb)\//.test(t) || (ctx.stateDirs || []).some((d) => d && t.includes(d))
   for (const r of cmd.redirs) {
     if (!/>/.test(r.op) || !r.target || /^&?\d$/.test(r.target)) continue
     const p = resolvePath(cmd.cwd, r.target, ctx.home)
     if (mentions(r.target) || isStatePath(p, ctx.stateDirs)) out.push(deny('paths.state', { path: r.target }))
+    if (ownerCode(r.target)) out.push(deny(ownerCode(r.target), { path: r.target }))
     const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
     if (hit) out.push(deny('paths.protected', { path: r.target, glob: hit }))
   }
   const texts = cmd.words.map((w) => w.text)
   if (texts.some(mentions) && !READ_ONLY.has(cmd.name)) out.push(deny('paths.state', { path: texts.find(mentions) }))
+  if (!READ_ONLY.has(cmd.name)) for (const t of texts.slice(1)) if (ownerCode(t)) out.push(deny(ownerCode(t), { path: t }))
   if (WRITERS.has(cmd.name) && (cmd.name !== 'sed' || texts.some((t) => /^-[a-zA-Z]*i/.test(t)))) {
     for (const t of texts.slice(1)) {
       if (t.startsWith('-')) continue

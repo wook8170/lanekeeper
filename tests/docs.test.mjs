@@ -136,6 +136,15 @@ test('docs: stated skill and rule counts match the code', () => {
   assert.ok(seen >= 4, 'the manual states the counts')
 })
 
+test('docs: the install sample shows the current version, and the move from wb lists every command', () => {
+  const version = JSON.parse(read('.claude-plugin/plugin.json')).version
+  for (const l of LANGS) assert.ok(doc(l, '01-getting-started.md').includes(`Version: ${version}\n`), `${l}: stale version in the install sample`)
+  for (const text of [...LANGS.map((l) => doc(l, '01-getting-started.md')), read('README.md'), read('README.ko.md')]) {
+    assert.match(text, /claude plugin marketplace remove wb-plugin/)
+    for (const c of commands()) assert.ok(text.includes(`| \`${c.replace('lanekeeper-', 'wb-')}\` | \`${c}\` |`), `no row for ${c}`)
+  }
+})
+
 test('docs: every lanekeeper-* command exists, and every subcommand appears in the command usage', () => {
   const bins = new Set(commands())
   const usage = Object.fromEntries([...bins].map((b) => [b, read(`bin/${b}`).split('\n').filter((l) => l.startsWith('//')).join('\n')]))

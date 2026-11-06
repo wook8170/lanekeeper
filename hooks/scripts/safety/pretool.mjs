@@ -56,6 +56,8 @@ export function buildContext(input, env = process.env, overrides = {}) {
 export function judgeCommand(command, ctx) {
   const cmds = parse(command, { cwd: ctx.cwd, home: ctx.home })
   const verdicts = []
+  // A headless `claude -p "/lanekeeper:approve …"` would count as a typed command in that session.
+  if (command.includes('lanekeeper:approve') && cmds.some((c) => path.basename(c.name || '') === 'claude')) verdicts.push(deny('approve.model', {}))
   for (const cmd of cmds) {
     cmd.home = ctx.home
     const vs = []
@@ -84,7 +86,7 @@ export function judgeTool(input, ctx) {
   }
   if (['Write', 'Edit', 'MultiEdit', 'NotebookEdit'].includes(tool)) {
     const file = ti.file_path || ti.notebook_path
-    const v = judgeFileTool(file, ctx)
+    const v = judgeFileTool(file, ctx, ti)
     const d = judgeDataFile(file, ctx)
     if (ctx.configErrors?.length && ((v && v.code !== 'paths.config') || d)) return combine([deny('config.broken', { file: ctx.configErrors[0].file, key: ctx.configErrors[0].path, msg: ctx.configErrors[0].msg })])
     return combine([v, d])

@@ -97,7 +97,7 @@ $ git reset --hard HEAD~1
 [lanekeeper] 확인이 필요합니다: `git reset --hard` 는 커밋하지 않은 변경을 되돌릴 수 없게 지웁니다(현재 `lanekeeper/search/int`).
 ```
 
-**소유자 허가.** 보호 브랜치 반영은 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분 동안 한 번, 입력한 시점의 커밋에만 유효하다. Claude 는 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다.
+**소유자 허가.** 보호 브랜치 반영은 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분 동안 한 번, 입력한 시점의 커밋에만 유효하다. Claude 는 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. 소유자의 다른 결정 세 가지(약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제)도 같은 명령으로 받는다. 확인 창은 권한 모드에 따라 뜨지 않을 수 있어서 쓰지 않는다.
 
 **검사 범위 밖.** 안전 훅은 명령 문자열만 판정한다. 그래서 스크립트 파일 안의 명령이나 python·node 로 실행하는 git 호출은 판정하지 않는다.
 
@@ -237,7 +237,7 @@ lanekeeper-cases check
 
 **종류별 결과 보관과 출하 검증 관문.** `lanekeeper-quality` 는 시험 종류(단위·통합·게이트·e2e·UI 안정성·사용성·UX 적대 점검·출하 검증)마다 결과를 따로 남긴다. 명령은 프로젝트 설정 `quality.suites` 에 종류별로 적는다(명령, 결과 형식 `parser`, 슬롯, 임계 파일, 낡음 판정 경로). 결과는 공통 머리 JSON 과, 같은 내용의 엑셀로 `docs/test-results/<버전>/<날짜>/<종류>-<HHMM>.json`·`.xlsx` 에 저장한다. 공통 머리에는 종류·버전·커밋·브랜치·시작·끝·환경·판정·총·통과·실패·건너뜀·보류·간헐·원자료 위치가 들어간다. 버전은 `quality.version_file`(기본 `VERSION`)에서 읽는다. 로그 같은 원자료는 `quality.raw_root` 에 두고 커밋하지 않는다. 결과 폴더의 `index.json`·`INDEX.md` 는 결과 파일을 훑어 다시 만드는 색인이다. 이전 형식의 날짜 폴더(`docs/test-results/<날짜>/`)는 옮기지 않고 색인에 「이전 형식」으로 올린다.
 
-출하 검증(`quality.ship.skills`·`quality.ship.agents`)을 시작하기 전에 `quality.ship.requires` 의 종류마다 최신 결과를 확인한다. 결과가 없거나(없음), 다른 커밋의 결과이거나 커밋하지 않은 변경이 있는 상태에서 돌았거나(낡음), 통과하지 못했으면(실패) 관문이 막는다. 이렇게 막힌 종류는 `lanekeeper-quality precheck --run` 이 다시 돌린다. 직전 통과 결과보다 시험 수가 줄었거나, 건너뜀·보류가 늘었거나, 임계 파일이 바뀌거나 완화됐으면(약화) 다시 돌려도 풀리지 않는다. 의도한 변경이면 저장소 소유자가 자기 터미널에서 `lanekeeper-quality accept` 로 승인한다. 결과 폴더 안의 파일만 바뀐 커밋은 같은 커밋으로 본다.
+출하 검증(`quality.ship.skills`·`quality.ship.agents`)을 시작하기 전에 `quality.ship.requires` 의 종류마다 최신 결과를 확인한다. 결과가 없거나(없음), 다른 커밋의 결과이거나 커밋하지 않은 변경이 있는 상태에서 돌았거나(낡음), 통과하지 못했으면(실패) 관문이 막는다. 이렇게 막힌 종류는 `lanekeeper-quality precheck --run` 이 다시 돌린다. 직전 통과 결과보다 시험 수가 줄었거나, 건너뜀·보류가 늘었거나, 임계 파일이 바뀌거나 완화됐으면(약화) 다시 돌려도 풀리지 않는다. 의도한 변경이면 저장소 소유자가 프롬프트에 `/lanekeeper:approve accept-quality <종류> --reason 사유` 를 입력해 승인한다. 결과 폴더 안의 파일만 바뀐 커밋은 같은 커밋으로 본다.
 
 `quality.ship.advisory`(기본 `["ux-adversarial"]`)의 종류는 같은 방식으로 확인하지만 막지 않고 경고만 한다. UX 적대 점검을 출하 전에 하지 않았거나(수동·없음), 최신 결과에 해결하지 않은 차단 발견이 있으면(실패) 관문 표 아래와 훅 안내에 경고가 나온다. 막게 하려면 그 종류를 `quality.ship.requires` 로 옮기고, 경고가 필요 없으면 `[]` 로 둔다.
 
@@ -370,7 +370,7 @@ lanekeeper-token status
 보정 7일: 1% ≈ 가중 13,724,352 (창 시작부터, 근사, 10-17 06:59 → 10-17 22:35).
 ```
 
-자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 `lanekeeper-retry mode bypassPermissions --i-understand` 로 위험을 확인한 뒤에만 켜진다.
+자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 사람이 프롬프트에 `/lanekeeper:approve retry-bypass` 를 입력할 때만 켜진다. 에이전트는 이 모드를 켤 수 없고, 저장소의 프로젝트 설정으로도 확인을 대신할 수 없다.
 
 ## 13. 스킬 28개
 
@@ -402,7 +402,7 @@ lanekeeper-token status
 | `/lanekeeper:quality-report` | 버전 품질 보고서(엑셀·Markdown·HTML)를 만든다 |
 | `/lanekeeper:docs-sync` | 화면·기능 변경에 맞춰 문서·스크린샷을 한 번에 현행화한다 |
 | `/lanekeeper:report` | 최종 보고를 아티팩트로 게시한다 |
-| `/lanekeeper:approve` | 보호 브랜치 반영을 한 번 허가한다(사람만 입력) |
+| `/lanekeeper:approve` | 소유자 결정을 기록한다(사람만 입력): 보호 브랜치 반영 1회, 약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제 |
 | `/lanekeeper:auto-retry` | 한도 뒤 자동 재개를 관리한다 |
 | `/lanekeeper:token-guard` | 토큰 가드를 확인·보정한다 |
 | `/lanekeeper:terse` | 간결 모드를 켜고 끈다 |
@@ -631,14 +631,15 @@ lanekeeper-quality precheck --run
 
 ### /lanekeeper:approve
 
-- 언제: 보호 브랜치(`main` 등)에 병합·push·커밋해야 할 때. 저장소 소유자만 입력한다.
+- 언제: 보호 브랜치(`main` 등)에 병합·push·커밋해야 할 때, 시험 결과의 약화가 의도한 변경일 때, 자동 재개를 묻지 않고 실행하려 할 때, 멈춘 게이트가 잠금을 남겼을 때. 저장소 소유자만 입력한다.
 - 어떻게: `/lanekeeper:approve merge-main|push-main|commit-main [브랜치나 커밋]` 을 프롬프트에 직접 입력한다. 허가는 기본 15분 동안 한 번, 입력할 때의 커밋에만 유효하다. 게이트 명령을 설정한 프로젝트는 같은 커밋의 게이트 통과 표식도 필요하다. 상태는 `/lanekeeper:approve status`, 취소는 `/lanekeeper:approve revoke` 다. 강제 push 는 허가가 있어도 막힌다.
+- 그 밖의 결정: 아래 세 가지는 입력하는 즉시 적용되고, 유효한 허가는 그대로 둔다. `accept-quality <종류> --reason 사유` 는 그 종류의 최신 결과가 있는 커밋에 승인을 기록한다. 기록 위치는 결과 폴더의 `accepted.json` 이고, 이 파일은 나중에 커밋한다. `retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. 되돌리려면 `lanekeeper-retry mode default` 를 실행한다. `clear-gate-lock` 은 `machine.slots.stale_after_min` 보다 오래된 `gate.lock` 을 지운다.
 - 예시: `/lanekeeper:approve merge-main lanekeeper/search/int`
 
 ### /lanekeeper:auto-retry
 
 - 언제: 한도 뒤 자동 재개 상태를 보거나 켜고 끌 때, 예약된 재개를 취소할 때.
-- 어떻게: `lanekeeper-retry status`, `lanekeeper-retry on|off`, `lanekeeper-retry cancel <세션 앞부분|all>`, `lanekeeper-retry mode <모드>`, `lanekeeper-retry limits` 를 실행한다. Claude 는 `bypassPermissions` 를 스스로 켜지 않는다.
+- 어떻게: `lanekeeper-retry status`, `lanekeeper-retry on|off`, `lanekeeper-retry cancel <세션 앞부분|all>`, `lanekeeper-retry mode <모드>`, `lanekeeper-retry limits` 를 실행한다. Claude 는 `bypassPermissions` 를 켤 수 없다. `lanekeeper-retry mode bypassPermissions` 는 경고만 출력하고, 켜려면 사람이 `/lanekeeper:approve retry-bypass` 를 입력한다.
 - 예시:
 
 ```

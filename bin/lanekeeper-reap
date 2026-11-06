@@ -6,8 +6,9 @@
 // Always reclaims run slots whose owner died or stopped renewing (the same
 // rule lanekeeper-slot applies on its own). With --apply it also drops port leases
 // and lanes.json entries whose worktree no longer exists. A gate.lock older
-// than machine.slots.stale_after_min is only reported, and removed with
-// --gate-lock. Processes are never killed here.
+// than machine.slots.stale_after_min is only reported; a person removes it by
+// typing /lanekeeper:approve clear-gate-lock, and --gate-lock only says so and
+// exits 4. Processes are never killed here.
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -31,6 +32,10 @@ if (resolved.errors.length) {
   process.stderr.write(`[lanekeeper-reap] ${t('slot.config_error', { file: e.file, key: e.path, msg: e.msg })}\n`)
   process.exit(2)
 }
+if (args['gate-lock']) {
+  process.stderr.write(`[lanekeeper-reap] ${t('reap.gate_owner_only')}\n`)
+  process.exit(4)
+}
 const settings = slots.slotSettings(resolved, (p) => expandHome(p, env.HOME))
 const deps = slots.defaultDeps()
 const result = { slots: slots.KINDS.flatMap((k) => slots.reapKind(k, settings, deps)), leases: [], lanes: [], gateLock: null }
@@ -50,11 +55,7 @@ if (sd) {
   if (fs.existsSync(lock)) {
     const ageMin = (Date.now() - fs.statSync(lock).mtimeMs) / 60000
     const stale = ageMin * 60000 > settings.staleMs
-    result.gateLock = { path: lock, ageMin: Math.round(ageMin), stale, removed: false }
-    if (stale && args['gate-lock']) {
-      fs.rmSync(lock, { force: true })
-      result.gateLock.removed = true
-    }
+    result.gateLock = { path: lock, ageMin: Math.round(ageMin), stale }
   }
 }
 
@@ -64,7 +65,7 @@ else {
   for (const r of result.slots) say(t('slot.reaped', { kind: r.kind, slot: r.slot, reason: r.reason, pid: r.owner?.pid ?? '-' }))
   for (const l of result.leases) say(t(args.apply ? 'reap.lease_dropped' : 'reap.lease_stale', { lane: l.lane, path: l.worktree }))
   for (const l of result.lanes) say(t(args.apply ? 'reap.lane_dropped' : 'reap.lane_stale', { lane: l.id, path: l.worktree }))
-  if (result.gateLock) say(t(result.gateLock.removed ? 'reap.gate_removed' : result.gateLock.stale ? 'reap.gate_stale' : 'reap.gate_active', result.gateLock))
+  if (result.gateLock) say(t(result.gateLock.stale ? 'reap.gate_stale' : 'reap.gate_active', result.gateLock))
   if (!args.apply && (result.leases.length || result.lanes.length)) say(t('reap.hint_apply'))
   if (!result.slots.length && !result.leases.length && !result.lanes.length && !result.gateLock) say(t('reap.clean'))
 }

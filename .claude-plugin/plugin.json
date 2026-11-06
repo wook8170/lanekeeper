@@ -1,7 +1,7 @@
 {
   "name": "lanekeeper",
   "displayName": "Lanekeeper — Agent Workbench",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Workbench for running parallel Claude Code agent lanes: model routing, lane and slot limits, git safety guards, handoff and review. Claude Code only (ships bin/ tools).",
   "author": { "name": "Wook Jang", "email": "wook81701@gmail.com" },
   "homepage": "https://github.com/wook8170/lanekeeper",

@@ -16,14 +16,14 @@
 //                                                    (quality.ship.advisory kinds only warn)
 //   lanekeeper-quality report [--version V] [--json] [--no-xlsx]
 //                                                    quality-<V>.{xlsx,md,html}: latest result per kind of the version
-//   lanekeeper-quality accept <kind> --reason "<text>"       owner only, from a terminal: accept a weakened result
+//   lanekeeper-quality accept                                refused: a person types
+//                                                    /lanekeeper:approve accept-quality <kind> --reason <why>
 //
 // Settings: project.quality.* (results_root, raw_root, version_file, suites, ship). A run holds the
 // gate lock so merges wait for it. Heavy suites wait for a slot and for the load to drop (lanekeeper-slot).
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import readline from 'node:readline'
 import { spawn } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
@@ -320,32 +320,9 @@ const COMMANDS = {
     if (r.xlsxError && !args['no-xlsx']) warn(t('q.xlsx_skipped'))
     print(r.allPassed ? t('q.report.lead_ok', { n: r.latest.filter((l) => l.entry).length }) : t('q.report.lead_bad'))
   },
-  async accept() {
-    const kind = rest[0]
-    if (!kind || typeof args.reason !== 'string' || !args.reason.trim()) {
-      warn(t('q.accept.usage'))
-      process.exit(2)
-    }
-    // Only a person at a terminal may accept a weaker result; an agent's shell has no TTY.
-    if (!process.stdin.isTTY || !process.stdout.isTTY) {
-      warn(t('q.accept.tty'))
-      process.exit(4)
-    }
-    const entry = Q.latestOf(Q.buildIndex(root, S).entries, kind)
-    if (!entry) {
-      warn(t('q.accept.none', { kind }))
-      process.exit(2)
-    }
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-    const answer = await new Promise((r) => rl.question(t('q.accept.confirm', { kind, commit: entry.commit.slice(0, 9) }), r))
-    rl.close()
-    if (answer.trim() !== kind) {
-      warn(t('q.accept.cancelled'))
-      process.exit(1)
-    }
-    const file = Q.recordAcceptance(root, S, { kind, commit: entry.commit, reason: args.reason })
-    Q.writeIndex(root, S, t)
-    print(t('q.accept.done', { kind, commit: entry.commit.slice(0, 9), file: path.relative(root, file) }))
+  accept() {
+    warn(t('q.accept.owner_only'))
+    process.exit(4)
   },
 }
 

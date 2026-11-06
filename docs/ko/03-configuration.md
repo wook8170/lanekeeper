@@ -45,7 +45,7 @@ lanekeeper-config validate
 
 ## 4. 키 참조
 
-표의 기본값은 JSON 으로 적었다. 「예약」 표시가 있는 키는 형식만 검사한다. 0.1.0 의 명령과 훅은 이 키를 읽지 않는다. 「스킬 참고」 표시가 있는 키는 명령이 직접 읽지 않고 스킬 안내에서 Claude 가 참고한다.
+표의 기본값은 JSON 으로 적었다. 「예약」 표시가 있는 키는 형식만 검사한다. 이 판의 명령과 훅은 이 키를 읽지 않는다. 「스킬 참고」 표시가 있는 키는 명령이 직접 읽지 않고 스킬 안내에서 Claude 가 참고한다.
 
 ### 4.1 모델 라우팅(`routing`)
 
@@ -119,9 +119,9 @@ lanekeeper-config validate
 | `personal.report.viewer` | `"local"` | 보고를 보는 곳. `remote` 면 원격 기기에서 열 수 있는 형태로 만든다(스킬 참고) | `"remote"` |
 | `personal.report.artifact_fallback` | `"html-file"` | 아티팩트 도구가 없을 때 대신 쓸 방식. `html-file` · `none` | `"none"` |
 | `personal.report.artifact_check` | `true` | 보고 단계가 아티팩트 없이 끝나면 한 번 막을지 | `false` |
-| `personal.auto_retry.enabled` | `false` | 사용 한도 뒤 자동 재개. 사용자가 켜기 전까지 꺼져 있다(`lanekeeper-retry on`) | `true` |
+| `personal.auto_retry.enabled` | `false` | 사용 한도 뒤 자동 재개. 사용자가 켜기 전까지 꺼져 있다(`/lanekeeper:auto-retry on`) | `true` |
 | `personal.auto_retry.permission_mode` | `"default"` | 재개 세션의 권한 모드. `default` · `acceptEdits` · `plan` · `bypassPermissions` | `"acceptEdits"` |
-| `personal.auto_retry.bypass_ack` | `false` | `bypassPermissions` 위험 확인 기록. `lanekeeper-retry mode bypassPermissions --i-understand` 가 쓴다 | 직접 쓰지 않음 |
+| `personal.auto_retry.bypass_ack` | `false` | `bypassPermissions` 위험 확인 기록. `/lanekeeper:approve retry-bypass` 가 쓰고, `~/.lanekeeper/personal.json` 에 있는 값만 읽는다 | 직접 쓰지 않음 |
 | `personal.handoff.enabled` | `true` | `progress.md` 인계 훅 | `false` |
 | `personal.handoff.inject` | `"summary"` | 세션 시작에 넣는 `progress.md` 분량. `summary` 는 첫 절(최대 40줄·2,500자)만 넣고 전체는 파일을 읽게 한다. `full` 은 현재 상태 전체 | `"full"` |
 | `personal.handoff.file` | `"progress.md"` | 인계 파일 경로(저장소 기준) | `"docs/progress.md"` |

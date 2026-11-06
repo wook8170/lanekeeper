@@ -34,7 +34,7 @@ Nothing is merged while the gate is running.
 
 - Why: If the code changes during a gate run, nobody can tell which commit the result belongs to.
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
-- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to clear it with `lanekeeper-reap --gate-lock`.
+- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to type `/lanekeeper:approve clear-gate-lock` in the prompt.
 
 ### Destructive git commands need confirmation (`no-destructive-git`)
 
@@ -324,7 +324,7 @@ Ship verification starts only after every required verification (unit, integrati
 
 - Why: A ship decision has to rest on the real test results of that commit. An old result, or a pass obtained by removing tests, is no ground for the decision. Lane tests and the design lint baseline do not catch wording a first-time user misreads, a dead end, or visual violations such as touching spacing and tight line height.
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
-- If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it with `lanekeeper-quality accept` in their own terminal.
+- If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it by typing `/lanekeeper:approve accept-quality <kind> --reason why` in the prompt.
 
 ### Reserve numbers first (`number-reservation`)
 

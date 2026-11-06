@@ -324,7 +324,7 @@ test('lanekeeper-quality: run writes the head json and the index, precheck --run
   f.cleanup()
 })
 
-test('lanekeeper-quality: heavy suites run through lanekeeper-slot, record, report, accept needs a terminal', () => {
+test('lanekeeper-quality: heavy suites run through lanekeeper-slot, record, report, accept is left to the owner', () => {
   const f = makeEnv()
   project(f, { suites: { e2e: { category: 'e2e', command: 'true' }, usability: { category: 'usability' } }, ship: { requires: ['e2e', 'usability'] } })
   const r = bin('lanekeeper-quality', ['run', 'e2e', '--no-xlsx'], f.env, f.repo)
@@ -344,7 +344,8 @@ test('lanekeeper-quality: heavy suites run through lanekeeper-slot, record, repo
   const shipHead = j.latest.find((l) => l.kind === 'ship').entry
   assert.equal(shipHead.category, 'ship')
   const acc = bin('lanekeeper-quality', ['accept', 'e2e', '--reason', 'x'], f.env, f.repo)
-  assert.equal(acc.status, 4, 'no TTY: refused')
+  assert.equal(acc.status, 4, 'refused')
+  assert.match(acc.stderr, /\/lanekeeper:approve accept-quality/)
   assert.equal(fs.existsSync(path.join(f.repo, 'docs/test-results/accepted.json')), false)
   f.cleanup()
 })

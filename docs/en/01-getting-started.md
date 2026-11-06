@@ -41,24 +41,29 @@ Check the result with `lanekeeper-test-report env`. On Linux without `lsof`, Lan
 
 ### 2.1 Install from the marketplace
 
-Add the marketplace and install the plugin from a terminal. The marketplace is named `lanekeeper` and the plugin `lanekeeper`.
+Add the marketplace and install the plugin from a terminal. Use one of these two. Both install the same plugin, and installing both makes every hook run twice.
 
 ```
-claude plugin marketplace add <repository URL>
+# From the combined marketplace
+claude plugin marketplace add wook8170/claude-plugins
+claude plugin install lanekeeper@wook8170-plugins
+
+# Or from this repository alone
+claude plugin marketplace add wook8170/lanekeeper
 claude plugin install lanekeeper@lanekeeper
 ```
 
 Sample output:
 
 ```
-Adding marketplace…✔ Successfully added marketplace: lanekeeper (declared in user settings)
-Installing plugin "lanekeeper@lanekeeper"...✔ Successfully installed plugin: lanekeeper@lanekeeper (scope: user)
-2 userConfig options not yet set — run /plugin configure lanekeeper@lanekeeper in Claude Code, or pass --config KEY=VALUE.
+Adding marketplace…✔ Successfully added marketplace: wook8170-plugins (declared in user settings)
+Installing plugin "lanekeeper@wook8170-plugins"...✔ Successfully installed plugin: lanekeeper@wook8170-plugins (scope: user)
+2 userConfig options not yet set — run /plugin configure lanekeeper@wook8170-plugins in Claude Code, or pass --config KEY=VALUE.
 ```
 
-The last line says the two options of the plugin settings screen (message language `language`, report detail `chat_detail`) have not been chosen. Without a choice the defaults (`auto`, `summary`) apply. To choose, run `/plugin configure lanekeeper@lanekeeper` inside Claude Code.
+The last line says the two options of the plugin settings screen (message language `language`, report detail `chat_detail`) have not been chosen. Without a choice the defaults (`auto`, `summary`) apply. To choose, run `/plugin configure lanekeeper@wook8170-plugins` inside Claude Code.
 
-Inside a Claude Code session the same is done with `/plugin marketplace add <repository URL>` and `/plugin install lanekeeper@lanekeeper`.
+Inside a Claude Code session the same is done with `/plugin marketplace add wook8170/claude-plugins` and `/plugin install lanekeeper@wook8170-plugins`.
 
 ### 2.2 Install from a downloaded folder
 
@@ -86,29 +91,58 @@ claude plugin list
 ```
 Installed plugins:
 
-  ❯ lanekeeper@lanekeeper
-    Version: 0.1.0
-    Read from: ~/src/lanekeeper
+  ❯ lanekeeper@wook8170-plugins
+    Version: 0.2.1
+    Read from: ~/.claude/plugins/cache/wook8170-plugins/lanekeeper/0.2.1
     Scope: user
     Status: ✔ enabled
 ```
 
-The `lanekeeper-*` commands such as `lanekeeper-config` and `lanekeeper-waves` are available to the Bash commands Claude runs in a Claude Code session. To use them in an ordinary terminal, put the `bin` folder under the `Read from` path of `claude plugin list` on your `PATH`.
-
-```
-export PATH="$HOME/src/lanekeeper/bin:$PATH"
-```
+What you type is a slash command in the Claude Code prompt, such as `/lanekeeper:init`, `/lanekeeper:doctor` or `/lanekeeper:approve`. The `lanekeeper-*` commands in this manual, such as `lanekeeper-config` and `lanekeeper-waves`, are the ones Claude runs through Bash in a session. They are not on the `PATH` of an ordinary terminal, so ask Claude to run them. Do not add the plugin's `bin` folder to your `PATH`: the install path has the version in it and changes with every update.
 
 ### 2.5 Moving from wb
 
-Before 0.2.0 the plugin was called `wb`. Remove the old plugin and install the new name:
+Before 0.2.0 the plugin was called `wb`. Remove the old plugin and its marketplace, then install the new name:
 
 ```
 claude plugin uninstall wb@wb-plugin
-claude plugin install lanekeeper@lanekeeper
+claude plugin marketplace remove wb-plugin
+claude plugin install lanekeeper@wook8170-plugins
 ```
 
-Old settings keep working: `~/.wb`, `<repo>/.wb/config.json`, `<git common dir>/wb` and `WB_*` variables are read while the new names are missing, and the first session that uses one says so once. Nothing is moved for you. To switch, close the sessions and rename the folders (`mv ~/.wb ~/.lanekeeper`, `git mv .wb .lanekeeper`, `mv .git/wb .git/lanekeeper`). The README section "Renamed from wb (0.2.0)" has the details.
+**Do not leave `wb` turned on next to `lanekeeper`.** Every hook would then run twice. Also stop loading an old folder with `--plugin-dir`. `claude plugin list` must show only `lanekeeper`.
+
+Old settings keep working: `~/.wb`, `<repo>/.wb/config.json`, `<git common dir>/wb` and `WB_*` variables are read while the new names are missing, and the first session that uses one says so once. A gate pass stamp written as `wb-gate-pass.json` still counts for its commit. Nothing is moved for you. To switch, close the sessions and rename the folders (`mv ~/.wb ~/.lanekeeper`, `git mv .wb .lanekeeper`, `mv .git/wb .git/lanekeeper`). The README section "Renamed from wb (0.2.0)" has the details.
+
+The old `wb-*` commands have no aliases. Replace them in your own scripts, `CLAUDE.md` files and permission rules such as `Bash(wb-config:*)`:
+
+| Before 0.2.0 | Now |
+|---|---|
+| `wb-art` | `lanekeeper-art` |
+| `wb-cases` | `lanekeeper-cases` |
+| `wb-check` | `lanekeeper-check` |
+| `wb-config` | `lanekeeper-config` |
+| `wb-decide` | `lanekeeper-decide` |
+| `wb-defects` | `lanekeeper-defects` |
+| `wb-docs` | `lanekeeper-docs` |
+| `wb-explain` | `lanekeeper-explain` |
+| `wb-index` | `lanekeeper-index` |
+| `wb-integrate` | `lanekeeper-integrate` |
+| `wb-number` | `lanekeeper-number` |
+| `wb-port` | `lanekeeper-port` |
+| `wb-quality` | `lanekeeper-quality` |
+| `wb-reap` | `lanekeeper-reap` |
+| `wb-retry` | `lanekeeper-retry` |
+| `wb-route` | `lanekeeper-route` |
+| `wb-rules` | `lanekeeper-rules` |
+| `wb-slot` | `lanekeeper-slot` |
+| `wb-style` | `lanekeeper-style` |
+| `wb-terse` | `lanekeeper-terse` |
+| `wb-test-report` | `lanekeeper-test-report` |
+| `wb-token` | `lanekeeper-token` |
+| `wb-waves` | `lanekeeper-waves` |
+| `wb-work` | `lanekeeper-work` |
+| `wb-worktree` | `lanekeeper-worktree` |
 
 ## 3. Project setup
 

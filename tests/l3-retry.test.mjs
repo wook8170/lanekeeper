@@ -242,7 +242,7 @@ test('permission mode defaults to "default"; bypassPermissions needs the acknowl
     f.cleanup()
   }
 })
-test('lanekeeper-retry mode: bypassPermissions is refused without --i-understand and records the acknowledgement with it', () => {
+test('lanekeeper-retry mode: bypassPermissions is refused even with the old flag; other modes are set and clear the acknowledgement', () => {
   const f = makeEnv()
   try {
     let r = bin('lanekeeper-retry', ['mode', 'bypassPermissions'], f.env, f.repo)
@@ -250,8 +250,9 @@ test('lanekeeper-retry mode: bypassPermissions is refused without --i-understand
     assert.match(r.stdout, /bypassPermissions/)
     assert.equal(fs.existsSync(path.join(f.env.LANEKEEPER_HOME, 'personal.json')), false)
     r = bin('lanekeeper-retry', ['mode', 'bypassPermissions', '--i-understand'], f.env, f.repo)
-    assert.equal(r.status, 0)
-    assert.deepEqual([f.readPersonal().auto_retry.permission_mode, f.readPersonal().auto_retry.bypass_ack], ['bypassPermissions', true])
+    assert.equal(r.status, 1)
+    assert.match(r.stdout, /\/lanekeeper:approve retry-bypass/)
+    assert.equal(fs.existsSync(path.join(f.env.LANEKEEPER_HOME, 'personal.json')), false)
     r = bin('lanekeeper-retry', ['mode', 'plan'], f.env, f.repo)
     assert.deepEqual([f.readPersonal().auto_retry.permission_mode, f.readPersonal().auto_retry.bypass_ack], ['plan', false])
   } finally {

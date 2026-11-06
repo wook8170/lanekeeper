@@ -1,7 +1,7 @@
 ---
 name: approve
-description: Owner-only, one-use permission to merge, push or commit on a protected branch (main). Only works when a person types /lanekeeper:approve in the prompt.
-argument-hint: "merge-main|push-main|commit-main [branch-or-commit] | status | revoke"
+description: Owner-only decisions. One-use permission to merge, push or commit on a protected branch (main), accepting a weakened test result, allowing bypassPermissions for the automatic resume, and clearing an old gate lock. Only works when a person types /lanekeeper:approve in the prompt.
+argument-hint: "merge-main|push-main|commit-main [branch-or-commit] | accept-quality <kind> --reason <why> | retry-bypass | clear-gate-lock | status | revoke"
 disable-model-invocation: true
 ---
 
@@ -19,3 +19,9 @@ What the grant covers:
 - `merge-main` and `push-main` also need a gate pass stamp for the same commit when the project defines a gate command (`project.gate.command`).
 - Force pushes are never allowed, with or without a grant.
 - `/lanekeeper:approve status` shows the current grant; `/lanekeeper:approve revoke` deletes it.
+
+These three take effect as soon as they are typed. The hook has already done the work, so run nothing for them, and they leave any active grant as it is:
+
+- `accept-quality <kind> --reason <why>` accepts the weakened result of that kind on the commit of its newest result. It writes `accepted.json` in the results folder. Tell the user that this file still has to be committed.
+- `retry-bypass` lets the automatic resume use `bypassPermissions`. Repeat the risk in your report: the resumed session runs any tool without asking, unattended. `lanekeeper-retry mode default` turns it off.
+- `clear-gate-lock` removes `gate.lock` when it is older than `machine.slots.stale_after_min`. A newer lock is refused, because a gate may still be running.

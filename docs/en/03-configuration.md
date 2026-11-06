@@ -45,7 +45,7 @@ Settings are valid.
 
 ## 4. Key reference
 
-Defaults are written as JSON. Keys marked "reserved" are format-checked only; no command or hook of 0.1.0 reads them. Keys marked "skill reference" are not read by commands; Claude follows them through the skill instructions.
+Defaults are written as JSON. Keys marked "reserved" are format-checked only; no command or hook of this version reads them. Keys marked "skill reference" are not read by commands; Claude follows them through the skill instructions.
 
 ### 4.1 Model routing (`routing`)
 
@@ -119,9 +119,9 @@ Kept in the personal file `~/.lanekeeper/personal.json`. `language` and `report.
 | `personal.report.viewer` | `"local"` | Where reports are read. `remote` builds them to open on a remote device (skill reference) | `"remote"` |
 | `personal.report.artifact_fallback` | `"html-file"` | What to use without the Artifact tool: `html-file` · `none` | `"none"` |
 | `personal.report.artifact_check` | `true` | Block once when the report stage ends without an artifact | `false` |
-| `personal.auto_retry.enabled` | `false` | Automatic resume after a usage limit. Off until you turn it on (`lanekeeper-retry on`) | `true` |
+| `personal.auto_retry.enabled` | `false` | Automatic resume after a usage limit. Off until you turn it on (`/lanekeeper:auto-retry on`) | `true` |
 | `personal.auto_retry.permission_mode` | `"default"` | Permission mode of the resumed session: `default` · `acceptEdits` · `plan` · `bypassPermissions` | `"acceptEdits"` |
-| `personal.auto_retry.bypass_ack` | `false` | Record that the `bypassPermissions` risk was confirmed. Written by `lanekeeper-retry mode bypassPermissions --i-understand` | do not write by hand |
+| `personal.auto_retry.bypass_ack` | `false` | Record that the `bypassPermissions` risk was confirmed. Written by `/lanekeeper:approve retry-bypass`, and read only from `~/.lanekeeper/personal.json` | do not write by hand |
 | `personal.handoff.enabled` | `true` | `progress.md` handoff hooks | `false` |
 | `personal.handoff.inject` | `"summary"` | How much of `progress.md` goes in at session start. `summary` puts in the first section (at most 40 lines, 2,500 characters) and has the agent read the file; `full` the whole current state | `"full"` |
 | `personal.handoff.file` | `"progress.md"` | Handoff file path (relative to the repository) | `"docs/progress.md"` |

@@ -111,7 +111,7 @@ const PUBLIC_CONTACT_FILES = new Set([
 // and only as these exact strings.
 const PUBLIC_OWNER = ['wook', '8170'].join('')
 // `wb@…` is the install name before the 0.2.0 rename, kept for the uninstall step.
-const PUBLIC_INSTALL = [`${PUBLIC_OWNER}/lanekeeper`, `${PUBLIC_OWNER}/claude-plugins`, `lanekeeper@${PUBLIC_OWNER}-plugins`, `wb@${PUBLIC_OWNER}-plugins`]
+const PUBLIC_INSTALL = [`${PUBLIC_OWNER}/lanekeeper`, `${PUBLIC_OWNER}/claude-plugins`, `lanekeeper@${PUBLIC_OWNER}-plugins`, `wb@${PUBLIC_OWNER}-plugins`, `${PUBLIC_OWNER}-plugins`]
 const PUBLIC_INSTALL_FILES = new Set([
   'README.md', 'README.ko.md', 'PRIVACY.md', 'CHANGELOG.md', 'docs/en/01-getting-started.md', 'docs/ko/01-getting-started.md',
   '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',

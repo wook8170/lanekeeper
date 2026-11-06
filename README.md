@@ -50,14 +50,18 @@ Before 0.2.0 this plugin was called `wb`. The commands are now `/lanekeeper:*`, 
 
 ```
 claude plugin uninstall wb@wb-plugin             # or wb@wook8170-plugins
+claude plugin marketplace remove wb-plugin       # the marketplace of the old name
 claude plugin install lanekeeper@wook8170-plugins  # or lanekeeper@lanekeeper
 ```
+
+**Do not leave `wb` turned on next to `lanekeeper`.** Every hook would then run twice. Also stop loading an old folder with `--plugin-dir`. `claude plugin list` must show only `lanekeeper`.
 
 Old settings keep working, and nothing is moved for you:
 
 - `~/.wb` is read while `~/.lanekeeper` does not exist, and `<repo>/.wb/config.json` while `<repo>/.lanekeeper/config.json` does not exist. The lane state in `<git common dir>/wb` is used the same way.
 - `WB_*` variables are read as `LANEKEEPER_*`. When both are set, `LANEKEEPER_*` wins.
 - Briefs and decision files that start with `<!-- wb-brief` or `<!-- wb-decision` are still recognised.
+- A gate pass stamp written as `wb-gate-pass.json` still counts for its commit. The next gate run writes `lanekeeper-gate-pass.json`.
 - At the first session that uses an old name, the plugin says once which old names it read.
 
 To switch to the new names, close the running sessions and rename the folders yourself:
@@ -69,6 +73,36 @@ mv .git/wb .git/lanekeeper     # lane state, in each repository
 ```
 
 The new default branch names are `lanekeeper/*/int` and `lanekeeper/*/l*`. To keep lanes that were started under `wb/…`, set `git.integration_branch_pattern` and `git.lane_branch_pattern` back to `wb/*/int` and `wb/*/l*` in `.lanekeeper/config.json`. Claude Code keeps plugin data per plugin name, so limit records, token guard totals and automatic resume logs start fresh under the new name.
+
+The old `wb-*` commands have no aliases. Replace them in your own scripts, `CLAUDE.md` files and permission rules such as `Bash(wb-config:*)`:
+
+| Before 0.2.0 | Now |
+|---|---|
+| `wb-art` | `lanekeeper-art` |
+| `wb-cases` | `lanekeeper-cases` |
+| `wb-check` | `lanekeeper-check` |
+| `wb-config` | `lanekeeper-config` |
+| `wb-decide` | `lanekeeper-decide` |
+| `wb-defects` | `lanekeeper-defects` |
+| `wb-docs` | `lanekeeper-docs` |
+| `wb-explain` | `lanekeeper-explain` |
+| `wb-index` | `lanekeeper-index` |
+| `wb-integrate` | `lanekeeper-integrate` |
+| `wb-number` | `lanekeeper-number` |
+| `wb-port` | `lanekeeper-port` |
+| `wb-quality` | `lanekeeper-quality` |
+| `wb-reap` | `lanekeeper-reap` |
+| `wb-retry` | `lanekeeper-retry` |
+| `wb-route` | `lanekeeper-route` |
+| `wb-rules` | `lanekeeper-rules` |
+| `wb-slot` | `lanekeeper-slot` |
+| `wb-style` | `lanekeeper-style` |
+| `wb-terse` | `lanekeeper-terse` |
+| `wb-test-report` | `lanekeeper-test-report` |
+| `wb-token` | `lanekeeper-token` |
+| `wb-waves` | `lanekeeper-waves` |
+| `wb-work` | `lanekeeper-work` |
+| `wb-worktree` | `lanekeeper-worktree` |
 
 ## What it runs, sends and fetches
 
@@ -98,7 +132,7 @@ Every hook is a Node.js script in `hooks/scripts/`, started as `"${CLAUDE_PLUGIN
 
 `settings.json` sets the subagent status line to `lanekeeper-waves statusline`. The 25 `bin/lanekeeper-*` tools run only when you or Claude call them. They run `git`, `gh` (PR lookup), `lsof`, `ps`, `codegraph`, `sqlite3`, `nice`, `python3` (workbooks), `cwebp` (image conversion), `osascript`/`notify-send` (desktop notifications) and the commands you put in the project settings. `lanekeeper-slot reap --orphans --kill` stops listed orphan processes one PID at a time, and only with `--kill`. `lanekeeper-worktree remove` and `lanekeeper-index orphans --apply` delete only when you ask.
 
-**Automatic resume (off by default).** After `lanekeeper-retry on`, a usage limit that ends a turn makes the Stop hook write a one-shot job: a launchd agent in `~/Library/LaunchAgents/lanekeeper.auto-retry.<id>.plist` on macOS, a systemd user timer on Linux, or a background waiter elsewhere. At the reset time the job runs `claude --resume <id> -p <prompt>` in the default permission mode and removes itself. `lanekeeper-retry off` and `lanekeeper-retry cancel all` undo it.
+**Automatic resume (off by default).** After `/lanekeeper:auto-retry on`, a usage limit that ends a turn makes the Stop hook write a one-shot job: a launchd agent in `~/Library/LaunchAgents/lanekeeper.auto-retry.<id>.plist` on macOS, a systemd user timer on Linux, or a background waiter elsewhere. At the reset time the job runs `claude --resume <id> -p <prompt>` in the default permission mode and removes itself. `lanekeeper-retry off` and `lanekeeper-retry cancel all` undo it.
 
 ### What it sends
 
@@ -204,6 +238,8 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 
 **Owner grants.** Changes to a protected branch need the repository owner to type `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`) in the prompt. A grant is valid once, for 15 minutes (`git.owner_grant_ttl_min`), for the commit recorded when it was typed. When the project has a gate command (`gate.command`), a gate pass stamp for the same commit is also required. Grants are written by a `UserPromptExpansion` hook. That event fires only when a person types a slash command, so subagent reports and messages from other sessions cannot create one. The model cannot invoke the skill or write the grant file.
 
+**Other owner decisions.** The same command takes three decisions that an agent must not make for itself. They take effect at once: `/lanekeeper:approve accept-quality <kind> --reason why` (accept a weakened test result), `/lanekeeper:approve retry-bypass` (let the automatic resume use `bypassPermissions`) and `/lanekeeper:approve clear-gate-lock` (remove an old gate lock). A slash command is used instead of a confirmation dialog, because `bypassPermissions` mode and unattended runs show no dialog. The files they write cannot be written by Bash or the file tools either. Commands inside script files are outside this check, as with every safety hook.
+
 **Other blocks.**
 - Kills: name-based kills (`pkill`, `killall`, `kill $(pgrep ...)`) are blocked. `kill <PID>`, `lsof -ti :port | xargs kill` and `fuser -k` are blocked when the target listens on a protected port (`machine.ports.protected`).
 - Deletes: `rm -r` of `/`, the home folder, system folders, the project root or `.git` is blocked. Outside the project it asks; inside the project and temp folders it passes.
@@ -226,7 +262,7 @@ Commands are unpacked before judging: `;` `&&` `||` `|`, subshells, `$( )`, `sh 
 | Session rules | Adds working rules no hook can check at session start, after `/clear` and after a compaction: output language (`personal.language` set to `ko` or `en`), remote viewer (`personal.report.viewer: remote`: no local addresses, artifacts, base64 images, 2x captures), reporting, communication and fixing rules (implemented vs deployed, ask when unclear, fix the root cause, no emoji in the product UI) | `personal.session_rules.{language, remote, conduct}` | |
 | Checkpoint | On a limit, a subagent stop or a context compaction, commits changes to tracked files on a lane branch as a `wip(lanekeeper)` commit. With `project.lanes.commit` set to `on-instruction`, only lanes whose brief allows commits are committed. Untracked files and secret-like files (`.env*`, `*.pem`, `*.key`, `id_*`, `*credentials*`, `*.p12`) are not committed; they are reported in `.git/lanekeeper/checkpoint.json` and a notification. If a project hook (pre-commit) fails, the checkpoint is skipped and the reason recorded. Protected and non-lane branches are left alone and nothing is pushed | `personal.checkpoint.enabled` | |
 
-The permission mode of the automatic resume defaults to `default`. In that mode tools that need approval are refused in the unattended run, so the resumed work can stop at that point. `bypassPermissions` is enabled only by `lanekeeper-retry mode bypassPermissions --i-understand` after reading the risk; without the recorded acknowledgement (`bypass_ack`) the resume uses `default`.
+The permission mode of the automatic resume defaults to `default`. In that mode tools that need approval are refused in the unattended run, so the resumed work can stop at that point. `bypassPermissions` is enabled only when a person types `/lanekeeper:approve retry-bypass` in the prompt. Without that acknowledgement (`bypass_ack` in `~/.lanekeeper/personal.json`) the resume uses `default`, and project settings cannot supply it.
 
 The token guard first uses the official usage stored in `~/.claude.json`; once it is older than 10 minutes, the local use since then is converted with a per-account calibration ratio and added. Calibration is automatic; values seen in the app can be added with `lanekeeper-token calibrate --five <n> --seven <n>`. Without an official value the budget (`personal.token_guard.budget`, default 0) is used, and with neither a budget nor a calibration the guard stays silent.
 
@@ -274,7 +310,7 @@ lanekeeper-worktree remove l3 [--force] [--delete-branch]
 
 When on, the Lanekeeper hook keeps Claude Code's location (`.claude/worktrees/<name>`) and branch name (`worktree-<name>`), bases the worktree on the integration HEAD when there is exactly one integration branch, and also leases ports, copies `.worktreeinclude` files and runs the setup command. These worktrees are not added to the lane registry. If no heavy slot comes free within 2 minutes the setup command is skipped; run `lanekeeper-worktree setup <name>` later. Claude Code's own extras (branching from the remote default branch, filter-driver neutralisation, the stale worktree sweep) do not apply in this mode.
 
-**Cleanup.** `lanekeeper-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and removed with `--gate-lock`. It never stops processes.
+**Cleanup.** `lanekeeper-reap` reclaims finished slot leases and lists port leases and lane entries whose folder is gone (`--apply` clears them). An old `gate.lock` is only reported, and the owner removes it by typing `/lanekeeper:approve clear-gate-lock` in the prompt. It never stops processes.
 
 ## Lane ledger, progress board and resume
 
@@ -408,7 +444,7 @@ codegraph is optional. Without it the session start adds guidance to install and
 ```
 lanekeeper-index add [path]         # queue a checkout and start the worker (default: this checkout)
 lanekeeper-index status             # queue, worker, recent results
-lanekeeper-index run                # work through the queue in this terminal
+lanekeeper-index run                # work through the queue now, in the foreground
 lanekeeper-index drop <path>        # take it off the queue and delete its .codegraph
 lanekeeper-index orphans [--apply]  # indexes left in folders that are no longer worktrees, with sizes; --apply deletes the indexes only
 lanekeeper-index metrics [--days N] # codegraph responses by class
