@@ -135,7 +135,7 @@ lanekeeper-config validate
 | `personal.token_guard.budget` | `0` | 공식 사용량이 없을 때 쓰는 대체 예산(가중 토큰). 0 이면 계정의 보정 계수에서 100% 를 환산하고, 그것도 없으면 가드가 동작하지 않는다. `lanekeeper-token calibrate <n>` 이 쓴다 | `250000000` |
 | `personal.token_guard.window_hours` | `5` | 대체 예산으로 판정할 때 사용량을 합치는 최근 시간 | `5` |
 | `personal.token_guard.fresh_min` | `10` | 공식 사용량을 그대로 쓰는 시간(분). 이보다 오래되면 그 뒤 로컬 사용 추정을 더한다 | `5` |
-| `personal.token_guard.source` | `"auto"` | 사용량 출처. `auto` 는 공식 값과 추정, `official` 은 공식 값만, `local` 은 대체 예산 방식만 쓴다 | `"official"` |
+| `personal.token_guard.source` | `"auto"` | 사용량 출처. `auto` 는 공식 값과 추정, `official` 은 공식 값만, `local` 은 대체 예산 방식만 쓴다. 공식 값에 5시간 항목이 없으면(`five_hour: null`) 7일 비율만 쓴다 | `"official"` |
 | `personal.terse` | `false` | 스위치가 없는 모든 저장소에서 간결 모드 | `true` |
 | `personal.global_hooks` | `"defer"` | Claude Code 설정(`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`)에 같은 종류의 훅(핸드오프·토큰 가드·자동 재개·간결 모드)이 이미 있으면 Lanekeeper 의 그 훅을 끈다. `ignore` 면 그대로 켠다 | `"ignore"` |
 | `personal.search.rg_hint` | `true` | `grep -r` 류 재귀 검색에 `rg` 안내(세션당 한 번, 막지 않음) | `false` |

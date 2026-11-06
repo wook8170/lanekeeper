@@ -24,7 +24,7 @@ const out = (ts, output) => ({ timestamp: new Date(ts).toISOString(), message: {
 const rejected = (ts, resetMs) => ({ timestamp: new Date(ts).toISOString(), isApiErrorMessage: true, apiErrorParams: { rate_limit_info: { status: 'rejected', resetsAt: Math.floor(resetMs / 1000), rateLimitType: 'five_hour' } } })
 
 // ~/.claude.json with the official cache; the oauth account decides which account is active.
-function writeClaudeJson(f, { fetchedAt, account = ACC_A, active = account, five, seven, fiveReset, sevenReset, secret = 'sk-never-read' }) {
+function writeClaudeJson(f, { fetchedAt, account = ACC_A, active = account, five, seven, fiveReset, sevenReset, secret = 'sk-never-read', noFive = false }) {
   const j = {
     oauthAccount: { accountUuid: active, emailAddress: 'x@example.com' },
     primaryApiKey: secret,
@@ -32,7 +32,7 @@ function writeClaudeJson(f, { fetchedAt, account = ACC_A, active = account, five
       fetchedAtMs: fetchedAt,
       accountUuid: account,
       utilization: {
-        five_hour: { utilization: five, resets_at: new Date(fiveReset).toISOString() },
+        five_hour: noFive ? null : { utilization: five, resets_at: new Date(fiveReset).toISOString() },
         seven_day: { utilization: seven, resets_at: new Date(sevenReset).toISOString() },
       },
     },
@@ -224,6 +224,45 @@ test('estimate: a five-hour rejection after the snapshot is a 100% point', () =>
     assert.equal(e.five.basis, 'pair')
     assert.equal(readHistory(f.env, ACC_A).at(-1).source, 'limit')
     assert.equal(e.util, 100)
+  } finally {
+    f.cleanup()
+  }
+})
+
+test('estimate: a latest official value without five_hour drops the five-hour window; a later rejection is 100 again', () => {
+  const f = makeEnv()
+  try {
+    writeClaudeJson(f, { fetchedAt: NOW - 3 * H, five: 20, seven: 10, fiveReset: NOW + 2 * H, sevenReset: NOW + 100 * H })
+    writeTranscript(f, 'a.jsonl', [out(NOW - 4 * H, 100), out(NOW - 2.5 * H, 100)])
+    const a = estimateUsage({ env: f.env, now: NOW, cfg: { source: 'official' } })
+    assert.deepEqual([a.five.pct, a.util], [20, 20], 'official five-hour value decides')
+    // the newest official value has no five-hour window
+    writeClaudeJson(f, { fetchedAt: NOW - 60e3, noFive: true, seven: 10, sevenReset: NOW + 100 * H })
+    writeTranscript(f, 'a.jsonl', [out(NOW - 4 * H, 100), out(NOW - 2.5 * H, 5000)])
+    const b = estimateUsage({ env: f.env, now: NOW, cfg: {} })
+    assert.equal(b.five, null, 'five-hour is left out')
+    assert.equal(b.util, 10, 'decided by the seven-day value')
+    assert.equal(estimateUsage({ env: f.env, now: NOW, cfg: { source: 'official' } }).util, 10)
+    // a rejection after that is a 100% point again
+    writeTranscript(f, 'a.jsonl', [out(NOW - 2.5 * H, 100), rejected(NOW - 30e3, NOW + H)])
+    const c = estimateUsage({ env: f.env, now: NOW, cfg: {} })
+    assert.equal(c.five.pct, 100)
+    assert.equal(c.util, 100)
+  } finally {
+    f.cleanup()
+  }
+})
+
+test('estimate: the rejection scan reads at most the last five hours', () => {
+  const f = makeEnv()
+  try {
+    writeClaudeJson(f, { fetchedAt: NOW - 10 * H, five: 40, seven: 10, fiveReset: NOW - 8 * H, sevenReset: NOW + 100 * H })
+    // older than five hours, after the last five-hour point: not read
+    writeTranscript(f, 'a.jsonl', [out(NOW - 9 * H, 100), rejected(NOW - 8 * H, NOW - 7 * H)])
+    for (let i = 0; i < 20; i++) writeTranscript(f, `b${i}.jsonl`, [out(NOW - 9.5 * H, 10)])
+    const e = estimateUsage({ env: f.env, now: NOW, cfg: {} })
+    assert.notEqual(readHistory(f.env, ACC_A).at(-1).source, 'limit', 'old rejection is not recorded')
+    assert.ok(e.util < 100, String(e.util))
   } finally {
     f.cleanup()
   }

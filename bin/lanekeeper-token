@@ -126,14 +126,14 @@ if (cmd === 'on' || cmd === 'off') {
     say(t('token.status.official', { at: when(s.at), age, fresh: age <= freshMin ? t('token.status.fresh') : t('token.status.stale', { min: freshMin }), account: tail8(s.account), five: s.five ?? '-', five_reset: when(s.five_reset), seven: s.seven ?? '-', seven_reset: when(s.seven_reset) }))
   }
   if (est.source === 'official' || est.source === 'estimate') {
-    const dimText = (d) => {
-      if (!d) return '-'
+    const dimText = (d, name) => {
+      if (!d) return name === 'five' && est.no_five_window ? t('token.status.dim.nowindow') : '-'
       if (d.reset_passed) return t('token.status.dim.reset', { pct: pct1(d.pct) })
       const point = { official: t('token.status.point.official'), manual: t('token.status.point.manual'), limit: t('token.status.point.limit') }[d.source] || d.source
       return t('token.status.dim', { pct: pct1(d.pct), point, at: when(d.at), official: d.official, delta: `${pct1(d.delta)}%` })
     }
     const srcKey = { official: t('token.src.official'), estimate: t('token.src.estimate') }[est.source]
-    say(t('token.status.estimate', { five: dimText(est.five), seven: dimText(est.seven), util: est.util, src: srcKey, tier: tierOf(est.util) }))
+    say(t('token.status.estimate', { five: dimText(est.five, 'five'), seven: dimText(est.seven, 'seven'), util: est.util, src: srcKey, tier: tierOf(est.util) }))
     for (const dim of ['five', 'seven']) {
       const c = est.calib && est.calib[dim]
       if (!c || !(c.r > 0)) {

@@ -222,6 +222,7 @@
   "token.status.name.five": "5시간",
   "token.status.name.seven": "7일",
   "token.status.dim.reset": "{pct}% (창 리셋됨, 리셋 이후 로컬만)",
+  "token.status.dim.nowindow": "공식 값에 이 창이 없어 판정에서 뺌",
   "token.status.calib": "보정 {dim}: 1% ≈ 가중 {per} ({basis}, {from} → {to}).",
   "token.status.calib.none": "보정 {dim}: 아직 없음.",
   "token.status.basis.pair": "두 점의 차이",

@@ -133,6 +133,9 @@ The handoff hooks work only in a repository that has `progress.md`. Create it on
 **The token guard percentage differs from `/usage` in the app.**
 Check the fetch time of the official value in `lanekeeper-token status`. If it is old, the use since then is an estimate from local tokens and can differ from the app by a few points. Adding the app's values with `lanekeeper-token calibrate --five <n> --seven <n>` aligns it from that moment. A line saying the official cache belongs to another account means Claude Code has not fetched the usage again since the account switch; opening `/usage` once at the prompt stores a new value.
 
+**`lanekeeper-token status` shows the five-hour part as "no such window in the official value; left out".**
+The newest official value has `five_hour: null`, so the guard decides by the seven-day figure alone. This is not an error. It is read as having no five-hour limit, based on the response shape observed so far; no policy document confirms it. If a five-hour rejection appears in the conversation logs afterwards, the five-hour figure returns as 100%.
+
 **An automatically resumed session stops halfway.**
 In the default permission mode (`default`), tools that need approval are refused in an unattended run. Open the session with the `claude --resume <id>` line from `lanekeeper-retry status` and continue.
 

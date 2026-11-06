@@ -135,7 +135,7 @@ Kept in the personal file `~/.lanekeeper/personal.json`. `language` and `report.
 | `personal.token_guard.budget` | `0` | Fallback budget (weighted tokens) used when there is no official usage. At 0 the 100% derived from the account's calibration is used; without one the guard is silent. Written by `lanekeeper-token calibrate <n>` | `250000000` |
 | `personal.token_guard.window_hours` | `5` | Recent hours whose usage is added up for the fallback budget | `5` |
 | `personal.token_guard.fresh_min` | `10` | Minutes the official usage is used as it is. Older than that, an estimate of the local use since then is added | `5` |
-| `personal.token_guard.source` | `"auto"` | Usage source. `auto`: official value plus estimate, `official`: official value only, `local`: fallback budget only | `"official"` |
+| `personal.token_guard.source` | `"auto"` | Usage source. `auto`: official value plus estimate, `official`: official value only, `local`: fallback budget only. When the official value has no five-hour entry (`five_hour: null`), only the seven-day figure is used | `"official"` |
 | `personal.terse` | `false` | Terse mode in every repository without its own switch | `true` |
 | `personal.global_hooks` | `"defer"` | When the Claude Code settings (`CLAUDE_CONFIG_DIR/settings.json`, `~/.claude/settings.json`) already hook the same kind (handoff, token guard, auto resume, terse), Lanekeeper's hook of that kind stays off. `ignore` keeps it on | `"ignore"` |
 | `personal.search.rg_hint` | `true` | `rg` note on a recursive `grep -r` search (once per session, never blocks) | `false` |

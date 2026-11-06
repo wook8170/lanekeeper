@@ -133,6 +133,9 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 **토큰 가드의 비율이 앱의 `/usage` 와 다르다.**
 `lanekeeper-token status` 에서 공식 값의 조회 시각을 본다. 조회한 지 오래됐다면 그 뒤 사용분은 로컬 토큰으로 추정한 값이라 앱과 몇 %p 차이가 날 수 있다. 앱에서 본 값을 `lanekeeper-token calibrate --five <n> --seven <n>` 으로 넣으면 그 시점부터 맞춰진다. 「공식 캐시가 다른 계정 것」이라는 줄이 보이면 계정을 바꾼 뒤 Claude Code 가 아직 사용량을 다시 조회하지 않은 것이다. 프롬프트에서 `/usage` 를 한 번 열면 새 값이 저장된다.
 
+**`lanekeeper-token status` 의 5시간 칸에 "공식 값에 이 창이 없어 판정에서 뺌" 이라고 나온다.**
+가장 최근 공식 값이 `five_hour: null` 이라서 7일 비율만으로 판정하는 것이며 오류가 아니다. 지금까지 관찰한 응답 형태에 근거해 5시간 한도가 없는 것으로 읽으며, 정책 문서로 확인하지는 않았다. 이후 대화 기록에 5시간 한도 거절이 남으면 5시간 비율이 100% 로 다시 나온다.
+
 **자동 재개된 세션이 중간에 멈춘다.**
 기본 권한 모드(`default`)에서는 승인이 필요한 도구가 무인 실행에서 거절된다. 이때는 `lanekeeper-retry status` 의 `claude --resume <id>` 줄로 세션을 열어 이어서 진행한다.
 

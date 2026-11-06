@@ -222,6 +222,7 @@
   "token.status.name.five": "five-hour",
   "token.status.name.seven": "seven-day",
   "token.status.dim.reset": "{pct}% (window reset; local since the reset)",
+  "token.status.dim.nowindow": "no such window in the official value; left out",
   "token.status.calib": "Calibration {dim}: 1% ≈ {per} weighted tokens ({basis}, {from} → {to}).",
   "token.status.calib.none": "Calibration {dim}: none yet.",
   "token.status.basis.pair": "difference of two points",
