@@ -1,18 +1,18 @@
 // paths: protected paths (project.protected_paths) and the Lanekeeper state files that
-// only hooks may write (owner grant, gate stamp, lane ledger).
+// only hooks may write (owner grant, dialog ticket, gate stamp, lane ledger).
 import path from 'node:path'
 import { ask, deny, globToRe, inside } from './common.mjs'
 import { resolvePath } from './shell.mjs'
 import { DIR, LEGACY_DIR } from '../../../lib/naming.mjs'
 
-const READ_ONLY = new Set(['cat', 'less', 'more', 'head', 'tail', 'ls', 'stat', 'test', '[', 'jq', 'wc', 'file', 'grep', 'rg', 'diff', 'git', 'echo', 'printf', 'lanekeeper-config'])
+export const READ_ONLY = new Set(['cat', 'less', 'more', 'head', 'tail', 'ls', 'stat', 'test', '[', 'jq', 'wc', 'file', 'grep', 'rg', 'diff', 'git', 'echo', 'printf', 'lanekeeper-config'])
 const WRITERS = new Set(['cp', 'mv', 'tee', 'touch', 'ln', 'install', 'rsync', 'truncate', 'dd', 'sed', 'perl', 'chmod', 'rm', 'unlink'])
 
 // A path is state when it lives under <git-common-dir>/lanekeeper/ (or the
 // <git-common-dir>/wb/ used before 0.2.0).
 export function isStatePath(p, stateDirs = []) {
   if (/\/\.git\/(lanekeeper|wb)(\/|$)/.test(p)) return true
-  if (path.basename(p) === 'owner-grant.json') return true
+  if (['owner-grant.json', 'owner-ticket.json'].includes(path.basename(p))) return true
   return stateDirs.some((d) => d && inside(p, d))
 }
 
@@ -61,7 +61,7 @@ export function judgeBashPaths(cmd, ctx) {
     if (p === personalFile(ctx) || /\.(lanekeeper|wb)\/personal\.json/.test(t)) return 'paths.ack'
     return null
   }
-  const mentions = (t) => /owner-grant/.test(t) || /\.git\/(lanekeeper|wb)\//.test(t) || (ctx.stateDirs || []).some((d) => d && t.includes(d))
+  const mentions = (t) => /owner-(grant|ticket)/.test(t) || /\.git\/(lanekeeper|wb)\//.test(t) || (ctx.stateDirs || []).some((d) => d && t.includes(d))
   for (const r of cmd.redirs) {
     if (!/>/.test(r.op) || !r.target || /^&?\d$/.test(r.target)) continue
     const p = resolvePath(cmd.cwd, r.target, ctx.home)

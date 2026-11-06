@@ -6,9 +6,10 @@
 // Always reclaims run slots whose owner died or stopped renewing (the same
 // rule lanekeeper-slot applies on its own). With --apply it also drops port leases
 // and lanes.json entries whose worktree no longer exists. A gate.lock older
-// than machine.slots.stale_after_min is only reported; a person removes it by
-// typing /lanekeeper:approve clear-gate-lock, and --gate-lock only says so and
-// exits 4. Processes are never killed here.
+// than machine.slots.stale_after_min is only reported. A person removes it by
+// typing /lanekeeper:approve clear-gate-lock, or by allowing the dialog the safety
+// hook raises for `lanekeeper-reap --gate-lock`. Without that dialog's ticket,
+// --gate-lock only says so and exits 4. Processes are never killed here.
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -21,6 +22,7 @@ const slots = await load('slots.mjs')
 const ports = await load('ports.mjs')
 const { readLanes, removeLane } = await load('ledger.mjs')
 const { parseOptions: parseArgs } = await load('cli.mjs')
+const OD = await load('owner-decisions.mjs')
 
 const args = parseArgs(process.argv.slice(2), ['apply', 'gate-lock', 'json'])
 const env = process.env
@@ -32,11 +34,22 @@ if (resolved.errors.length) {
   process.stderr.write(`[lanekeeper-reap] ${t('slot.config_error', { file: e.file, key: e.path, msg: e.msg })}\n`)
   process.exit(2)
 }
-if (args['gate-lock']) {
-  process.stderr.write(`[lanekeeper-reap] ${t('reap.gate_owner_only')}\n`)
-  process.exit(4)
-}
 const settings = slots.slotSettings(resolved, (p) => expandHome(p, env.HOME))
+if (args['gate-lock']) {
+  const fail = (key, vars) => {
+    process.stderr.write(`[lanekeeper-reap] ${t(key, vars)}\n`)
+    process.exit(4)
+  }
+  const dir = stateDir(root)
+  if (typeof args['dialog-ticket'] !== 'string' || !dir) fail('reap.gate_owner_only')
+  const lock = OD.readGateLock(dir, settings.staleMs)
+  const used = OD.consumeTicket(dir, 'clear-gate-lock', lock ? OD.gateLockContent(lock) : '', args['dialog-ticket'])
+  if (used !== 'ok') fail(`owner.ticket.${used}`, { slash: '/lanekeeper:approve clear-gate-lock' })
+  if (!lock.stale) fail('reap.gate_active', { ageMin: lock.ageMin })
+  OD.removeGateLock(dir, lock, 'dialog')
+  process.stdout.write(`${t('reap.gate_removed', { ageMin: lock.ageMin })}\n`)
+  process.exit(0)
+}
 const deps = slots.defaultDeps()
 const result = { slots: slots.KINDS.flatMap((k) => slots.reapKind(k, settings, deps)), leases: [], lanes: [], gateLock: null }
 

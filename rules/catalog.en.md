@@ -130,11 +130,11 @@ Agents do not write protected paths, Lanekeeper state files or Lanekeeper settin
 
 ### Only a person can grant (`human-only-approve`)
 
-`/lanekeeper:approve` works only when a person types it in the prompt.
+`/lanekeeper:approve` works only when a person types it in the prompt. Accepting a weakened result and clearing a gate lock can also be allowed by a person in a dialog raised from the main session.
 
 - Why: If an agent could create its own grant, the owner's grant would mean nothing.
-- Enforced in: `hooks/scripts/safety/approve.mjs`, `skills/approve/SKILL.md`
-- If blocked: Tell the owner which action needs a grant and ask them to type it.
+- Enforced in: `hooks/scripts/safety/approve.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `skills/approve/SKILL.md`
+- If blocked: Tell the owner which action needs a grant and ask them to type it. To accept a weakened result or clear a gate lock, the main session can also run the command alone on one line to raise a dialog. A lane reports the request to the main session.
 
 ### Blocked when the check cannot decide (`safety-fails-closed`)
 

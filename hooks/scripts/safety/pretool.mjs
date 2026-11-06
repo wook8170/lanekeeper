@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // PreToolUse safety hook (Bash · Write · Edit · MultiEdit · NotebookEdit · Skill).
-// Guards: git, kill, rm, browser, protected paths, protected data (data-guard).
+// Guards: git, kill, rm, browser, protected paths, protected data (data-guard), owner decisions.
 //
 // Runs every guard on the tool call and answers with the strictest verdict:
 //   deny  -> permissionDecision "deny" with a three-part message
@@ -13,7 +13,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { resolveConfig, projectRoot, stateDir, lanekeeperHome } from '../../../lib/config.mjs'
-import { ALLOW, DENY, combine, deny, formatReasons } from './common.mjs'
+import { issueTicket } from '../../../lib/owner-decisions.mjs'
+import { translator } from '../../../lib/i18n.mjs'
+import { ALLOW, ASK, DENY, combine, deny, formatReasons } from './common.mjs'
 import { parse } from './shell.mjs'
 import { judgeGit } from './git-guard.mjs'
 import { judgeKill } from './kill-guard.mjs'
@@ -21,10 +23,13 @@ import { judgeRm } from './destructive.mjs'
 import { judgeBrowser } from './browser-guard.mjs'
 import { judgeBashPaths, judgeFileTool } from './paths.mjs'
 import { judgeData, judgeDataFile } from './data-guard.mjs'
+import { judgeOwnerCall } from './owner-dialog.mjs'
 import { consumeGrant } from './grant.mjs'
 import { realGit, realListenPorts, realPr } from './context.mjs'
 
 const GUARDED_WORDS = /\b(push|merge|rebase|commit|reset|stash|clean|checkout|switch|cherry-pick|revert|update-ref|kill|pkill|killall|fuser|rm|chrome|chromium|playwright|headed|open)\b/
+
+const NESTED_OWNER = /lanekeeper:approve|lanekeeper-reap\b[\s\S]*--gate-lock|lanekeeper-quality\b[\s\S]*\baccept\b/
 
 export function buildContext(input, env = process.env, overrides = {}) {
   const cwd = input.cwd || process.cwd()
@@ -42,6 +47,7 @@ export function buildContext(input, env = process.env, overrides = {}) {
     configErrors: resolved.errors,
     language: resolved.effective.language,
     agentId: input.agent_id || null,
+    permissionMode: input.permission_mode,
     now: Date.now(),
     git: realGit,
     listenPorts: realListenPorts,
@@ -56,8 +62,11 @@ export function buildContext(input, env = process.env, overrides = {}) {
 export function judgeCommand(command, ctx) {
   const cmds = parse(command, { cwd: ctx.cwd, home: ctx.home })
   const verdicts = []
-  // A headless `claude -p "/lanekeeper:approve …"` would count as a typed command in that session.
-  if (command.includes('lanekeeper:approve') && cmds.some((c) => path.basename(c.name || '') === 'claude')) verdicts.push(deny('approve.model', {}))
+  // A headless `claude -p "/lanekeeper:approve …"` would count as a typed command in that session, and
+  // a nested session must not be the one to raise or answer a dialog.
+  if (NESTED_OWNER.test(command) && cmds.some((c) => path.basename(c.name || '') === 'claude')) verdicts.push(deny('approve.model', {}))
+  const owner = judgeOwnerCall(command, cmds, ctx)
+  if (owner) verdicts.push(owner)
   for (const cmd of cmds) {
     cmd.home = ctx.home
     const vs = []
@@ -73,7 +82,7 @@ export function judgeCommand(command, ctx) {
     }
     verdicts.push(...flat)
   }
-  return combine(verdicts)
+  return { ...combine(verdicts), dialog: owner?.dialog }
 }
 
 export function judgeTool(input, ctx) {
@@ -94,8 +103,14 @@ export function judgeTool(input, ctx) {
   return combine([])
 }
 
-function output(decision, reason) {
-  return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } })
+function output(decision, reason, updatedInput) {
+  return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason, ...(updatedInput ? { updatedInput } : {}) } })
+}
+
+// What a person reads in the dialog: the question and what each answer does, with no repair advice.
+function dialogText(lang, reasons) {
+  const t = translator(lang)
+  return `[lanekeeper] ${reasons.flatMap((r) => [t(`safety.${r.code}.why`, r.vars), t(`safety.${r.code}.fix`, r.vars)]).join('\n')}`
 }
 
 // Judge one hook input and consume any owner grant the verdict relies on.
@@ -103,7 +118,9 @@ export function evaluate(input, env = process.env, overrides = {}) {
   const ctx = buildContext(input, env, overrides)
   const r = judgeTool(input, ctx)
   if (r.decision !== DENY) for (const c of r.consume) consumeGrant(c.stateDir, c.by, ctx.now)
-  return { ...r, language: ctx.language }
+  // The ticket goes out only with the dialog that carries it.
+  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now)) } : undefined
+  return { ...r, updatedInput, language: ctx.language }
 }
 
 export function runHook(raw, env = process.env, overrides = {}) {
@@ -112,7 +129,7 @@ export function runHook(raw, env = process.env, overrides = {}) {
     const r = evaluate(JSON.parse(raw || '{}'), env, overrides)
     lang = r.language
     if (r.decision === ALLOW) return ''
-    return output(r.decision, formatReasons(lang, r.reasons))
+    return output(r.decision, r.updatedInput ? dialogText(lang, r.reasons) : formatReasons(lang, r.reasons), r.updatedInput)
   } catch (e) {
     return output(DENY, formatReasons(lang, [{ decision: DENY, code: 'internal', vars: { msg: String(e?.message || e).slice(0, 200) } }]))
   }

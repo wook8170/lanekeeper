@@ -25,3 +25,5 @@ These three take effect as soon as they are typed. The hook has already done the
 - `accept-quality <kind> --reason <why>` accepts the weakened result of that kind on the commit of its newest result. It writes `accepted.json` in the results folder. Tell the user that this file still has to be committed.
 - `retry-bypass` lets the automatic resume use `bypassPermissions`. Repeat the risk in your report: the resumed session runs any tool without asking, unattended. `lanekeeper-retry mode default` turns it off.
 - `clear-gate-lock` removes `gate.lock` when it is older than `machine.slots.stale_after_min`. A newer lock is refused, because a gate may still be running.
+
+`accept-quality` and `clear-gate-lock` have a second route that does not pass through this command: `lanekeeper-quality accept <kind> --reason "why"` or `lanekeeper-reap --gate-lock`, run alone on one line in the main session, raises a dialog for a person to answer. `retry-bypass` has no such route.

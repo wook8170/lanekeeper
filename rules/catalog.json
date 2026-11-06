@@ -513,8 +513,8 @@
         "en": "Only a person can grant"
       },
       "rule": {
-        "ko": "`/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다.",
-        "en": "`/lanekeeper:approve` works only when a person types it in the prompt."
+        "ko": "`/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 띄운 확인 창에 사람이 답해도 된다.",
+        "en": "`/lanekeeper:approve` works only when a person types it in the prompt. Accepting a weakened result and clearing a gate lock can also be allowed by a person in a dialog raised from the main session."
       },
       "why": {
         "ko": "에이전트가 허가를 스스로 만들 수 있으면 소유자 허가 절차가 의미가 없어진다.",
@@ -529,13 +529,20 @@
           ]
         },
         {
+          "kind": "hook",
+          "path": "hooks/scripts/safety/owner-dialog.mjs",
+          "codes": [
+            "safety.owner.*"
+          ]
+        },
+        {
           "kind": "skill",
           "path": "skills/approve/SKILL.md"
         }
       ],
       "recover": {
-        "ko": "어떤 작업에 허가가 필요한지 소유자에게 알리고, 직접 입력해 달라고 요청한다.",
-        "en": "Tell the owner which action needs a grant and ask them to type it."
+        "ko": "어떤 작업에 허가가 필요한지 소유자에게 알리고, 직접 입력해 달라고 요청한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 명령을 한 줄 단독으로 실행해 창을 띄워도 된다. 레인은 요청을 메인 세션으로 올린다.",
+        "en": "Tell the owner which action needs a grant and ask them to type it. To accept a weakened result or clear a gate lock, the main session can also run the command alone on one line to raise a dialog. A lane reports the request to the main session."
       }
     },
     {

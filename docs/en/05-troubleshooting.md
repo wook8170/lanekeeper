@@ -39,7 +39,10 @@ Inside Claude Code, `/lanekeeper:explain` and `/lanekeeper:doctor` do the same. 
 | `This action (…) on the protected branch … needs an owner grant, and there is none.` | Merge, push or commit on a protected branch | The owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`). When a push is blocked, the branch name in the message is the branch checked out now, not the target |
 | `There is no gate pass stamp for commit …` | In a project with `project.gate.command`, the gate has not passed on the commit being applied | In the folder that has that commit checked out (usually the integration branch), pass `lanekeeper-test-report gate-pass` or `lanekeeper-test-report run` to the end. No stamp is written while there are uncommitted changes |
 | `The gate pass stamp belongs to another commit (…)` | Changes other than result files were committed after the stamp | Run the gate again on the current commit |
-| `A verification gate is running` | `lanekeeper-test-report run` holds the gate lock | Run again when it ends. If a crash left the lock, the owner types `/lanekeeper:approve clear-gate-lock` in the prompt once the lock is older than `machine.slots.stale_after_min` |
+| `A verification gate is running` | `lanekeeper-test-report run` holds the gate lock | Run again when it ends. If a crash left the lock, the owner types `/lanekeeper:approve clear-gate-lock` in the prompt once the lock is older than `machine.slots.stale_after_min`, or allows the dialog that `lanekeeper-reap --gate-lock` raises in the main session |
+| `A subagent asked for an owner decision` | A lane ran `lanekeeper-quality accept` or `lanekeeper-reap --gate-lock` | Report the request to the main session. The main session runs the same command alone, or the owner types the slash command |
+| `A dialog can only be raised for the plain command` | The command was chained, or has a path, an environment prefix or added options | Run the command by itself, with the reason as quoted plain text |
+| `What the dialog showed has changed` | A newer result or a changed lock appeared after the dialog was raised | Run the command again and read the new dialog |
 | `Feature branch pushes need confirmation` | `project.git.feature_push` is `ask` (default) | Approve in the confirmation prompt. To always allow, set it to `allow` |
 | `` `git reset --hard` discards uncommitted changes for good `` | A command that throws away changes | Check what would be lost with `git status`, leave a WIP commit if needed, then approve |
 
@@ -113,7 +116,7 @@ Put `"lanes": { "max": 6 }` in `~/.lanekeeper/machine.json`. If the project sett
 Add the model name to `denied` in `~/.lanekeeper/routing.json`. It is removed from every fallback order.
 
 **Can Claude run `/lanekeeper:approve` for me?**
-No. The skill creates a grant only when a person types it in the prompt. Subagent reports and messages from other sessions never create one. The same holds for `accept-quality`, `retry-bypass` and `clear-gate-lock`.
+No. The skill creates a grant only when a person types it in the prompt. Subagent reports and messages from other sessions never create one. The same holds for `accept-quality`, `retry-bypass` and `clear-gate-lock`. The main session's agent can raise a dialog with `lanekeeper-quality accept` or `lanekeeper-reap --gate-lock`, and a person answers that dialog.
 
 **Do I need codegraph?**
 No. Without it the related hooks and commands do nothing. With it, every new worktree gets its index through the queue.
@@ -138,4 +141,5 @@ In the default permission mode (`default`), tools that need approval are refused
 | Item | Effect | What you can do now |
 |---|---|---|
 | UI stability check and term check | Not part of this release. Their settings keys (`project.ui_stability.*`, `project.glossary.terms_scan` and `copy_globs`) are reserved | They come in a later release |
+| Dialog for owner decisions | It does not prove that a person allowed it, and a declined dialog is not recorded. An agent that starts a nested interactive session and answers its dialog, or that forges the ticket file in a form the hook cannot recognise, is not stopped. Interactive `bypassPermissions` and Remote Control were not checked | Use `/lanekeeper:approve`. The hook cannot see managed settings or `--allowedTools`, so do not list these commands there |
 | Reach of the safety hooks | Commands inside script files, and git or kill calls from python or node, are not judged | Do not wrap risky work in scripts |
