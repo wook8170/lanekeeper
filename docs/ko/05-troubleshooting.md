@@ -37,6 +37,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | `레인은 push 할 수 없습니다` | 레인이 push 하려 했다 | 커밋만 하고 보고한다. push 는 메인 세션이 정한다 |
 | `강제 push(--force, --force-with-lease, +refspec)는 누구에게도 허용하지 않습니다` | 강제 push | 원격을 받아 일반 push 로 올린다. 이력을 고쳐야 하면 소유자에게 요청한다 |
 | `보호 브랜치 … 에 대한 이 작업(…)은 소유자 허가가 필요한데 허가가 없습니다` | 보호 브랜치 병합·push·커밋 | 메인 세션에서 `lanekeeper-grant merge-main`(또는 `push-main`, `commit-main`)으로 확인 창을 띄우거나, 소유자가 `/lanekeeper:approve merge-main` 을 입력한다. push 를 막았을 때 메시지의 브랜치 이름은 대상이 아니라 지금 체크아웃한 브랜치로 나온다 |
+| `… 의 PR #… 를 보호 브랜치 … 에 병합하려면 이 PR 의 소유자 허가가 필요합니다` | 보호 브랜치로 가는 `gh pr merge` | 메인 세션에서 메시지에 적힌 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 으로 확인 창을 띄운다. 허용되면 같은 병합 명령을 다시 실행한다. 창을 띄울 수 없는 모드면 소유자가 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 을 입력한다 |
 | `커밋 … 에 대한 게이트 통과 표식이 없습니다` | `project.gate.command` 가 설정된 프로젝트에서 반영할 커밋으로 게이트를 통과시킨 적이 없다 | 그 커밋을 체크아웃한 폴더(보통 통합 브랜치)에서 `lanekeeper-test-report gate-pass` 나 `lanekeeper-test-report run` 을 끝까지 통과시킨다. 커밋하지 않은 변경이 있으면 표식을 남기지 않는다 |
 | `게이트 통과 표식이 다른 커밋(…)의 것입니다` | 표식을 남긴 뒤 결과 파일 말고 다른 변경이 커밋됐다 | 지금 커밋에서 게이트를 다시 돌린다 |
 | `검증 게이트가 실행 중입니다` | `lanekeeper-test-report run` 이 게이트 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다. 비정상 종료로 잠금이 남았으면, 잠금이 `machine.slots.stale_after_min` 보다 오래된 뒤 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력하거나, 메인 세션에서 `lanekeeper-reap --gate-lock` 이 띄운 창에서 허용한다 |

@@ -1,6 +1,7 @@
 // Raises a confirmation dialog when the main session's agent runs an owner decision as a plain
 // one-line command: `lanekeeper-quality accept <kind> --reason <why>`, `lanekeeper-reap --gate-lock`
-// or `lanekeeper-grant <merge-main|push-main|commit-main> [branch-or-commit] [--to <branch>] [--remote <name>]`.
+// or `lanekeeper-grant <merge-main|push-main|commit-main> [branch-or-commit] [--to <branch>] [--remote <name>]`
+// or `lanekeeper-grant merge-pr [pr] [--repo <owner/name>]`.
 //
 // Every condition below serves one promise: a person sees the dialog, and what they allow is what
 // runs. Anything else is refused and points at the slash command. Measured on Claude Code 2.1.319:
@@ -19,7 +20,7 @@ import { translator } from '../../../lib/i18n.mjs'
 import * as OD from '../../../lib/owner-decisions.mjs'
 import * as Q from '../../../lib/quality.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
-import { resolveTarget } from './approve.mjs'
+import { resolvePrTarget, resolveTarget } from './approve.mjs'
 import { ask, deny } from './common.mjs'
 import { stampFor } from './git-guard.mjs'
 import { ACTIONS, isUnborn, shortHead } from './grant.mjs'
@@ -35,11 +36,14 @@ const PLAIN_WORD = /^[\p{L}\p{N}_.,:/+@%=-]+$/u
 const GRANT_CALL = new RegExp(`^lanekeeper-grant[ \\t]+(${ACTIONS.join('|')})((?:[ \\t]+\\S+)*)$`, 'u')
 const GRANT_WORD = /^[\p{L}\p{N}_][\p{L}\p{N}_./+@-]*$/u
 
-// `[ref] [--to <branch>] [--remote <name>]`, each once, in plain words -> the call, or null.
+// `[ref] [--to <branch>] [--remote <name>]`, or for merge-pr `[pr] [--repo <owner/name>]`, each once, in
+// plain words -> the call, or null.
 function parseGrantCall(action, words) {
   const call = { action }
+  const options = action === 'merge-pr' ? ['repo'] : ['to', 'remote']
   for (let i = 0; i < words.length; i++) {
-    const m = /^--(to|remote)(?:=(.*))?$/.exec(words[i])
+    const m = /^--([a-z]+)(?:=(.*))?$/.exec(words[i])
+    if (words[i].startsWith('-') && !options.includes(m?.[1])) return null
     const key = m ? m[1] : 'ref'
     const value = m ? m[2] ?? words[++i] : words[i]
     if (call[key] !== undefined || !GRANT_WORD.test(value ?? '')) return null
@@ -169,6 +173,20 @@ function judgeGrant(call, ctx, sd, t) {
   return v
 }
 
+function judgePrGrant(call, ctx) {
+  const gitCfg = ctx.config.project?.git || {}
+  const target = resolvePrTarget(call.ref, ctx.cwd, gitCfg, { repo: call.repo, lookup: ctx.pr })
+  if (target.why) return deny(`owner.${target.why}`, target.vars)
+  const v = ask('owner.grant_pr', { repo: shown(target.repo), number: target.number, title: shown(target.title), dest: shown(target.dest), commit: shortHead(target.head), ttl: gitCfg.owner_grant_ttl_min || 15 })
+  v.dialog = {
+    action: call.action,
+    stateDir: ctx.ownerDir,
+    content: OD.grantContent(call.action, target),
+    command: (nonce) => `${cliPath('lanekeeper-grant')} ${call.action} ${target.number} --repo ${shq(target.repo)} --dialog-ticket ${nonce}`,
+  }
+  return v
+}
+
 // -> null when the command is not an owner decision; otherwise deny, or ask with a `dialog` field.
 export function judgeOwnerCall(command, cmds, ctx) {
   const action = reachedDecision(cmds)
@@ -183,6 +201,7 @@ export function judgeOwnerCall(command, cmds, ctx) {
   const rule = OD.ownerAllowRule(ctx.projectRoot, ctx.env)
   if (rule) return deny('owner.allow_rule', { rule: rule.rule, file: rule.file, slash })
   if (ctx.configErrors?.length) return deny('config.broken', { file: ctx.configErrors[0].file, key: ctx.configErrors[0].path, msg: ctx.configErrors[0].msg })
+  if (call.action === 'merge-pr') return judgePrGrant(call, ctx)
   const sd = ctx.stateDirs[0]
   if (!sd) return deny('owner.not_git', {})
   if (ACTIONS.includes(call.action)) return judgeGrant(call, ctx, sd, translator(ctx.language))

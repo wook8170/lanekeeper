@@ -127,14 +127,13 @@ function hasLsof() {
   }
 }
 
-// Base branch and head commit of the PR that `gh pr merge <args>` targets.
-export function realPr(t, args) {
-  const sel = args.find((a) => !a.startsWith('-'))
-  const out = run('gh', ['pr', 'view', ...(sel ? [sel] : []), '--json', 'baseRefName,headRefOid'], { cwd: t.cwd, timeout: 8000 })
+// What gh says about one PR: the selector and repository a merge names, as read by the caller.
+export function realPr(t, { selector, repo } = {}) {
+  const out = run('gh', ['pr', 'view', ...(selector ? [selector] : []), ...(repo ? ['--repo', repo] : []), '--json', 'baseRefName,headRefOid,number,url,title'], { cwd: t.cwd, env: t.env, timeout: 8000 })
   if (!out) return null
   try {
     const j = JSON.parse(out)
-    return { base: j.baseRefName, headOid: j.headRefOid }
+    return { base: j.baseRefName, headOid: j.headRefOid, number: j.number, url: j.url, title: j.title }
   } catch {
     return null
   }

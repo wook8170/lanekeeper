@@ -91,7 +91,7 @@ Which branches lanes and the main session may commit to, merge into and push. Th
 
 - Rule: Landing work on a protected branch such as main needs the owner's grant. A grant can be used once, within a time limit, and only for the commit named when it was given. A merge or push works only on the named destination, and a commit only for what was staged when the grant was given. A line with two or more changes is refused.
 - Why: Every piece of work builds on the protected branches. If an agent lands work by itself, unreviewed changes become the base for everyone.
-- If blocked: In the main session, run `lanekeeper-grant merge-main` alone on one line to raise a dialog for the owner, or have the owner type `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, get a new one.
+- If blocked: In the main session, run `lanekeeper-grant merge-main` (for a PR, `lanekeeper-grant merge-pr <number> --repo <owner/name>`) alone on one line to raise a dialog for the owner, or have the owner type `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, get a new one.
 - Message codes: `safety.git.main_merge`, `safety.git.branch_protected`, `safety.git.config_content`, `safety.grant.*`, `safety.stamp.*`, `safety.approve.*`
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
 

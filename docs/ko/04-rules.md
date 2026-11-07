@@ -91,7 +91,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 
 - 규칙: main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다. 허가는 정해진 시간 안에 한 번만 쓸 수 있고, 허가할 때 지정한 커밋에만 적용된다. 병합과 push 는 지정한 목적지에만, 커밋은 허가할 때 스테이지된 내용에만 쓴다. 한 줄에 반영이 2건 이상이면 거부한다.
 - 왜: 보호 브랜치는 모든 작업의 기준이 된다. 에이전트가 직접 반영하면 검토하지 않은 변경이 기준이 된다.
-- 막혔을 때: 메인 세션에서 `lanekeeper-grant merge-main` 을 한 줄 단독으로 실행해 소유자에게 확인 창을 띄우거나, 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 받는다.
+- 막혔을 때: 메인 세션에서 `lanekeeper-grant merge-main`(PR 이면 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>`)을 한 줄 단독으로 실행해 소유자에게 확인 창을 띄우거나, 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 받는다.
 - 메시지 코드: `safety.git.main_merge`, `safety.git.branch_protected`, `safety.git.config_content`, `safety.grant.*`, `safety.stamp.*`, `safety.approve.*`
 - 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
 

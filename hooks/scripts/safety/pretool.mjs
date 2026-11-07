@@ -24,12 +24,12 @@ import { judgeBrowser } from './browser-guard.mjs'
 import { judgeBashPaths, judgeFileTool } from './paths.mjs'
 import { judgeData, judgeDataFile } from './data-guard.mjs'
 import { judgeOwnerCall } from './owner-dialog.mjs'
-import { consumeGrant } from './grant.mjs'
+import { consumeGrant, ownerDir } from './grant.mjs'
 import { realGit, realListenPorts, realPr } from './context.mjs'
 
 const GUARDED_WORDS = /\b(push|merge|rebase|commit|reset|stash|clean|checkout|switch|cherry-pick|revert|update-ref|kill|pkill|killall|fuser|rm|chrome|chromium|playwright|headed|open)\b/
 
-const NESTED_OWNER = /lanekeeper:approve|lanekeeper-reap\b[\s\S]*--gate-lock|lanekeeper-quality\b[\s\S]*\baccept\b|lanekeeper-grant\b[\s\S]*\b(?:merge|push|commit)-main\b/
+const NESTED_OWNER = /lanekeeper:approve|lanekeeper-reap\b[\s\S]*--gate-lock|lanekeeper-quality\b[\s\S]*\baccept\b|lanekeeper-grant\b[\s\S]*\b(?:(?:merge|push|commit)-main|merge-pr)\b/
 
 export function buildContext(input, env = process.env, overrides = {}) {
   const cwd = input.cwd || process.cwd()
@@ -42,6 +42,7 @@ export function buildContext(input, env = process.env, overrides = {}) {
     env,
     projectRoot: root,
     lanekeeperHome: lanekeeperHome(env),
+    ownerDir: ownerDir(lanekeeperHome(env)),
     stateDirs: sd ? [sd] : [],
     config: resolved.config,
     configErrors: resolved.errors,
@@ -132,7 +133,7 @@ export function evaluate(input, env = process.env, overrides = {}) {
   const r = judgeTool(input, ctx)
   if (r.decision !== DENY) for (const c of r.consume) consumeGrant(c.stateDir, c.by, ctx.now)
   // The ticket goes out only with the dialog that carries it.
-  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now, input.session_id)) } : undefined
+  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(r.dialog.stateDir ?? ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now, input.session_id)) } : undefined
   return { ...r, updatedInput, language: ctx.language }
 }
 

@@ -26,7 +26,7 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 - 왜: 보호 브랜치는 모든 작업의 기준이 된다. 에이전트가 직접 반영하면 검토하지 않은 변경이 기준이 된다.
 - 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
-- 막혔을 때: 메인 세션에서 `lanekeeper-grant merge-main` 을 한 줄 단독으로 실행해 소유자에게 확인 창을 띄우거나, 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 받는다.
+- 막혔을 때: 메인 세션에서 `lanekeeper-grant merge-main`(PR 이면 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>`)을 한 줄 단독으로 실행해 소유자에게 확인 창을 띄우거나, 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 받는다.
 
 ### 게이트 실행 중 병합 금지 (`gate-lock`)
 

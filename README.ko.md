@@ -119,10 +119,10 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 | PreToolUse (Write, Edit, MultiEdit) | `mockup/mockup-first` | `project.mockup.decision_required` 가 켜져 있으면, 화면 구조를 바꾸기 전에 확정된 시안을 요구한다 |
 | PreToolUse (Bash, Grep) | `codegraph/nudge` | 재귀 `grep` 대신 `rg` 를 쓰라고 알린다 |
 | PreToolUse (codegraph MCP 도구) | `codegraph/deadpath` | 색인이 없는 경로에 같은 호출을 반복하지 않게 막는다 |
-| UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | 한 번만 쓸 수 있는 오너 허가를 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 쓴다 |
+| UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | 한 번만 쓸 수 있는 오너 허가를 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 쓴다. `merge-pr` 는 `~/.lanekeeper/owner/owner-grant.json` 에 쓰고, 이때 `gh pr view` 를 실행한다 |
 | SessionStart | `handoff/session-start`, `auto-retry/session-start`, `terse/session-start`, `codegraph/session-start`, `rules/session-start` | 맥락을 더한다. `progress.md` 요약, 대기 중인 재개, 간결 모드, codegraph 안내, 작업 규칙, 옛 `wb` 이름에 대한 1회 안내가 들어간다 |
 | SessionStart | `worktree/session-sync` | `project.worktree.hook` 이 `true` 일 때만 동작한다. 주 체크아웃의 `.claude/settings.local.json` 에 있는 WorktreeCreate·WorktreeRemove 항목을 현재 플러그인 경로로 맞추고, 설정을 끄면 그 항목을 지운다 |
-| UserPromptSubmit | `token-guard/check`, `load/check` | 사용량과 부하 평균을 읽고, 문턱에 닿으면 한 줄을 더한다 |
+| UserPromptSubmit | `token-guard/check`, `load/check`, `safety/prompt-hint` | 사용량과 부하 평균을 읽고, 문턱에 닿으면 한 줄을 더한다. `/` 없이 입력한 `approve merge-pr` 같은 메시지에는 허가가 생기지 않았다는 한 줄을 더한다 |
 | PostToolUse, PostToolUseFailure (codegraph MCP 도구) | `codegraph/record` | 성공·빈 결과·오류를 `.lanekeeper/metrics/codegraph.jsonl` 에 적는다. 색인이 없는 경로이면 대기열에 넣고, 이 머신에서 `codegraph` 색인 작업을 백그라운드로 시작한다(`project.codegraph.auto_index`, 기본 켜짐) |
 | PostToolUse | `token-guard/check` | 위와 같다 |
 | Stop | `handoff/stop-guard`, `report/artifact-check` | `progress.md` 나 보고서를 갱신할 때까지 세션 종료를 막을 수 있다 |
@@ -138,7 +138,7 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 
 플러그인이 모은 정보는 이 머신 밖으로 나가지 않는다. 기록은 모두 로컬 파일(`${CLAUDE_PLUGIN_DATA}`, `~/.lanekeeper`, `<repo>/.lanekeeper`, `<git 공용 폴더>/lanekeeper`)에 남는다. 플러그인이 직접 보내는 HTTP 요청은 아래의 로컬 확인 하나뿐이고, 인증 정보는 읽지 않는다.
 
-- Claude 가 `gh pr merge` 를 실행하면 `gh pr view` 가 실행된다. 이 명령은 사용자가 이미 로그인한 `gh` 로 GitHub 에 그 PR 의 대상 브랜치를 묻는다.
+- Claude 가 `gh pr merge` 를 실행하거나 `merge-pr` 허가를 만들 때 `gh pr view` 가 실행된다. 이 명령은 사용자가 이미 로그인한 `gh` 로 GitHub 에 그 PR 의 대상 브랜치를 묻는다.
 - 검수의 화면 확인(`lanekeeper-check lane --serve-url`)은 `localhost`·`127.0.0.0/8`·`[::1]` 에서만 페이지 하나를 읽는다.
 - 자동 재개를 켰다면, 재개 작업은 사용자가 직접 실행할 때와 같이 사용자의 Claude Code 로그인으로 `claude` 를 실행한다.
 - 보고 스킬은 Artifact 도구가 있으면 Claude 에게 그 도구로 보고서를 올리라고 지시한다. 그 페이지는 사용자의 claude.ai 계정에 올라간다.
@@ -229,7 +229,7 @@ lanekeeper-route check review --model sonnet            모델 선택 판정(차
 | merge · rebase · pull | 통합 브랜치를 받는 것만 허용 | 차단 | 허용(게이트 잠금 중 차단) | 차단. `merge-main` 허가와 게이트 표식. 자기 upstream 동기화는 허용 |
 | push | 차단 | 차단 | `git.feature_push` 값(ask·allow·deny) | 차단. `push-main` 허가와 게이트 표식 |
 | 강제 push · `--all` · `--mirror` | 차단 | 차단 | 차단 | 차단 |
-| `gh pr merge` | 차단 | 차단 | 대상이 보호 브랜치면 `merge-main` 허가 필요 | 같음 |
+| `gh pr merge` | 차단 | 차단 | 대상이 보호 브랜치면 `merge-pr`(또는 같은 저장소의 `merge-main`) 허가 필요 | 같음 |
 | 다른 브랜치로 checkout · switch | 차단 | 차단 | 허용 | 허용 |
 | 이름 없는 stash · `reset --hard` · `clean -f` · `branch -D` | 확인 요청 | 확인 요청 | 확인 요청 | 확인 요청 |
 | 보호 브랜치 삭제·강제 이동 | 차단 | 차단 | 차단 | 차단 |
@@ -237,6 +237,8 @@ lanekeeper-route check review --model sonnet            모델 선택 판정(차
 명령은 `;` `&&` `||` `|` 와 서브셸, `$( )`, `sh -c`, `eval`, heredoc, `env`·`sudo`·`timeout`·`xargs` 같은 감싸기, 셸 별칭과 git 별칭, `git -C`·`cd`·`GIT_DIR` 를 풀어서 판정한다. 명령 이름이나 대상 폴더가 변수라 실행 전에 알 수 없으면 차단한다.
 
 **소유자 허가.** 보호 브랜치 반영에는 소유자 허가가 필요하다. 소유자는 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 입력하거나, 메인 세션에서 `lanekeeper-grant` 가 띄운 확인 창에서 허용한다. 허가는 15분(`git.owner_grant_ttl_min`) 동안 한 번, 허가 시점의 커밋에만 유효하다. 프로젝트에 게이트 명령(`gate.command`)이 있으면 같은 커밋의 게이트 통과 표식도 있어야 한다. 슬래시 경로의 허가는 `UserPromptExpansion` 훅이 만든다. 이 이벤트는 사람이 슬래시 명령을 입력할 때만 발생하므로 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. 모델은 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. `merge-main` · `push-main` 허가는 목적지 브랜치에 묶인다. 목적지는 `--to <브랜치>` 로 정하고, 생략하면 지금 체크아웃한 보호 브랜치, 그것도 아니면 설정의 첫 보호 브랜치가 된다(`push-main` 은 지정한 대상이 보호 브랜치면 그 브랜치). `push-main` 허가는 원격 주소에도 묶인다. 원격은 `--remote <이름>` 으로 정하고, 생략하면 그 브랜치의 기본 원격이 된다. 주소를 직접 쓴 push 는 허가의 주소와 같을 때만 통과한다. `https://` 와 `ssh://` 로 적은 같은 서버 경로는 같은 주소로 본다. `git@host:path` 는 로그인 홈 기준 경로여서 `ssh://host/~/path` 와 같고 `https://host/path` 와는 다르게 본다. 같은 줄에 `core.hooksPath` 류 설정이나, 보호 브랜치 push 의 `core.sshCommand` · `GIT_SSH_COMMAND` · `--receive-pack` 이 있으면 거부한다. `remote.<이름>.push` 는 `:` 없는 refspec 의 목적지를 바꾼다. 그래서 줄이나 저장소에 이 설정이 있는 push 는 거부하고, `git config remote.<이름>.push` 쓰기는 확인 창으로 묻는다. `remote.<이름>.mirror` 가 참인 원격으로 가는 push 도 그 원격의 모든 ref 를 덮어쓰므로 거부한다. 이 설정의 쓰기와 `git remote add --mirror` 도 확인 창으로 묻는다. `commit-main` 허가는 허가할 때 스테이지된 내용으로 만드는 새 커밋 1개에만 유효하므로, 먼저 스테이지하고 허가를 받는다. 스테이지가 달라지거나, `git commit -a` · `git commit <경로>` · `--amend` · `cherry-pick` 처럼 다른 내용으로 커밋을 만들거나, 스테이지를 바꿀 수 있는 명령이 같은 줄에 있으면 거부한다. 한 줄에 반영이 2건 이상이거나 반복문 안에 있어도 거부한다. 함수로 두 번 호출하는 형태와 `--tags` · `--follow-tags` 를 붙인 보호 브랜치 push 도 2건으로 센다. 목적지가 `*` · `?` · 빈 값이거나 `push.default=matching` · `remote.*.push` 처럼 명령줄에서 알 수 없으면 `--all` 처럼 거부한다. `refs/` 아래에 ref 가 하나도 없는 저장소(커밋이 없는 저장소)면 주 체크아웃의 보호 브랜치에서 `commit-main` 으로 첫 커밋을 허가할 수 있다. 고아 브랜치와 연결 워크트리는 이 허가를 받을 수 없다.
+
+**PR 병합 허가.** 보호 브랜치로 가는 `gh pr merge` 가 막히면, 메인 세션의 에이전트가 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 을 한 줄 단독으로 실행한다. 확인 창에는 저장소 · PR 번호 · 제목 · 대상 브랜치 · 머리 커밋 · 유효 시간이 보인다. 소유자가 허용하면 에이전트가 같은 병합 명령을 다시 실행해 진행한다. 창을 띄울 수 없는 모드(`auto` 등)에서는 소유자가 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 을 입력한다. 이 허가는 저장소 · PR · 머리 커밋 · 대상 브랜치가 모두 같을 때만, 15분 안에 한 번 쓸 수 있다. 저장소에 속하지 않고 `~/.lanekeeper/owner/` 에 저장되므로, 세션 폴더가 다른 저장소이거나 저장소가 아니어도 동작하고 통합 브랜치 이름과도 상관없다. 서브에이전트는 `gh pr merge` 도 이 창도 쓸 수 없다. `merge-main` 허가는 폴더의 저장소에 묶이므로 `--repo` · `GH_REPO` · `GH_HOST` 를 적은 병합에는 쓰이지 않는다. `gh pr merge` 는 알려진 옵션과 PR 하나만 받고, 그 밖의 형태와 `gh api` 병합은 거부한다. `/` 를 빼고 `approve merge-pr 162` 처럼 입력하면 허가는 생기지 않고, 그 사실을 에이전트에게 알리는 한 줄이 붙는다.
 
 **소유자의 다른 결정.** 에이전트가 스스로 정하면 안 되는 결정 세 가지도 같은 명령으로 받으며, 입력하는 즉시 적용된다. `/lanekeeper:approve accept-quality <종류> --reason 사유` 는 약화된 시험 결과를 승인한다. `/lanekeeper:approve retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. `/lanekeeper:approve clear-gate-lock` 은 오래된 게이트 잠금을 지운다. 이 명령이 쓰는 파일은 Bash 나 파일 도구로도 쓸 수 없다. 다만 다른 안전 훅과 마찬가지로 스크립트 파일 안의 명령은 검사하지 못한다.
 

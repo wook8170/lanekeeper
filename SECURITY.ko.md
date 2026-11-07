@@ -14,6 +14,7 @@ Lanekeeper 의 안전 훅은 에이전트가 실수로 위험한 명령을 실�
 - 이 훅은 명령의 글자를 읽어 판정하는 로컬 방어선이다. 다른 경로로 실행하면 판정이 일어나지 않으므로, 서버 쪽 브랜치 보호를 대신하지 않는다. 중요한 저장소는 서버의 브랜치 보호를 함께 설정한다.
 - 안전 훅은 Bash 명령 문자열과 Write·Edit 대상 경로를 판정한다. 스크립트 파일 안의 명령, python·node 에서 실행하는 git·kill 호출, `find -delete`, `git checkout -- .` 같은 일괄 되돌리기는 판정하지 않는다.
 - 소유자 허가는 두 경로로 만들어진다. 사람이 프롬프트에 `/lanekeeper:approve` 를 입력하거나, 메인 세션에서 `lanekeeper-grant` 가 띄운 확인 창에서 허용하는 경우다. 확인 창은 허용한 쪽이 사람인지 증명하지 못하고, 이 한계는 `main` 에 반영하는 허가에도 적용된다. 허가 파일은 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 있다. 허가는 정해진 시간(기본 15분) 안에 한 번, 지정한 커밋에만 쓸 수 있다. 같은 머신의 다른 프로세스가 이 파일을 직접 쓰는 경우는 막지 못한다. 에이전트의 Write·Edit 와 Bash 명령에서 이 경로를 언급하는 경우는 막지만, 경로를 조립해 쓰는 스크립트까지 막지는 못한다.
+- `merge-pr` 허가와 그 표 · 결정 기록은 저장소 밖 `~/.lanekeeper/owner/` 에 둔다. 저장소 · PR · 머리 커밋 · 대상 브랜치에 묶이고, 15분 · 1회다. 이 폴더는 허가 파일처럼 Bash 와 파일 도구로 쓸 수 없다. 표 파일이 한 벌이라 다른 세션이 창을 띄우면 먼저 뜬 창의 표는 무효가 되고, 허용해도 허가가 생기지 않아 다시 띄워야 한다.
 - `commit-main` 허가는 판정 순간의 스테이지 내용과 대조한다. 그래서 판정 뒤 다른 프로세스가 스테이지를 바꾸는 경우는 막지 못한다.
 - 저장소에 이미 있는 `pre-commit` 훅이 커밋 중에 스테이지를 바꾸면, 허가와 다른 내용이 커밋된다. 안전 훅은 이 경우를 막지 못하고 커밋 뒤 내용도 대조하지 않는다. 에이전트가 새로 훅을 심는 경로 중 찾은 형태는 따로 다룬다. 같은 줄의 `core.hooksPath` · `core.fsmonitor` · `GIT_CONFIG_*` 지정은 보호 브랜치 커밋 · push · 병합에서 거부한다. 다음은 확인 창으로 묻는다: `.git/hooks/*` · `.git/config` 쓰기, `git config core.hooksPath`, `git init --template` · `GIT_TEMPLATE_DIR` · `init.templateDir`, `.git/` 를 대상으로 한 `cp` · `mv` · `rsync` · `install` · `ln` · `tar` · `unzip`, 읽기만 하는 것으로 정해 둔 명령 밖에서 `.git/config` · `.git/hooks` · `.gitconfig` 를 적은 명령, `.git/` 안에서 실행한 그런 명령, 단독 `export` · `declare -x` · `typeset -x` 로 내보낸 `GIT_CONFIG_*` · `GIT_DIR` · `GIT_INDEX_FILE` · `GIT_WORK_TREE`, `git config remote.<이름>.push` · `remote.<이름>.mirror` 쓰기, `git remote add --mirror`. 그 창을 허용하면 이후 커밋에 그 훅이 적용된다. `.git/` 만 적고 쓰는 경우(`ditto hooks .git`), `awk` · `sed` 프로그램 안의 쓰기, 경로를 조립해 쓰는 스크립트는 막지 못한다.
 - `echo ... > .git/refs/heads/main` 같은 ref 파일 직접 쓰기는 판정하지 않는다. 로컬 브랜치만 옮겨지고, push 는 허가의 커밋 대조로 막힌다.
@@ -66,7 +67,7 @@ Lanekeeper 의 안전 훅은 에이전트가 실수로 위험한 명령을 실�
 
 훅과 명령은 외부로 데이터를 보내지 않는다. 사용 지표와 기록은 로컬 파일에만 둔다. 예외는 두 가지다.
 
-- 안전 훅은 `gh pr merge` 를 판정할 때 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다(8초 제한). 조회에는 `gh` 에 설정된 GitHub 계정을 쓴다. 대상 브랜치를 확인하지 못하면 병합을 막는다.
+- 안전 훅은 `gh pr merge` 를 판정하거나 `merge-pr` 허가를 만들 때 저장소 · PR · 머리 커밋 · 대상 브랜치를 알기 위해 `gh pr view` 를 실행한다(8초 제한). 조회에는 `gh` 에 설정된 GitHub 계정을 쓴다. 대상 브랜치를 확인하지 못하면 병합을 막는다.
 - 검수 9항목의 화면 확인은 로컬 개발 서버 주소 하나를 읽는다. 이 머신 밖의 주소는 거부한다.
 
 ## 읽는 파일과 남기는 파일

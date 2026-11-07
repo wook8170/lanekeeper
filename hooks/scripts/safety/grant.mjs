@@ -8,6 +8,9 @@
 //   push-main name the protected branch they land on in `dest`. push-main also holds the address it
 //   goes to in `remoteUrl`, with credentials removed. commit-main holds the tree of the staged
 //   content in `index`. A grant without the field its action needs matches nothing.
+//   merge-pr is for one pull request, whichever folder the merge runs in, so its file is under
+//   ownerDir(LANEKEEPER_HOME) and not in a repository. Its `ref` is prKey(), <host>/<owner>/<repo>#<number>,
+//   `head` the PR's head commit and `dest` its base branch.
 // <gate_stamp>.json { head, at, command }
 //   written by `lanekeeper-test-report run` / `lanekeeper-test-report gate-pass` after a full pass on a clean `head`.
 // gate.lock         present while a gate run is in progress (L7); merges into
@@ -19,10 +22,11 @@ import { LEGACY_GATE_STAMP } from '../../../lib/naming.mjs'
 
 export const GRANT_FILE = 'owner-grant.json'
 export const GATE_LOCK = 'gate.lock'
-export const ACTIONS = ['merge-main', 'push-main', 'commit-main']
+export const ACTIONS = ['merge-main', 'push-main', 'commit-main', 'merge-pr']
 export const OWNER_ACTIONS = ['accept-quality <kind> --reason <why>', 'retry-bypass', 'clear-gate-lock']
 
 export const grantPath = (stateDir) => path.join(stateDir, GRANT_FILE)
+export const ownerDir = (home) => path.join(home, 'owner')
 export const stampPath = (stateDir, name) => path.join(stateDir, `${name || 'lanekeeper-gate-pass'}.json`)
 
 // A real commit id is hexadecimal, so this never equals one. git-guard compares against it only while
@@ -31,6 +35,12 @@ const UNBORN = 'unborn:'
 export const unbornHead = (branch) => `${UNBORN}${branch}`
 export const isUnborn = (head) => String(head).startsWith(UNBORN)
 export const shortHead = (head) => (isUnborn(head) ? String(head) : String(head).slice(0, 9))
+
+// <host>/<owner>/<repo>#<number> from what gh says about a PR, or null.
+export function prKey(pr) {
+  const m = /^https?:\/\/([^/]+)\/([^/]+\/[^/]+)\/pull\/(\d+)(?:[/?#]|$)/.exec(String(pr?.url ?? ''))
+  return m ? `${m[1]}/${m[2]}#${m[3]}` : null
+}
 
 // A remote address fit to show and compare: no user, password, token or query, no .git or final slash.
 // http, https and ssh to one server path come out the same, as host/path, and the path keeps its case.
@@ -51,11 +61,11 @@ function malformed(g, now) {
   const created = Date.parse(g.created)
   if (g.version !== 1 || !Number.isFinite(created) || created > now) return true
   if (g.action === 'commit-main') return g.dest != null || g.remoteUrl != null
-  return g.index != null || (g.action === 'merge-main' && g.remoteUrl != null)
+  return g.index != null || (g.action !== 'push-main' && g.remoteUrl != null)
 }
 
-// -> { ok, why: 'missing'|'action'|'used'|'expired'|'format'|'head'|'dest'|'remote'|'index_unread'|'index', grant }
-export function checkGrant(stateDir, action, head, now, { dest, index, remote } = {}) {
+// -> { ok, why: 'missing'|'action'|'used'|'expired'|'format'|'head'|'dest'|'remote'|'index_unread'|'index'|'pr', grant }
+export function checkGrant(stateDir, action, head, now, { dest, index, remote, pr } = {}) {
   if (!stateDir) return { ok: false, why: 'missing' }
   const g = readJsonSafe(grantPath(stateDir))
   if (!g || typeof g !== 'object') return { ok: false, why: 'missing' }
@@ -67,6 +77,7 @@ export function checkGrant(stateDir, action, head, now, { dest, index, remote } 
   if (!head || typeof g.head !== 'string' || g.head !== head) return { ok: false, why: 'head', grant: g }
   if (dest !== undefined && g.dest !== dest) return { ok: false, why: 'dest', grant: g }
   if (remote !== undefined && (!remote || g.remoteUrl !== remote)) return { ok: false, why: 'remote', grant: g }
+  if (pr !== undefined && g.ref !== pr) return { ok: false, why: 'pr', grant: g }
   if (index === null) return { ok: false, why: 'index_unread', grant: g }
   if (index !== undefined && g.index !== index) return { ok: false, why: 'index', grant: g }
   return { ok: true, grant: g }

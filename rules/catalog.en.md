@@ -26,7 +26,7 @@ Landing work on a protected branch such as main needs the owner's grant. A grant
 
 - Why: Every piece of work builds on the protected branches. If an agent lands work by itself, unreviewed changes become the base for everyone.
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
-- If blocked: In the main session, run `lanekeeper-grant merge-main` alone on one line to raise a dialog for the owner, or have the owner type `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, get a new one.
+- If blocked: In the main session, run `lanekeeper-grant merge-main` (for a PR, `lanekeeper-grant merge-pr <number> --repo <owner/name>`) alone on one line to raise a dialog for the owner, or have the owner type `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, get a new one.
 
 ### No merging while the gate runs (`gate-lock`)
 

@@ -2,10 +2,12 @@
 // lanekeeper-grant — make a one-use owner grant through a confirmation dialog.
 //
 //   lanekeeper-grant merge-main|push-main|commit-main [branch-or-commit] [--to <protected branch>] [--remote <name>]
+//   lanekeeper-grant merge-pr [pr] [--repo <owner/name>]
 //
 // --to names the protected branch a merge or push lands on, and --remote the
 // remote a push goes to. A commit-main grant instead holds the staged content,
-// so stage first.
+// so stage first. merge-pr is for one `gh pr merge`: it holds the repository, the PR,
+// its head commit and its base branch, and works from any folder.
 //
 // Run alone on one line in the main session, this makes the safety hook raise a
 // dialog that shows the action, the target, the commit and how long the grant
@@ -19,12 +21,12 @@ import { pathToFileURL } from 'node:url'
 
 const pluginRoot = path.join(path.dirname(fs.realpathSync(process.argv[1])), '..')
 const load = (p) => import(pathToFileURL(path.join(pluginRoot, p)).href)
-const { resolveConfig, projectRoot, stateDir } = await load('lib/config.mjs')
+const { resolveConfig, projectRoot, stateDir, lanekeeperHome } = await load('lib/config.mjs')
 const { translator } = await load('lib/i18n.mjs')
 const { parseOptions } = await load('lib/cli.mjs')
 const OD = await load('lib/owner-decisions.mjs')
-const { ACTIONS } = await load('hooks/scripts/safety/grant.mjs')
-const { recordGrant, resolveTarget } = await load('hooks/scripts/safety/approve.mjs')
+const { ACTIONS, ownerDir } = await load('hooks/scripts/safety/grant.mjs')
+const { recordGrant, resolvePrTarget, resolveTarget } = await load('hooks/scripts/safety/approve.mjs')
 
 const args = parseOptions(process.argv.slice(2))
 const [action, ref, ...extra] = args._
@@ -37,10 +39,12 @@ const fail = (key, vars) => {
   process.stderr.write(`[lanekeeper-grant] ${t(key, vars)}\n`)
   process.exit(4)
 }
-const sd = stateDir(root)
+const forPr = action === 'merge-pr'
+const sd = forPr ? ownerDir(lanekeeperHome(process.env)) : stateDir(root)
 if (typeof nonce !== 'string' || !sd || !ACTIONS.includes(action) || extra.length) fail('grant.owner_only')
 if (resolved.errors.length) fail('approve.config_broken', { file: resolved.errors[0].file, key: resolved.errors[0].path })
-const target = resolveTarget(action, ref, cwd, resolved.config.project?.git || {}, { to: args.to, remote: args.remote, root })
+const gitCfg = resolved.config.project?.git || {}
+const target = forPr ? resolvePrTarget(ref, cwd, gitCfg, { repo: args.repo }) : resolveTarget(action, ref, cwd, gitCfg, { to: args.to, remote: args.remote, root })
 const session = OD.ticketSession(sd)
 const used = OD.consumeTicket(sd, action, target.why ? '' : OD.grantContent(action, target), nonce)
 if (used !== 'ok') fail(`owner.ticket.${used}`, { slash: `/lanekeeper:approve ${action}` })

@@ -17,6 +17,9 @@ export function isStatePath(p, stateDirs = []) {
   return stateDirs.some((d) => d && inside(p, d))
 }
 
+// With the folder that holds the grant for a pull request, which is in no repository.
+const allStateDirs = (ctx) => [...(ctx.stateDirs || []), ctx.ownerDir]
+
 // In the words of a command that may be a script (`python -c "open('.git/hooks/x')"`).
 const GIT_CONTROL_TEXT = /(^|[^A-Za-z0-9_.-])\.git\/(hooks(\/|\b)|config\b)|\.gitconfig\b|\.config\/git\/config\b/
 
@@ -62,8 +65,8 @@ function intoGitDir(cmd, texts, ctx) {
   return null
 }
 
-// Exported here, these reach every git command that follows in the same shell.
-const GIT_ENV = /^(GIT_CONFIG(_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?|GIT_DIR|GIT_TEMPLATE_DIR|GIT_INDEX_FILE|GIT_WORK_TREE)$/
+// Exported here, these reach every git or gh command that follows in the same shell.
+const GIT_ENV = /^(GIT_CONFIG(_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?|GIT_DIR|GIT_TEMPLATE_DIR|GIT_INDEX_FILE|GIT_WORK_TREE|GH_REPO|GH_HOST)$/
 
 export function isGitControlPath(p, ctx) {
   if (/\/\.git\/(?:worktrees\/[^/]+\/)?(?:hooks(?:\/|$)|config(?:\.worktree)?$)/.test(p)) return true
@@ -95,8 +98,8 @@ export function judgeFileTool(file, ctx, toolInput = {}) {
   const p = path.isAbsolute(file) ? path.normalize(file) : path.resolve(ctx.cwd, file)
   if (p === acceptedFile(ctx)) return deny('paths.accepted', { path: file })
   if (p === personalFile(ctx) && JSON.stringify(toolInput).includes('bypass_ack')) return deny('paths.ack', { path: file })
+  if (isStatePath(p, allStateDirs(ctx))) return deny('paths.state', { path: file })
   if (isLanekeeperConfigFile(p, ctx)) return ask('paths.config', { path: file })
-  if (isStatePath(p, ctx.stateDirs)) return deny('paths.state', { path: file })
   const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
   if (hit) return deny('paths.protected', { path: file, glob: hit })
   if (isGitControlPath(p, ctx)) return ask('paths.git_control', { path: file })
@@ -117,11 +120,11 @@ export function judgeBashPaths(cmd, ctx) {
     if (p === personalFile(ctx) || /\.(lanekeeper|wb)\/personal\.json/.test(t)) return 'paths.ack'
     return null
   }
-  const mentions = (t) => /owner-(grant|ticket)/.test(t) || /\.git\/(lanekeeper|wb)\//.test(t) || (ctx.stateDirs || []).some((d) => d && t.includes(d))
+  const mentions = (t) => /owner-(grant|ticket)/.test(t) || /\.git\/(lanekeeper|wb)\//.test(t) || /\.(lanekeeper|wb)\/owner(\/|$)/.test(t) || allStateDirs(ctx).some((d) => d && t.includes(d))
   for (const r of cmd.redirs) {
     if (!/>/.test(r.op) || !r.target || /^&?\d$/.test(r.target)) continue
     const p = resolvePath(cmd.cwd, r.target, ctx.home)
-    if (mentions(r.target) || isStatePath(p, ctx.stateDirs)) out.push(deny('paths.state', { path: r.target }))
+    if (mentions(r.target) || isStatePath(p, allStateDirs(ctx))) out.push(deny('paths.state', { path: r.target }))
     if (ownerCode(r.target)) out.push(deny(ownerCode(r.target), { path: r.target }))
     const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
     if (hit) out.push(deny('paths.protected', { path: r.target, glob: hit }))
@@ -148,6 +151,8 @@ export function judgeBashPaths(cmd, ctx) {
       const p = resolvePath(cmd.cwd, t, ctx.home)
       const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
       if (hit) out.push(deny('paths.protected', { path: t, glob: hit }))
+      // Moving or copying over the whole folder replaces the grant without naming it.
+      if (ctx.lanekeeperHome && path.resolve(p) === path.resolve(ctx.lanekeeperHome)) out.push(deny('paths.state', { path: t }))
     }
   }
   return out

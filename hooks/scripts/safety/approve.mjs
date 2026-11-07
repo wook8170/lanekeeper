@@ -10,6 +10,7 @@
 //   /lanekeeper:approve merge-main [ref] [--to <branch>]  allow one merge of <ref> into that protected branch
 //   /lanekeeper:approve push-main  [ref] [--to <branch>] [--remote <name>]  allow one push of <ref> to that branch of that remote
 //   /lanekeeper:approve commit-main [ref]  allow one commit of what is staged now, on a protected branch at <ref>
+//   /lanekeeper:approve merge-pr [pr] [--repo <owner/name>]  allow one `gh pr merge` of that PR, at its head now, from any folder
 //   /lanekeeper:approve status             show the current grant
 //   /lanekeeper:approve revoke             delete the current grant
 //
@@ -23,15 +24,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { resolveConfig, projectRoot, stateDir, expandHome } from '../../../lib/config.mjs'
+import { resolveConfig, projectRoot, stateDir, expandHome, lanekeeperHome } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import * as OD from '../../../lib/owner-decisions.mjs'
 import * as Q from '../../../lib/quality.mjs'
 import { setPersonal } from '../../../lib/runtime.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
-import { realGit } from './context.mjs'
-import { ACTIONS, OWNER_ACTIONS, cleanRemoteUrl, grantPath, isUnborn, shortHead, unbornHead, writeGrant } from './grant.mjs'
+import { realGit, realPr } from './context.mjs'
+import { ACTIONS, OWNER_ACTIONS, cleanRemoteUrl, grantPath, isUnborn, ownerDir, prKey, shortHead, unbornHead, writeGrant } from './grant.mjs'
 
 // Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
 export function localTime(iso) {
@@ -101,7 +102,7 @@ function repositoryOf(dir) {
   }
 }
 
-// `[ref] [--to <branch>] [--remote <name>]` -> { ref, to, remote }
+// `[ref] [--to <branch>] [--remote <name>] [--repo <owner/name>]` -> { ref, to, remote, repo }
 export function parseGrantArgs(words) {
   const out = {}
   for (let i = 0; i < words.length; i++) {
@@ -109,6 +110,8 @@ export function parseGrantArgs(words) {
     else if (words[i].startsWith('--to=')) out.to = words[i].slice(5)
     else if (words[i] === '--remote') out.remote = words[++i] ?? ''
     else if (words[i].startsWith('--remote=')) out.remote = words[i].slice(9)
+    else if (words[i] === '--repo') out.repo = words[++i] ?? ''
+    else if (words[i].startsWith('--repo=')) out.repo = words[i].slice(7)
     else out.ref ??= words[i]
   }
   return out
@@ -143,6 +146,18 @@ export function resolveTarget(action, ref, cwd, gitCfg, { to, remote, root } = {
   return remoteUrl ? { ref: useRef, head, dest, remote: cleanRemoteUrl(named), remoteUrl } : { why: 'bad_remote', vars: { remote: cleanRemoteUrl(named) } }
 }
 
+// What a merge-pr grant would be for -> { ref, head, dest, number, repo, title }, or { why, vars }.
+// The session's folder plays no part unless the PR is named by a number alone, as for gh itself.
+export function resolvePrTarget(selector, cwd, gitCfg, { repo, lookup = realPr } = {}) {
+  const unresolved = { why: 'pr_unresolved', vars: { pr: selector ?? '-', repo: repo ?? '-' } }
+  if (String(selector ?? '').startsWith('-') || String(repo ?? '').startsWith('-') || repo === '') return unresolved
+  const pr = lookup({ cwd, globalOpts: [], env: {} }, { selector, repo })
+  const key = prKey(pr)
+  if (!key || !pr.base || !pr.headOid) return unresolved
+  if (!isProtected(pr.base, gitCfg)) return { why: 'pr_not_protected', vars: { pr: key, dest: pr.base } }
+  return { ref: key, head: pr.headOid, dest: pr.base, number: pr.number, repo: key.split('#')[0], title: pr.title }
+}
+
 // Writes the grant and its line in the decision log, and returns the message for the person.
 export function recordGrant({ sd, action, target, resolved, t, now, session, via }) {
   const gitCfg = resolved.config.project?.git || {}
@@ -154,7 +169,7 @@ export function recordGrant({ sd, action, target, resolved, t, now, session, via
   const bound = t(remote ? 'approve.bound_remote' : dest ? 'approve.bound_dest' : 'approve.bound_index', vars)
   if (isUnborn(head)) return `${t('approve.granted_first', vars)} ${bound}`
   const gateCmd = resolved.config.project?.gate?.command
-  const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
+  const stampNote = gateCmd && ['merge-main', 'push-main'].includes(action) ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
   return `${t('approve.granted', vars)} ${bound}` + (stampNote ? ` ${stampNote}` : '')
 }
 
@@ -203,24 +218,33 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
     return context(t('approve.retry_bypass'))
   }
   const sd = stateDir(root)
+  const prDir = ownerDir(lanekeeperHome(env))
+  const files = [...(sd ? [grantPath(sd)] : []), grantPath(prDir)]
+  if (action === 'status') {
+    const lines = files.map((file) => readJsonSafe(file)).filter(Boolean).map((g) => {
+      const state = g.used ? t('approve.state.used') : now >= Date.parse(g.expires) ? t('approve.state.expired') : t('approve.state.active')
+      return t('approve.status', { action: g.action, ref: g.ref, head: shortHead(g.head), expires: localTime(g.expires), state })
+    })
+    return context(lines.join('\n') || t('approve.none'))
+  }
+  if (action === 'revoke') {
+    for (const file of files) fs.rmSync(file, { force: true })
+    return context(t('approve.revoked'))
+  }
+  if (action === 'merge-pr') {
+    const { ref, to, remote, repo } = parseGrantArgs(grantWords)
+    if (to !== undefined || remote !== undefined) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
+    const target = resolvePrTarget(ref, cwd, resolved.config.project?.git || {}, { repo })
+    if (target.why) return block(`approve.${target.why}`, target.vars)
+    return context(recordGrant({ sd: prDir, action, target, resolved, t, now, session: input.session_id, via: 'slash' }))
+  }
   if (!sd) return block('approve.not_git', {})
   if (action === 'accept-quality') return acceptQuality(rawArgs.slice(action.length), root, sd, resolved, t, block, context)
   if (action === 'clear-gate-lock') return clearGateLock(sd, resolved, env, now, t, block, context)
-  const file = grantPath(sd)
-
-  if (action === 'status') {
-    const g = readJsonSafe(file)
-    if (!g) return context(t('approve.none'))
-    const state = g.used ? t('approve.state.used') : now >= Date.parse(g.expires) ? t('approve.state.expired') : t('approve.state.active')
-    return context(t('approve.status', { action: g.action, ref: g.ref, head: shortHead(g.head), expires: localTime(g.expires), state }))
-  }
-  if (action === 'revoke') {
-    fs.rmSync(file, { force: true })
-    return context(t('approve.revoked'))
-  }
   if (!ACTIONS.includes(action)) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
 
-  const { ref, to, remote } = parseGrantArgs(grantWords)
+  const { ref, to, remote, repo } = parseGrantArgs(grantWords)
+  if (repo !== undefined) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
   const target = resolveTarget(action, ref, cwd, resolved.config.project?.git || {}, { to, remote, root })
   if (target.why) return block(`approve.${target.why}`, target.vars)
   return context(recordGrant({ sd, action, target, resolved, t, now, session: input.session_id, via: 'slash' }))
