@@ -26,7 +26,7 @@ Landing work on a protected branch such as main needs the owner's grant. A grant
 
 - Why: Every piece of work builds on the protected branches. If an agent lands work by itself, unreviewed changes become the base for everyone.
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
-- If blocked: In the main session, run `lanekeeper-grant merge-main` (for a PR, `lanekeeper-grant merge-pr <number> --repo <owner/name>`) alone on one line to raise a dialog for the owner, or have the owner type `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, get a new one.
+- If blocked: Run the `lanekeeper-grant` line the block message gives, alone on one line in the main session, to raise a dialog. The owner only presses allow. With a gate command set, the same commit has to pass the gate first, or no dialog opens. If the grant has expired, get a new one.
 
 ### No merging while the gate runs (`gate-lock`)
 
@@ -34,7 +34,7 @@ Nothing is merged while the gate is running.
 
 - Why: If the code changes during a gate run, nobody can tell which commit the result belongs to.
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
-- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to type `/lanekeeper:approve clear-gate-lock` in the prompt.
+- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, run `lanekeeper-reap --gate-lock` alone on one line in the main session to raise a dialog.
 
 ### Destructive git commands need confirmation (`no-destructive-git`)
 

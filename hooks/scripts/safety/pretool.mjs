@@ -91,13 +91,17 @@ export function judgeCommand(command, ctx) {
   const everything = [...cmds, ...ctx.aliasCmds]
   // A grant is one change. Several on a line, or one repeated, would run under one use.
   const repeated = everything.some((c) => c.name === 'done' || c.repeats) || everything.filter((c) => c.functionCall).length > 1
-  if (ctx.landings > 1 || (ctx.landings && repeated)) verdicts.push(deny('grant.once', {}))
+  const once = ctx.landings > 1 || (ctx.landings && repeated)
+  if (once) verdicts.push(deny('grant.once', {}))
   // The staged content was compared just now, so nothing beside the commit may change it first.
   if (verdicts.some((v) => v?.stagedBound)) {
     const other = everything.find((c) => !landed.includes(c) && !ctx.landedCmds.includes(c) && !quietCommand(c))
     if (other) verdicts.push(deny('grant.commit_alone', { cmd: other.words.map((w) => w.text).join(' ').slice(0, 120) }))
   }
-  return { ...combine(verdicts), dialog: owner?.dialog }
+  // A line that has to change anyway gets no talk of a grant, which it could not spend.
+  const refused = once || verdicts.some((v) => v?.code === 'grant.commit_alone')
+  const said = refused ? verdicts.filter((v) => !/^grant\.(missing|action|used|expired|head|dest|remote|format|index)$|^stamp\./.test(v?.code ?? '')) : verdicts
+  return { ...combine(said), dialog: owner?.dialog, rewrite: verdicts.find((v) => v?.rewrite)?.rewrite }
 }
 
 export function judgeTool(input, ctx) {
@@ -122,6 +126,13 @@ function output(decision, reason, updatedInput) {
   return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason, ...(updatedInput ? { updatedInput } : {}) } })
 }
 
+// Runs the changed line through the normal permission flow: with no decision here, rules and the prompt
+// apply to the new line (measured on Claude Code 2.1.319). The model's record keeps the line it wrote, so
+// it is told, or the output would not match what it thinks it ran.
+function rewritten(lang, updatedInput) {
+  return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', updatedInput, additionalContext: `[lanekeeper] ${translator(lang)('safety.rewritten', { line: updatedInput.command })}` } })
+}
+
 // What a person reads in the dialog: the question and what each answer does, with no repair advice.
 function dialogText(lang, reasons) {
   const t = translator(lang)
@@ -132,9 +143,9 @@ function dialogText(lang, reasons) {
 export function evaluate(input, env = process.env, overrides = {}) {
   const ctx = buildContext(input, env, overrides)
   const r = judgeTool(input, ctx)
-  if (r.decision !== DENY) for (const c of r.consume) consumeGrant(c.stateDir, c.by, ctx.now)
+  if (r.decision !== DENY) for (const c of r.consume) consumeGrant(c.stateDir, c.by, ctx.now, c.line)
   // The ticket goes out only with the dialog that carries it.
-  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(r.dialog.stateDir ?? ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now, input.session_id)) } : undefined
+  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(r.dialog.stateDir ?? ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now, input.session_id)) } : r.decision !== DENY && r.rewrite ? { ...input.tool_input, command: r.rewrite } : undefined
   return { ...r, updatedInput, language: ctx.language }
 }
 
@@ -143,7 +154,7 @@ export function runHook(raw, env = process.env, overrides = {}) {
   try {
     const r = evaluate(JSON.parse(raw || '{}'), env, overrides)
     lang = r.language
-    if (r.decision === ALLOW) return ''
+    if (r.decision === ALLOW) return r.updatedInput ? rewritten(lang, r.updatedInput) : ''
     return output(r.decision, r.updatedInput ? dialogText(lang, r.reasons) : formatReasons(lang, r.reasons), r.updatedInput)
   } catch (e) {
     return output(DENY, formatReasons(lang, [{ decision: DENY, code: 'internal', vars: { msg: String(e?.message || e).slice(0, 200) } }]))

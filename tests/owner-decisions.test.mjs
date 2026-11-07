@@ -124,19 +124,19 @@ test('the commands refuse: flags an agent can add do not turn the decision on', 
   oldLock()
   const reap = bin('lanekeeper-reap', ['--gate-lock'])
   assert.equal(reap.status, 4)
-  assert.match(reap.stderr, /\/lanekeeper:approve clear-gate-lock/)
+  assert.match(reap.stderr, /lanekeeper-reap --gate-lock/)
   assert.equal(fs.existsSync(lock), true)
   record()
   const acc = bin('lanekeeper-quality', ['accept', 'unit', '--reason', 'x'])
   assert.equal(acc.status, 4)
-  assert.match(acc.stderr, /\/lanekeeper:approve accept-quality/)
+  assert.match(acc.stderr, /lanekeeper-quality accept/)
   assert.equal(fs.existsSync(accepted), false)
 })
-test('lanekeeper-reap without the flag still reports the old lock and points at the slash command', () => {
+test('lanekeeper-reap without the flag still reports the old lock and points at the dialog', () => {
   oldLock()
   const r = bin('lanekeeper-reap', [])
   assert.equal(r.status, 0)
-  assert.match(r.stdout, /\/lanekeeper:approve clear-gate-lock/)
+  assert.match(r.stdout, /lanekeeper-reap --gate-lock/)
   assert.equal(fs.existsSync(lock), true)
 })
 test('chained commands get no further than alone', () => {

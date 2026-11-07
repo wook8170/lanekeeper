@@ -55,6 +55,8 @@ function git(args, cwd) {
 
 const sha = (cwd, ref) => git(['rev-parse', '-q', '--verify', `${ref}^{commit}`], cwd)
 
+const isProtected = (branch, gitCfg) => matchAny(branch, gitCfg.protected_branches || [], { wide: true })
+
 // Which commit the grant is for when no ref is given.
 export function defaultRef(action, cwd, gitCfg) {
   if (action === 'commit-main') return 'HEAD'
@@ -64,13 +66,27 @@ export function defaultRef(action, cwd, gitCfg) {
     const prot = (gitCfg.protected_branches || []).filter((b) => !/[*?]/.test(b)).find((b) => sha(cwd, b))
     return prot || null
   }
-  // merge-main: the integration branch
-  const pattern = gitCfg.integration_branch_pattern || 'lanekeeper/*/int'
+  // merge-main: what is checked out, unless that is the branch merged into. Then the integration branch
+  // of the lane ledger, and then the one branch that holds work not in here. No name pattern is needed.
   const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
-  if (cur && matchAny(cur, [pattern])) return cur
-  const all = (git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd) || '').split('\n').filter(Boolean)
-  const ints = all.filter((b) => matchAny(b, [pattern]))
-  return ints.length === 1 ? ints[0] : null
+  if (cur && !isProtected(cur, gitCfg)) return cur
+  const integration = ledgerIntegration(cwd)
+  if (integration && sha(cwd, integration)) return integration
+  const waiting = unmergedBranches(cwd, gitCfg)
+  return waiting.length === 1 ? waiting[0] : null
+}
+
+function ledgerIntegration(cwd) {
+  const common = git(['rev-parse', '--git-common-dir'], cwd)
+  const ledger = common ? readJsonSafe(path.join(path.resolve(cwd, common), 'lanekeeper', 'lanes.json')) : null
+  const named = new Set([ledger?.integration, ...(Array.isArray(ledger?.lanes) ? ledger.lanes.map((l) => l?.integration) : [])].filter((b) => typeof b === 'string' && b))
+  return named.size === 1 ? [...named][0] : null
+}
+
+// Branches with commits HEAD does not have, newest first.
+function unmergedBranches(cwd, gitCfg) {
+  const out = git(['for-each-ref', '--no-merged=HEAD', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads'], cwd) || ''
+  return out.split('\n').filter((b) => b && !isProtected(b, gitCfg))
 }
 
 // The first commit of a repository: commit-main on a protected branch, with no commit anywhere yet.
@@ -80,8 +96,6 @@ function firstCommitHead(action, ref, cwd, gitCfg) {
   if (!cur || (ref !== 'HEAD' && ref !== cur) || !matchAny(cur, gitCfg.protected_branches || [], { wide: true })) return null
   return realGit.unborn({ cwd, globalOpts: [], env: {} }) ? unbornHead(cur) : null
 }
-
-const isProtected = (branch, gitCfg) => matchAny(branch, gitCfg.protected_branches || [], { wide: true })
 
 // Which protected branch a merge or push lands on when --to is not given.
 function defaultDest(action, ref, cwd, gitCfg) {
@@ -123,7 +137,7 @@ export function resolveTarget(action, ref, cwd, gitCfg, { to, remote, root } = {
   const here = root ? repositoryOf(cwd) : null
   if (here && repositoryOf(root) !== here) return { why: 'other_root', vars: { top: here, root } }
   const useRef = ref || defaultRef(action, cwd, gitCfg)
-  if (!useRef) return { why: 'need_ref', vars: { action } }
+  if (!useRef) return { why: 'need_ref', vars: { action, candidates: unmergedBranches(cwd, gitCfg).slice(0, 5).join(', ') || '-' } }
   const head = sha(cwd, useRef) || firstCommitHead(action, useRef, cwd, gitCfg)
   if (!head) return { why: 'bad_ref', vars: { ref: useRef } }
   if (remote !== undefined && action !== 'push-main') return { why: 'bad_remote', vars: { remote: cleanRemoteUrl(remote) } }
@@ -171,7 +185,7 @@ export function recordGrant({ sd, action, target, resolved, t, now, session, via
   if (isUnborn(head)) return `${t('approve.granted_first', vars)} ${bound}`
   const gateCmd = resolved.config.project?.gate?.command
   const stampNote = gateCmd && ['merge-main', 'push-main'].includes(action) ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
-  const mergeNote = action === 'merge-pr' ? t('approve.merge_line', { line: prMergeLine({ number, repo, head }) }) : ''
+  const mergeNote = action === 'merge-pr' ? t('approve.merge_line', { line: prMergeLine({ number, repo, head }) }) : via === 'dialog' ? t('approve.run_again') : ''
   return `${t('approve.granted', vars)} ${bound}` + (stampNote ? ` ${stampNote}` : '') + (mergeNote ? ` ${mergeNote}` : '')
 }
 

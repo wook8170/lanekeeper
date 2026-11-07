@@ -50,13 +50,15 @@ test('ttl comes from project.git.owner_grant_ttl_min', () => {
 test('refusals: unknown action, unknown ref, ambiguous integration branch, broken settings', () => {
   assert.equal(approve('deploy').decision, 'block')
   assert.equal(approve('merge-main no-such-branch').decision, 'block')
-  git(f.repo, 'branch', 'lanekeeper/u/int')
+  const lanes = path.join(f.state, 'lanes.json')
+  const saved = fs.readFileSync(lanes, 'utf8')
+  fs.writeFileSync(lanes, '{"lanes":[]}')
   try {
-    const r = approve('merge-main', { cwd: f.wt.feat })
+    const r = approve('merge-main')
     assert.equal(r.decision, 'block')
     assert.match(r.reason, /merge-main <branch>/)
   } finally {
-    git(f.repo, 'branch', '-D', 'lanekeeper/u/int')
+    fs.writeFileSync(lanes, saved)
   }
   f.projectConfig({ git: { owner_grant_ttl_min: 'soon' } })
   assert.equal(approve('merge-main').decision, 'block')

@@ -345,7 +345,7 @@ test('lanekeeper-quality: heavy suites run through lanekeeper-slot, record, repo
   assert.equal(shipHead.category, 'ship')
   const acc = bin('lanekeeper-quality', ['accept', 'e2e', '--reason', 'x'], f.env, f.repo)
   assert.equal(acc.status, 4, 'refused')
-  assert.match(acc.stderr, /\/lanekeeper:approve accept-quality/)
+  assert.match(acc.stderr, /lanekeeper-quality accept/)
   assert.equal(fs.existsSync(path.join(f.repo, 'docs/test-results/accepted.json')), false)
   f.cleanup()
 })

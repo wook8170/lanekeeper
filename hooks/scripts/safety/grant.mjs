@@ -95,13 +95,32 @@ export function checkGrant(stateDir, action, head, now, { dest, index, remote, p
   return { ok: true, grant: g }
 }
 
-export function consumeGrant(stateDir, usedBy, now) {
+export function consumeGrant(stateDir, usedBy, now, line) {
   const file = grantPath(stateDir)
   const g = readJsonSafe(file)
   if (!g) return false
   g.used = true
   g.used_at = new Date(now).toISOString()
   g.used_by = String(usedBy).slice(0, 300)
+  if (line) g.used_line = String(line).trim()
+  fs.writeFileSync(file, `${JSON.stringify(g, null, 2)}\n`)
+  return true
+}
+
+// One git or gh command and nothing else: no second command can have done the change while this one failed.
+const ONE_COMMAND = /^(?:git|gh)[ \t][^;&|<>()$`\n\r]*$/
+
+// A command that exited with an error made no change, so the grant it was spent on is still unused. Only
+// the very line it was spent on brings it back, and the time limit and everything it is bound to still hold.
+export function restoreGrant(stateDir, line, now) {
+  const file = grantPath(stateDir)
+  const g = readJsonSafe(file)
+  const text = String(line ?? '').trim()
+  if (!g?.used || g.used_line !== text || !ONE_COMMAND.test(text) || !(now < Date.parse(g.expires))) return false
+  g.used = false
+  delete g.used_at
+  delete g.used_by
+  delete g.used_line
   fs.writeFileSync(file, `${JSON.stringify(g, null, 2)}\n`)
   return true
 }

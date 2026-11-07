@@ -292,9 +292,9 @@ function contentConfig(cmd) {
   return unknown || env || Object.keys(config).some((k) => COMMIT_CONFIG.test(k))
 }
 
-// A verdict that allowed a change to a protected branch does not stand with such a setting on the line.
+// A change to a protected branch does not pass with such a setting on the line, so no grant is asked for it.
 function withoutContentConfig(v, cmd, vars) {
-  return v.decision === ALLOW && contentConfig(cmd) ? deny('grant.config', { ...vars, cmd: shortCmd(cmd) }) : v
+  return contentConfig(cmd) ? deny('grant.config', { ...vars, cmd: shortCmd(cmd) }) : v
 }
 
 const INIT_WITH_VALUE = new Set(['--template', '-b', '--initial-branch', '--object-format', '--ref-format', '--separate-git-dir'])
@@ -503,7 +503,7 @@ function judgeLane(kind, sub, args, target, info, f, ctx) {
     case 'stash':
       return ask('git.stash', vars)
     case 'reset-hard':
-      return ask('git.reset_hard', vars)
+      return resetLosesNothing(args, target, info, f, ctx) ? allow() : ask('git.reset_hard', vars)
     case 'clean':
       return ask('git.clean', vars)
     case 'branch':
@@ -526,6 +526,19 @@ function judgeBranch(args, f, vars) {
   return ask('git.branch_delete', { ...vars, target: pos.join(' ') || '-' })
 }
 
+// git itself refuses `branch -d` for a branch that is not merged, so nothing can be lost.
+function deletesOnlyMerged(args) {
+  const o = opts(args)
+  return o.some((x) => x === '-d' || x === '--delete') && o.every((x) => ['-d', '--delete', '-q', '--quiet'].includes(x))
+}
+
+// Alone on its line, on a branch that is not protected, with a clean tree and no commit leaving the
+// branch: the same as a fast-forward, with nothing to ask about.
+function resetLosesNothing(args, target, info, f, ctx) {
+  if (f.isProtected(info.branch) || /[;&|<>()`$\n]/.test(ctx.commandLine ?? '')) return false
+  return !!ctx.git.resetLosesNothing?.(target, positional(args)[0] || 'HEAD')
+}
+
 function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
   const vars = { branch: info.branch || 'HEAD' }
   const onProtected = f.branchKind === 'protected'
@@ -534,9 +547,9 @@ function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
       if (!onProtected) return allow()
       const form = commitForm(sub, args)
       const index = form || contentConfig(cmd) ? undefined : ctx.git.writeTree(target)
-      const v = withGrant(ctx, info, 'commit-main', info.head || (ctx.git.unborn(target) ? unbornHead(info.branch) : null), false, vars, cmd, { index })
-      if (v.decision !== ALLOW) return v
+      // A form no grant could ever pass is said first, so nobody answers a dialog for nothing.
       if (form) return deny(`grant.commit_${form}`, { ...vars, cmd: shortCmd(cmd) })
+      const v = withGrant(ctx, info, 'commit-main', info.head || (ctx.git.unborn(target) ? unbornHead(info.branch) : null), false, vars, cmd, { index })
       return withoutContentConfig({ ...v, stagedBound: true }, cmd, vars)
     }
     case 'control':
@@ -555,7 +568,7 @@ function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
       if (srcs.every((s) => s === '@{u}' || s === '@{upstream}' || (up && s === up) || (/^(origin|upstream)\//.test(s) && branchName(s) === info.branch))) return allow()
       if (srcs.length !== 1) return deny('git.main_merge', vars)
       const sha = ctx.git.revParse(target, srcs[0])
-      return withoutContentConfig(withGrant(ctx, info, 'merge-main', sha, true, { ...vars, source: srcs[0] }, cmd, { dest: info.branch }), cmd, vars)
+      return withoutContentConfig(withGrant(ctx, info, 'merge-main', sha, true, { ...vars, source: srcs[0] }, cmd, { dest: info.branch, source: srcs[0] }), cmd, vars)
     }
     case 'push':
       return judgePush(args, target, info, f, ctx, vars, cmd)
@@ -573,11 +586,13 @@ function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
     case 'stash':
       return ask('git.stash', vars)
     case 'reset-hard':
-      return ask('git.reset_hard', vars)
+      return resetLosesNothing(args, target, info, f, ctx) ? allow() : ask('git.reset_hard', vars)
     case 'clean':
       return ask('git.clean', vars)
-    case 'branch':
-      return judgeBranch(args, f, vars)
+    case 'branch': {
+      const v = judgeBranch(args, f, vars)
+      return v.decision === 'ask' && deletesOnlyMerged(args) ? allow() : v
+    }
     case 'ref': {
       const pos = positional(args)
       const ref = pos[0] || ''
@@ -697,8 +712,8 @@ function judgePush(args, target, info, f, ctx, vars, cmd) {
       // the tags go along under a grant that only showed this commit, so it counts as a second change
       if (p.withTags) ctx.landings = (ctx.landings || 0) + 1
       const pushVars = { ...vars, branch: d.dst, target: d.dst }
-      const v = withoutContentConfig(withGrant(ctx, info, 'push-main', sha, true, pushVars, cmd, { dest: d.dst, remote }), cmd, pushVars)
-      out.push(v.decision === ALLOW && pushTransport(cmd) ? deny('grant.config', { ...pushVars, cmd: shortCmd(cmd) }) : v)
+      const v = withoutContentConfig(withGrant(ctx, info, 'push-main', sha, true, pushVars, cmd, { dest: d.dst, remote, source: d.src || 'HEAD', remoteName: named }), cmd, pushVars)
+      out.push(pushTransport(cmd) ? deny('grant.config', { ...pushVars, cmd: shortCmd(cmd) }) : v)
     } else out.push(pushFeature(f, vars))
   }
   return out
@@ -718,21 +733,32 @@ export function stampFor(ctx, stateDir, cwd, sha) {
   return checkStamp(stateDir, ctx.config.project?.git?.gate_stamp, sha, resultsOnly)
 }
 
+// The line that raises the dialog for exactly this change, so the agent does not have to work out a
+// target or ask anyone. A source that is not a plain word goes by its commit.
+function grantLine(action, sha, { source, dest, remoteName }) {
+  const ref = PLAIN_GRANT_WORD.test(source ?? '') ? source : sha || 'HEAD'
+  if (action === 'commit-main') return 'lanekeeper-grant commit-main'
+  return `lanekeeper-grant ${action} ${ref} --to ${dest}${action === 'push-main' && PLAIN_GRANT_WORD.test(remoteName ?? '') ? ` --remote ${remoteName}` : ''}`
+}
+
 // Allowed only with a matching unused owner grant (and gate stamp when a gate
 // command is configured). The grant is consumed when the whole command passes.
-function withGrant(ctx, info, action, sha, needStamp, vars, cmd, bind = {}) {
+// The stamp is checked first: a grant is short-lived, and a gate run can outlast it.
+function withGrant(ctx, info, action, sha, needStamp, vars, cmd, { source, remoteName, ...bind } = {}) {
   ctx.landings = (ctx.landings || 0) + 1
   ctx.landedCmds?.push(cmd)
   const short = sha ? shortHead(sha) : '?'
-  const g = checkGrant(info.stateDir, action, sha, ctx.now, bind)
-  if (!g.ok) return deny(`grant.${g.why}`, { ...vars, action, head: short, granted: g.grant?.head ? shortHead(g.grant.head) : '-', dest: bind.dest ?? '-', grantedDest: g.grant?.dest ?? '-', remote: bind.remote ?? '-', grantedRemote: g.grant?.remoteUrl ?? '-', ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15 })
   const gateCmd = ctx.config.project?.gate?.command
-  if (needStamp && gateCmd) {
+  if (sha && needStamp && gateCmd) {
     const s = stampFor(ctx, info.stateDir, info.top, sha)
     if (!s.ok) return deny(`stamp.${s.why}`, { ...vars, action, head: short, stamped: s.stamp?.head?.slice(0, 9) || '-' })
   }
-  return allow({ consume: { stateDir: info.stateDir, by: shortCmd(cmd) } })
+  const g = checkGrant(info.stateDir, action, sha, ctx.now, bind)
+  if (!g.ok) return deny(`grant.${g.why}`, { ...vars, action, head: short, line: grantLine(action, sha, { source, remoteName, dest: bind.dest }), where: info.top, granted: g.grant?.head ? shortHead(g.grant.head) : '-', dest: bind.dest ?? '-', grantedDest: g.grant?.dest ?? '-', remote: bind.remote ?? '-', grantedRemote: g.grant?.remoteUrl ?? '-', ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15 })
+  return allow({ consume: { stateDir: info.stateDir, by: shortCmd(cmd), line: ctx.commandLine } })
 }
+
+const PLAIN_GRANT_WORD = /^[\p{L}\p{N}_][\p{L}\p{N}_./:+@-]*$/u
 
 // Reads the words of a gh command by its option table -> { positional, seen, values, known }. A short
 // option is held under its long name, and an option not in the table makes the line unreadable.
@@ -798,7 +824,8 @@ function ghCommandPath(args) {
   const words = []
   for (let i = 0; i < args.length; i++) {
     const t = args[i].text
-    if (args[i].dynamic) return null
+    // gh skips an empty word when it looks for the subcommand, so it does not count as one here either.
+    if (args[i].dynamic || t === '') return null
     if (t === '-R' || t === '--repo') {
       if (args[++i]?.dynamic) return null
     } else if (t.startsWith('-')) {
@@ -866,11 +893,25 @@ const isGrantedMerge = (line, number, repo, head) => {
   const m = GRANTED_MERGE.exec(String(line ?? '').trim())
   if (!m || m[1] !== String(number) || m[2] !== repo || m[3] !== head) return false
   const tail = m[4].trim().split(/[ \t]+/).filter(Boolean)
-  return tail.filter((w) => w !== '-d').length <= 1 && tail.filter((w) => w === '-d').length <= 1
+  return tail.filter((w) => w !== '-d').length === 1 && tail.filter((w) => w === '-d').length <= 1
+}
+
+// `gh pr merge [pr] [--repo x] [a method] [-d]` and nothing else on the line. No folder change, variable
+// or second command can stand between the lookup and the merge, so the hook replaces it by the one line
+// with the number, repository and head it just judged, and nobody has to run it a second time.
+const PLAIN_MERGE = /^gh[ \t]+pr[ \t]+merge(?:[ \t]+[A-Za-z0-9_./:=@+-]+)*$/
+const PLAIN_MERGE_FLAGS = new Set(['--squash', '--merge', '--rebase', '--delete-branch'])
+function isPlainMerge(line, read, head) {
+  const words = String(line ?? '').trim().split(/[ \t]+/)
+  if (!PLAIN_MERGE.test(String(line ?? '').trim()) || !read.known || read.positional.length > 3 || new Set(words).size !== words.length) return false
+  if ([...read.seen].some((f) => !PLAIN_MERGE_FLAGS.has(f)) || [...read.seen].filter((f) => f !== '--delete-branch').length > 1) return false
+  if (Object.keys(read.values).some((k) => !['--repo', '--match-head-commit'].includes(k))) return false
+  return (read.values['--repo'] || ['-']).every(Boolean) && (read.values['--match-head-commit'] || [head]).every((v) => v === head)
 }
 
 // `gh pr merge`, in any form. A number and a whole [host/]owner/name settle which PR gh merges, so only
-// a line with both can pass. The lookup for other lines only serves to name the line to run instead.
+// a line with both can run. A plain line is changed into such a line. For any other, the lookup only
+// serves to name the line to run instead.
 function judgeGhMerge(cmd, ctx) {
   if (ctx.agentId) return deny('gh.lane_merge', {})
   const read = readGhWords(cmd.args.map((a) => a.text), GH_MERGE_OPTIONS)
@@ -890,11 +931,13 @@ function judgeGhMerge(cmd, ctx) {
   const line = prMergeLine({ number: pr.number, repo, head: pr.headOid, method, del: read.seen.has('--delete-branch') })
   const vars = { number: pr.number, repo, branch: pr.base, head: shortHead(pr.headOid), ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15, line }
   const session = ctx.git.remoteAddresses({ cwd: ctx.cwd, globalOpts: [], env: {} })
-  if (!grantNeeded(pr.base, repo, ctx.config.project?.git?.protected_branches, session)) return named ? allow() : deny('gh.form', vars)
+  const plain = isPlainMerge(ctx.commandLine, read, pr.headOid)
+  if (!grantNeeded(pr.base, repo, ctx.config.project?.git?.protected_branches, session)) return named ? allow() : plain ? allow({ rewrite: line }) : deny('gh.form', vars)
   // Only a grant for this very PR, wherever the command runs. merge-main is for a merge in this folder.
   if (!checkGrant(ctx.ownerDir, 'merge-pr', pr.headOid, ctx.now, { dest: pr.base, pr: key }).ok) return deny('gh.need_grant', vars)
-  if (!isGrantedMerge(ctx.commandLine, pr.number, repo, pr.headOid)) return deny('gh.form', vars)
-  return allow({ consume: { stateDir: ctx.ownerDir, by: ctx.commandLine.trim().slice(0, 120) } })
+  const exact = isGrantedMerge(ctx.commandLine, pr.number, repo, pr.headOid)
+  if (!exact && !plain) return deny('gh.form', vars)
+  return allow({ ...(exact ? {} : { rewrite: line }), consume: { stateDir: ctx.ownerDir, by: ctx.commandLine.trim().slice(0, 120), line: exact ? ctx.commandLine : line } })
 }
 
 // Every gh command is read here. What cannot be told apart from a merge is refused.
@@ -903,7 +946,7 @@ function judgeGh(cmd, ctx) {
   const words = cmd.args.map((a) => a.text)
   if (words.length === 1 && /^(--version|--help|-h)$/.test(words[0])) return null
   const path = ghCommandPath(cmd.args)
-  if (!path || (path[0] && !GH_COMMANDS.has(path[0]))) return refused
+  if (!path || (path.length && !GH_COMMANDS.has(path[0]))) return refused
   const [first, second] = path
   if (first === 'pr') {
     if (second === 'merge') return judgeGhMerge(cmd, ctx)

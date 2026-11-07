@@ -26,7 +26,7 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 - 왜: 보호 브랜치는 모든 작업의 기준이 된다. 에이전트가 직접 반영하면 검토하지 않은 변경이 기준이 된다.
 - 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
-- 막혔을 때: 메인 세션에서 `lanekeeper-grant merge-main`(PR 이면 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>`)을 한 줄 단독으로 실행해 소유자에게 확인 창을 띄우거나, 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 받는다.
+- 막혔을 때: 차단 메시지에 적힌 `lanekeeper-grant` 줄을 메인 세션에서 한 줄 단독으로 실행해 확인 창을 띄운다. 소유자는 창에서 허용만 누른다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 창이 뜬다. 허가 시간이 지났으면 다시 받는다.
 
 ### 게이트 실행 중 병합 금지 (`gate-lock`)
 
@@ -34,7 +34,7 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 - 왜: 게이트 실행 중에 코드가 바뀌면 통과 결과가 어느 커밋의 것인지 알 수 없다.
 - 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
-- 막혔을 때: 게이트가 끝난 뒤 다시 시도한다. 게이트가 멈춘 채 잠금만 남았다면 소유자에게 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력해 달라고 요청한다.
+- 막혔을 때: 게이트가 끝난 뒤 다시 시도한다. 게이트가 멈춘 채 잠금만 남았다면 메인 세션에서 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행해 확인 창을 띄운다.
 
 ### 변경을 지우는 git 명령은 확인 후 실행 (`no-destructive-git`)
 
@@ -324,7 +324,7 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 - 왜: 출하 판정은 그 커밋의 실제 시험 결과에 기대야 한다. 오래된 결과나 시험을 줄여 얻은 통과는 판정의 근거가 되지 못한다. 레인별 시험과 디자인 린트 기준선은 처음 쓰는 사람이 헷갈리는 문구, 막다른 화면, 붙은 간격·좁은 줄간격 같은 시각 위반을 걸러 내지 못한다.
 - 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
-- 막혔을 때: `/lanekeeper:ship-verify` 를 실행한다. `lanekeeper-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 저장소 소유자가 프롬프트에 `/lanekeeper:approve accept-quality <종류> --reason 사유` 를 입력해 승인한다.
+- 막혔을 때: `/lanekeeper:ship-verify` 를 실행한다. `lanekeeper-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 메인 세션에서 `lanekeeper-quality accept <종류> --reason "사유"` 를 한 줄 단독으로 실행해 확인 창을 띄운다.
 
 ### 번호는 먼저 예약 (`number-reservation`)
 

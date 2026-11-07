@@ -34,7 +34,7 @@ const MAX_REASON = 500
 const UNSHOWABLE = /[\p{Cc}\p{Cf}]/u
 const PLAIN_WORD = /^[\p{L}\p{N}_.,:/+@%=-]+$/u
 const GRANT_CALL = new RegExp(`^lanekeeper-grant[ \\t]+(${ACTIONS.join('|')})((?:[ \\t]+\\S+)*)$`, 'u')
-const GRANT_WORD = /^[\p{L}\p{N}_][\p{L}\p{N}_./+@-]*$/u
+const GRANT_WORD = /^[\p{L}\p{N}_][\p{L}\p{N}_./:+@-]*$/u
 
 // `[ref] [--to <branch>] [--remote <name>]`, or for merge-pr `[pr] [--repo <owner/name>]`, each once, in
 // plain words -> the call, or null.
@@ -96,6 +96,14 @@ const SLASH = {
   'accept-quality': '/lanekeeper:approve accept-quality <kind> --reason why',
   grant: `/lanekeeper:approve ${ACTIONS.join('|')}`,
   ...Object.fromEntries(ACTIONS.map((a) => [a, `/lanekeeper:approve ${a}`])),
+}
+
+// The slash command for the very call, when a person has to type it, so it does not end in a question.
+function slashFor(action, call) {
+  if (!call) return SLASH[action]
+  if (call.action === 'accept-quality') return `/lanekeeper:approve accept-quality ${call.kind} --reason ${call.reason}`
+  if (!ACTIONS.includes(call.action)) return SLASH[action]
+  return [`/lanekeeper:approve ${call.action}`, call.ref, call.to && `--to ${call.to}`, call.remote && `--remote ${call.remote}`, call.repo && `--repo ${call.repo}`].filter(Boolean).join(' ')
 }
 const shq = (s) => `'${String(s).replace(/'/g, "'\\''")}'`
 const cliPath = (name) => shq(path.join(PLUGIN_ROOT, 'bin', name))
@@ -159,7 +167,10 @@ function judgeGrant(call, ctx, sd, t) {
   const commit = { commit: shortHead(head), subject: isUnborn(head) ? '-' : shown(ctx.git.subject(where, head)) }
   let v
   if (call.action !== 'commit-main') {
-    const stamp = ctx.config.project?.gate?.command ? t(stampFor(ctx, sd, ctx.cwd, head).ok ? 'safety.owner.grant.stamp_ok' : 'safety.owner.grant.stamp_none') : ''
+    // Without a stamp the grant could not be used, and it may run out before the gate has finished.
+    const stamped = ctx.config.project?.gate?.command ? stampFor(ctx, sd, ctx.cwd, head) : null
+    if (stamped && !stamped.ok) return deny(`stamp.${stamped.why}`, { action: call.action, head: shortHead(head), stamped: stamped.stamp?.head?.slice(0, 9) || '-' })
+    const stamp = stamped ? t('safety.owner.grant.stamp_ok') : ''
     const url = remoteUrl === remote ? t('safety.owner.grant.no_url') : shown(remoteUrl, 400)
     const landing = remote ? t('safety.owner.grant.on_remote', { dest: shown(dest), remote: shown(remote), url }) : shown(dest)
     v = ask('owner.grant', { action: call.action, dest: landing, ref: named, ...commit, ttl, detail: stamp })
@@ -191,12 +202,12 @@ function judgePrGrant(call, ctx) {
 export function judgeOwnerCall(command, cmds, ctx) {
   const action = reachedDecision(cmds)
   if (!action) return null
-  const slash = SLASH[action]
+  const call = parseOwnerCall(command)
+  const slash = slashFor(action, call)
   if (ctx.agentId) return deny('owner.subagent', { slash })
   if (ctx.env.CLAUDE_CODE_ENTRYPOINT !== 'cli') return deny('owner.headless', { slash })
   const grant = action === 'grant' || ACTIONS.includes(action)
   if (!(grant ? GRANT_ASK_MODES : ASK_MODES).includes(ctx.permissionMode)) return deny(grant ? 'owner.mode_grant' : 'owner.mode', { mode: ctx.permissionMode ?? '?', slash })
-  const call = parseOwnerCall(command)
   if (!call) return deny('owner.variant', { slash })
   const rule = OD.ownerAllowRule(ctx.projectRoot, ctx.env)
   if (rule) return deny('owner.allow_rule', { rule: rule.rule, file: rule.file, slash })

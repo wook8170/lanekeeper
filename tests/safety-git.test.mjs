@@ -126,7 +126,8 @@ test('main: gh pr merge into a non-protected base is allowed, into a protected b
   git(f.repo, 'remote', 'add', 'origin', 'https://github.com/o/r.git')
   try {
     expect(f.judge(line, { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
-    expect(f.judge('gh pr merge 3', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'deny', 'gh.form')
+    expect(f.judge('gh pr merge 3', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
+    expect(f.judge('gh pr merge 3; true', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'deny', 'gh.form')
     expect(f.judge(line, { cwd: f.repo, overrides: pr('main') }), 'deny', 'gh.need_grant')
     f.grant('merge-main', head)
     expect(f.judge(line, { cwd: f.repo, overrides: pr('main') }), 'deny', 'gh.need_grant')
@@ -224,7 +225,7 @@ test('grant: not spent when another part of the same command is blocked', () => 
 })
 test('grant: one grant covers one action — merge then push needs two', () => {
   f.grant('merge-main', f.sha('lanekeeper/t/int'))
-  expect(main('git merge lanekeeper/t/int && git push origin main'), 'deny', 'grant.action')
+  expect(main('git merge lanekeeper/t/int && git push origin main'), 'deny', 'grant.once')
 })
 test('grant: an owner grant does not help a lane', () => {
   f.grant('merge-main', f.sha('lanekeeper/t/int'))
@@ -236,8 +237,8 @@ test('grant: an owner grant does not help a lane', () => {
 test('chain: checkout/switch to a protected branch, then merge or commit, is judged on the protected branch', () => {
   // main session on the feature worktree; the next command would run on main
   expect(main('git checkout main && git merge feature/x', f.wt.feat), 'deny', 'grant.missing')
-  expect(main('git switch main; git commit --allow-empty -m x', f.wt.feat), 'deny', 'grant.missing')
-  expect(main('git switch release/1.0 && git commit -m x', f.wt.feat), 'deny', 'grant.missing')
+  expect(main('git switch main; git commit --allow-empty -m x', f.wt.feat), 'deny', 'grant.commit_alone')
+  expect(main('git switch release/1.0 && git commit -m x', f.wt.feat), 'deny', 'grant.commit_alone')
 })
 test('chain: switching away from a protected branch lets later commands run on the new branch', () => {
   expect(main('git switch -c topic/new && git commit -m x', f.repo), 'allow')

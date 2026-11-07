@@ -460,8 +460,6 @@ test('grants: -p, the SDK, broken settings and a branch that cannot be told rais
   assert.match(hook('lanekeeper-grant merge-main no/such/branch').permissionDecisionReason, /no\/such\/branch/)
   f.projectConfig({ git: { owner_grant_ttl_min: 'soon' } })
   assert.equal(hook(GRANTS[0]).permissionDecision, 'deny')
-  f.projectConfig({ git: { integration_branch_pattern: 'none/*' } })
-  assert.match(hook(GRANTS[0]).permissionDecisionReason, /Cannot tell which branch/)
   assert.equal(fs.existsSync(ticket), false)
 })
 test('grants: chained and changed commands are refused, and no ticket is issued', () => {
@@ -527,15 +525,16 @@ test('the commit-main dialog counts staged files and names the branch', () => {
     for (const n of ['staged1.txt', 'staged2.txt']) fs.rmSync(path.join(f.repo, n))
   }
 })
-test('the merge and push dialogs show whether the same commit has a gate stamp', () => {
+test('the merge and push dialogs open only when the same commit has a gate stamp', () => {
   f.projectConfig({ gate: { command: 'npm test' } })
   const stamp = path.join(f.state, 'lanekeeper-gate-pass.json')
   fs.rmSync(stamp, { force: true })
-  assert.match(hook(GRANTS[0]).permissionDecisionReason, /gate stamp for this commit: no/)
+  assert.equal(hook(GRANTS[0]).permissionDecision, 'deny')
+  assert.match(hook(GRANTS[0]).permissionDecisionReason, /gate-pass/)
   f.stamp(f.sha(INT))
   assert.match(hook(GRANTS[0]).permissionDecisionReason, /gate stamp for this commit: yes/)
   f.stamp('0'.repeat(40))
-  assert.match(hook(GRANTS[1]).permissionDecisionReason, /gate stamp for this commit: no/)
+  assert.equal(hook(GRANTS[1]).permissionDecision, 'deny')
   assert.doesNotMatch(hook(GRANTS[2]).permissionDecisionReason, /gate stamp/)
   fs.rmSync(stamp)
 })
@@ -573,10 +572,11 @@ test('allowed: commit-main lets one commit through and refuses the second', () =
 })
 test('allowed: push-main still needs the gate stamp, and a force push stays refused', () => {
   f.projectConfig({ gate: { command: 'npm test' } })
-  fs.rmSync(path.join(f.state, 'lanekeeper-gate-pass.json'), { force: true })
+  f.stamp(f.sha('main'))
   const r = run(hook(GRANTS[1]).updatedInput.command)
   assert.equal(r.status, 0, r.stderr)
   assert.match(r.stdout, /gate pass stamp/)
+  fs.rmSync(path.join(f.state, 'lanekeeper-gate-pass.json'), { force: true })
   assert.deepEqual(f.judge('git push origin main').codes, ['stamp.missing'])
   assert.deepEqual(f.judge('git push --force origin main').codes, ['git.force_push'])
   f.stamp(f.sha('main'))
@@ -599,7 +599,7 @@ test('no ticket or a made-up one: exit 4 with directions, and no grant', () => {
   for (const cmd of ['lanekeeper-grant', 'lanekeeper-grant nonsense', ...GRANTS, `${GRANTS[0]} --dialog-ticket`, `${GRANTS[0]} ${INT} --dialog-ticket 0123`, 'lanekeeper-grant retry-bypass --dialog-ticket 0123']) {
     const r = run(cmd)
     assert.equal(r.status, 4, cmd)
-    assert.match(r.stderr, /\/lanekeeper:approve/, cmd)
+    assert.match(r.stderr, /lanekeeper-grant |runs the command again/, cmd)
   }
   assert.equal(fs.existsSync(grantFile()), false)
 })
@@ -705,12 +705,11 @@ function firstCommitPasses(e) {
   assert.equal(again.permissionDecision, 'deny', 'the same grant does not pass a second commit')
   assert.match(again.permissionDecisionReason, /already been used/)
 }
-test('empty repository: without a grant the first commit on main is refused, and the message points at both routes', () => {
+test('empty repository: without a grant the first commit on main is refused, and the message gives the line to run', () => {
   const e = emptyRepo()
   const out = hookIn(e.dir, COMMIT)
   assert.equal(out.permissionDecision, 'deny')
   assert.match(out.permissionDecisionReason, /lanekeeper-grant commit-main/)
-  assert.match(out.permissionDecisionReason, /\/lanekeeper:approve commit-main/)
 })
 test('empty repository: a slash grant lets the first commit on main through, once', () => {
   const e = emptyRepo()
@@ -1184,7 +1183,7 @@ test('round 3 finding 1: no wrapper reaches a protected branch without a grant',
   for (const line of NO_GRANT_PUSH) {
     const r = f.judge(line)
     assert.equal(r.decision, 'deny', `${line} ${r.codes}`)
-    assert.ok(r.codes.includes('grant.missing') || r.codes.includes('shell.unresolved'), `${line} ${r.codes}`)
+    assert.ok(['grant.missing', 'grant.once', 'shell.unresolved'].some((c) => r.codes.includes(c)), `${line} ${r.codes}`)
   }
   for (const line of ['coproc git commit -m x', 'coproc { git commit -m x; }', 'coproc NAME { git commit -m x; }', 'coproc NAME { git push origin main; }', 'flock /tmp/lk git commit -m x', 'watch git commit -m x']) {
     assert.equal(f.judge(line).decision, 'deny', line)

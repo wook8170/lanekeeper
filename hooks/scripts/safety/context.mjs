@@ -84,7 +84,8 @@ export const realGit = {
   // The repositories this folder is a copy of, as host/owner/name.
   remoteAddresses(t) {
     const lines = (gitIn(t, ['remote', '-v']) || '').split('\n').filter(Boolean)
-    return [...new Set(lines.map((l) => cleanRemoteUrl(l.split(/\s+/)[1]).replace('/~/', '/')))]
+    // ssh.github.com:443 is GitHub's address for ssh through a firewall: the same repositories.
+    return [...new Set(lines.map((l) => cleanRemoteUrl(l.split(/\s+/)[1]).replace('/~/', '/').replace(/^ssh\.github\.com(:\d+)?\//, 'github.com/')))]
   },
   revParse(t, ref) {
     return gitIn(t, ['rev-parse', '-q', '--verify', `${ref}^{commit}`]) || null
@@ -101,6 +102,10 @@ export const realGit = {
     if (gitIn(t, ['merge-base', '--is-ancestor', from, to]) === null) return null
     const out = gitIn(t, ['diff', '--name-only', from, to])
     return out === null ? null : out.split('\n').filter(Boolean)
+  },
+  // A clean tree (untracked files count) and HEAD contained in rev.
+  resetLosesNothing(t, rev) {
+    return gitIn(t, ['status', '--porcelain']) === '' && gitIn(t, ['merge-base', '--is-ancestor', 'HEAD', rev]) !== null
   },
   isRev(t, name) {
     return !!gitIn(t, ['rev-parse', '-q', '--verify', `${name}^{commit}`]) || !!gitIn(t, ['rev-parse', '-q', '--verify', `refs/remotes/origin/${name}`])

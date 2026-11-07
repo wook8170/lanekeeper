@@ -78,6 +78,25 @@ function intoGitDir(cmd, texts, ctx) {
 // A folder that holds the grant folder somewhere below it: ~ and ~/.lanekeeper, and everything above them.
 const aboveOwnerDir = (p, ctx) => !!ctx.ownerDir && (p === '/' || fold(ctx.ownerDir).startsWith(`${fold(p)}/`))
 
+// `mv a ~/` lands on ~/a. A plain source keeps its own name, so it reaches the grant folder only when
+// that name is the next step towards it, or when it holds the folder's name on the way down. A trailing
+// slash copies what is inside, and ditto always does. The target has to be above the home of the grants,
+// because such a folder exists: a move onto one that does not exist gives the source that name.
+function keepsOwnName(cmd, words, target, ctx) {
+  if (cmd.name === 'ditto' || !ctx.lanekeeperHome) return false
+  const at = resolvePath(cmd.cwd, target, ctx.home)
+  // Options change where things land (--parents, -T, rsync -R, --files-from), so only these plain ones count.
+  const plainOption = (t) => (cmd.name === 'rsync' ? /^-[aPrvzqhlpogD]+$/ : /^-[RrapfvnLPHi]+$/).test(t) || ['--recursive', '--archive', '--verbose', '--progress'].includes(t)
+  if (insideHome(at, ctx) || !words.every((t) => !t.startsWith('-') || plainOption(t))) return false
+  const sources = words.filter((t) => !t.startsWith('-') && t !== target)
+  const next = fold(path.relative(at, ctx.ownerDir).split('/')[0])
+  const home = fold(path.basename(ctx.lanekeeperHome))
+  return sources.length > 0 && sources.every((s) => {
+    const parts = fold(s).split('/')
+    return !/[*?[{$`]|^~[^/]|\/$/.test(s) && !['.', '..', next].includes(parts.at(-1)) && !parts.includes(home)
+  })
+}
+
 // A tree copied or unpacked over such a folder makes the grant file without naming it -> the target, or null.
 function overOwnerDir(cmd, texts, ctx) {
   const above = (t) => aboveOwnerDir(resolvePath(cmd.cwd, t, ctx.home), ctx)
@@ -85,9 +104,20 @@ function overOwnerDir(cmd, texts, ctx) {
   // A link to such a folder gives it a second name that nothing here would know.
   if (cmd.name === 'ln') return words.find((t) => !t.startsWith('-') && above(t)) || null
   const recursive = words.some((t) => t === '--recursive' || t === '--archive' || (/^-[A-Za-z]+$/.test(t) && /[rRa]/.test(t)))
-  if (['mv', 'rsync', 'ditto'].includes(cmd.name) || (cmd.name === 'cp' && recursive)) return copyTargets(words).find(above) || null
+  if (['mv', 'rsync', 'ditto'].includes(cmd.name) || (cmd.name === 'cp' && recursive)) {
+    const target = copyTargets(words).find(above)
+    return target && !keepsOwnName(cmd, words, target, ctx) ? target : null
+  }
   const named = unpackTarget(cmd, words)
   return named && above(named) ? named : null
+}
+
+// Whether a path with only * and ? in it can come out as the grant folder or a folder on the way to it.
+// `~/*.tmp` cannot: no name that ends in .tmp is the next step down.
+function globReachesOwnerDir(t, cmd, ctx) {
+  const parts = fold(resolvePath(cmd.cwd, t, ctx.home)).split('/')
+  const owner = fold(ctx.ownerDir).split('/')
+  return parts.every((part, i) => i >= owner.length || new RegExp(`^${part.replace(/[.+^()|\\\]]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 's').test(owner[i]))
 }
 
 // A word with a glob or a brace can come out as the grant folder. The part before it shows whether it may.
@@ -97,7 +127,8 @@ function mayNameOwnerDir(word, cmd, ctx) {
   if (cut === -1) return false
   const head = t.slice(0, cut)
   if (/\.(lanekeeper|wb)\/(o|ow|own|owne)?$/i.test(head)) return true
-  return !!ctx.ownerDir && fold(ctx.ownerDir).startsWith(fold(resolvePath(cmd.cwd, head, ctx.home)))
+  if (!ctx.ownerDir || !fold(ctx.ownerDir).startsWith(fold(resolvePath(cmd.cwd, head, ctx.home)))) return false
+  return /[[{$`]/.test(t) || globReachesOwnerDir(t, cmd, ctx)
 }
 
 const insideHome = (p, ctx) => !!ctx.lanekeeperHome && inside(fold(p), fold(ctx.lanekeeperHome))
@@ -169,7 +200,8 @@ export function judgeBashPaths(cmd, ctx) {
   for (const r of cmd.redirs) {
     if (!/>/.test(r.op) || !r.target || /^&?\d$/.test(r.target)) continue
     const p = resolvePath(cmd.cwd, r.target, ctx.home)
-    if (mentions(r.target) || isStatePath(p, allStateDirs(ctx)) || mayNameOwnerDir(r.target, cmd, ctx)) out.push(deny('paths.state', { path: r.target }))
+    if (mentions(r.target) || isStatePath(p, allStateDirs(ctx))) out.push(deny('paths.state', { path: r.target }))
+    else if (mayNameOwnerDir(r.target, cmd, ctx)) out.push(deny('paths.reach', { path: r.target }))
     if (ownerCode(r.target)) out.push(deny(ownerCode(r.target), { path: r.target }))
     const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
     if (hit) out.push(deny('paths.protected', { path: r.target, glob: hit }))
@@ -185,13 +217,13 @@ export function judgeBashPaths(cmd, ctx) {
   const target = intoGitDir(cmd, texts, ctx)
   if (target) out.push(ask('paths.git_control', { path: target }))
   const over = overOwnerDir(cmd, texts, ctx)
-  if (over) out.push(deny('paths.state', { path: over }))
+  if (over) out.push(deny('paths.reach', { path: over }))
   if (gitMakesTreeHere(cmd, texts, ctx)) out.push(deny('paths.state', { path: cmd.cwd }))
   if (cmd.name && !readsNamedFiles(cmd, texts)) {
     // from inside the home of the grants, a file can be written without its name saying so
     if (insideHome(cmd.cwd, ctx)) out.push(deny('paths.state', { path: cmd.cwd }))
     const word = texts.slice(1).find((t) => mayNameOwnerDir(t, cmd, ctx))
-    if (word) out.push(deny('paths.state', { path: word }))
+    if (word) out.push(deny('paths.reach', { path: word }))
     if (namesHomeInVariable(cmd, ctx)) out.push(deny('paths.state', { path: ctx.lanekeeperHome }))
   }
   if (cmd.name === 'export' || (['declare', 'typeset'].includes(cmd.name) && texts.some((t) => /^-[A-Za-z]*x/.test(t)))) {

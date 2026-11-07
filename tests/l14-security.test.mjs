@@ -109,7 +109,7 @@ test('lanekeeper-test-report gate: takes the lock while running and removes it a
     fs.writeFileSync(path.join(sd, 'gate.lock'), JSON.stringify({ pid: process.pid }))
     const busy = bin('lanekeeper-test-report', ['gate', '--results-dir', path.join(fx.base, 'res2')], fx.env, fx.repo)
     assert.equal(busy.status, 3)
-    assert.match(busy.stderr, /\/lanekeeper:approve clear-gate-lock/)
+    assert.match(busy.stderr, /lanekeeper-reap --gate-lock/)
   } finally {
     fx.cleanup()
   }
