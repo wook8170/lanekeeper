@@ -567,7 +567,7 @@ lanekeeper-worktree remove l1 --delete-branch
 
 ### 4.10 보호 브랜치 반영
 
-`main` 같은 보호 브랜치에 병합·push 하려면 소유자가 프롬프트에 허가 명령을 직접 입력해야 한다.
+`main` 같은 보호 브랜치에 병합·push 하려면 소유자 허가가 필요하다. 소유자가 프롬프트에 허가 명령을 입력하거나, 메인 세션에서 Claude 가 `lanekeeper-grant merge-main lanekeeper/search/int` 로 띄운 확인 창에서 허용한다.
 
 ```
 /lanekeeper:approve merge-main lanekeeper/search/int
@@ -577,7 +577,7 @@ lanekeeper-worktree remove l1 --delete-branch
 [lanekeeper] 소유자 허가를 기록했습니다: merge-main · lanekeeper/search/int · 커밋 2c2d39f56 · 15분(만료 2026-10-17 22:55 (UTC+09:00)) · 1회. 이 커밋이 아니면 반영되지 않습니다. 게이트 통과 표식도 같은 커밋으로 있어야 합니다: …/.git/lanekeeper/lanekeeper-gate-pass.json
 ```
 
-허가는 15분 동안 한 번, 입력할 때의 커밋에만 유효하다. 만료 시각은 이 머신의 현지 시각으로 표시된다. `project.gate.command` 를 설정한 프로젝트는 같은 커밋의 게이트 통과 표식도 필요하다. 표식은 4.7 절의 `lanekeeper-test-report run` 이 전체 통과 때 남긴다. 검증 설정(`.lanekeeper/verify.config.json`) 없이 게이트 명령만 정한 프로젝트는 통합 브랜치 폴더에서 `lanekeeper-test-report gate-pass` 를 실행한다. 이 명령은 `project.gate.command` 를 실행하고, 통과하면 표식을 남긴다.
+허가는 15분 동안 한 번, 허가할 때의 커밋에만 유효하다. 만료 시각은 이 머신의 현지 시각으로 표시된다. `project.gate.command` 를 설정한 프로젝트는 같은 커밋의 게이트 통과 표식도 필요하다. 표식은 4.7 절의 `lanekeeper-test-report run` 이 전체 통과 때 남긴다. 검증 설정(`.lanekeeper/verify.config.json`) 없이 게이트 명령만 정한 프로젝트는 통합 브랜치 폴더에서 `lanekeeper-test-report gate-pass` 를 실행한다. 이 명령은 `project.gate.command` 를 실행하고, 통과하면 표식을 남긴다.
 
 ```
 lanekeeper-test-report gate-pass

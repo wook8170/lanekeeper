@@ -6,11 +6,12 @@
 //   main  everything else
 // Branch kind of the target worktree: protected · integration · lane · feature · detached
 //
-// Owner grants (/lanekeeper:approve) and gate stamps are read from the target
+// Owner grants (/lanekeeper:approve or lanekeeper-grant) and gate stamps are read from the target
 // repository's <git-common-dir>/lanekeeper/.
+import fs from 'node:fs'
 import path from 'node:path'
-import { allow, ask, deny, matchAny, inside, readJsonSafe } from './common.mjs'
-import { checkGrant, checkStamp, gateLocked } from './grant.mjs'
+import { ALLOW, allow, ask, deny, matchAny, inside, readJsonSafe } from './common.mjs'
+import { checkGrant, checkStamp, gateLocked, shortHead, unbornHead } from './grant.mjs'
 import { parse, tokenize } from './shell.mjs'
 import { onlyUnder, resultsPrefix } from '../../../lib/testresults.mjs'
 import { laneCommitPolicy } from '../../../lib/brief.mjs'
@@ -27,6 +28,10 @@ const BUILTIN = new Set([
 ])
 const COMMIT_LIKE = new Set(['commit', 'cherry-pick', 'revert', 'am'])
 const MERGE_LIKE = new Set(['merge', 'rebase', 'pull'])
+const COMMIT_WITH_VALUE = new Set(['--message', '--file', '--reuse-message', '--reedit-message', '--template', '--author', '--date', '--cleanup', '--fixup', '--squash', '--trailer'])
+// Forms that build the commit from something else than the staged content a grant was given for.
+// Git accepts a shortened long option, so any prefix of these counts.
+const COMMIT_REBUILDS = ['--all', '--include', '--only', '--interactive', '--patch', '--pathspec-from-file']
 const CONTROL = new Set(['--abort', '--quit', '--skip', '--continue', '--edit-todo', '--show-current-patch'])
 
 // Split `git [global opts] <sub> [args]`.
@@ -56,6 +61,8 @@ export function splitGit(words) {
 function addConfig(map, kv) {
   const k = kv.indexOf('=')
   if (k > 0) map[kv.slice(0, k).toLowerCase()] = kv.slice(k + 1)
+  // git reads a key with no value as true
+  else if (k === -1 && kv) map[kv.toLowerCase()] = 'true'
 }
 
 const opts = (args) => args.filter((a) => a.text.startsWith('-')).map((a) => a.text)
@@ -102,6 +109,11 @@ function targetOf(cmd, globalOpts) {
       i++
       continue
     }
+    // it names a variable set for the real command, so a lookup here would fail where the command would not
+    if (globalOpts[i].startsWith('--config-env')) {
+      if (globalOpts[i] === '--config-env') i++
+      continue
+    }
     rest.push(globalOpts[i])
   }
   return { cwd, cwdKnown: known, globalOpts: rest, env }
@@ -123,6 +135,11 @@ export function judgeGit(cmd, ctx, depth = 0) {
     if (def !== undefined && def !== null && depth < 4) {
       if (def.startsWith('!')) {
         const inner = parse(def.slice(1), { cwd: target.cwd, home: ctx.home })
+        // git hands -c settings and the environment on to the alias
+        const parentConfig = { ...cmd.parentConfig, ...g.inlineConfig }
+        for (const c of inner) Object.assign(c, { parentConfig, env: { ...cmd.env, ...c.env } })
+        ctx.aliasCmds?.push(...inner)
+        if (inner.some((c) => c.opaque === 'always')) return deny('shell.unresolved', { cmd: shortCmd(cmd) })
         return inner.map((c) => judgeGit(c, ctx, depth + 1)).filter(Boolean)
       }
       const expanded = tokenize(def).tokens.filter((t) => t.type === 'word')
@@ -136,13 +153,26 @@ export function judgeGit(cmd, ctx, depth = 0) {
     if (pos[0] && /^alias\./i.test(pos[0]) && pos[1] !== undefined) ctx.pendingAliases.set(pos[0].slice(6).toLowerCase(), pos[1])
   }
   if (g.dynamic) return mutating(sub, args) ? deny('git.unresolved', { cmd: shortCmd(cmd) }) : null
+  if (sub === 'config') {
+    const key = configWrite(args)
+    if (key) return ask('git.config_content', { key })
+  }
+  if (sub === 'remote' && positional(args)[0] === 'add' && args.some((a) => a.text.split('=')[0].length > 3 && '--mirror'.startsWith(a.text.split('=')[0]))) {
+    return ask('git.config_content', { key: 'remote add --mirror' })
+  }
+  if (sub === 'init') {
+    const template = initTemplate(args, cmd, target)
+    if (template) return ask('paths.git_control', { path: template })
+  }
 
   const kind = classify(sub, args)
   if (!kind) return null
   // xargs appends arguments only known at run time
   if (!target.cwdKnown || (cmd.xargs && kind !== 'control')) return deny('git.unresolved', { cmd: shortCmd(cmd) })
   const real = ctx.git.info(target)
-  if (!real) return null // not a repository: git itself will refuse
+  // Not a repository: git itself will refuse. With settings or variables on the line the lookup can
+  // fail for another reason, and then nothing is known about what the command would do.
+  if (!real) return target.globalOpts.length || Object.keys(target.env).length ? deny('git.unresolved', { cmd: shortCmd(cmd) }) : null
   // an earlier checkout/switch in the same command line moved this worktree:
   // judge with the branch it will be on, not the one it is on now
   const moved = ctx.pendingBranches?.get(real.top)
@@ -201,6 +231,145 @@ function mutating(sub, args) {
 }
 
 const shortCmd = (cmd) => ['git', ...cmd.args.map((a) => a.text)].join(' ').slice(0, 120)
+
+// Why a commit under a commit-main grant may not be the content or the kind of change that was
+// allowed -> 'other'|'amend'|'rebuild'|'paths', or null for a plain new commit of the staged content.
+export function commitForm(sub, args) {
+  if (sub !== 'commit') return 'other'
+  for (let i = 0; i < args.length; i++) {
+    const t = args[i].text
+    if (t === '--') return i + 1 < args.length ? 'paths' : null
+    if (t.startsWith('--')) {
+      const name = t.split('=')[0]
+      if (name.length > 2 && '--amend'.startsWith(name)) return 'amend'
+      if (name.length > 2 && COMMIT_REBUILDS.some((o) => o.startsWith(name))) return 'rebuild'
+      if (COMMIT_WITH_VALUE.has(name) && !t.includes('=')) i++
+    } else if (t.startsWith('-') && t.length > 1) {
+      // a short cluster ends at the first letter that takes a value: -am x, -qm x, -mall
+      const value = /[mFCct]/.exec(t.slice(1))
+      const flags = value ? t.slice(1, 1 + value.index) : t.slice(1)
+      if (/[aiop]/.test(flags)) return 'rebuild'
+      if (value && 1 + value.index === t.length - 1) i++
+    } else return 'paths'
+  }
+  return null
+}
+
+// Settings that can change what a commit contains, by running a program or moving the work tree.
+const CONTENT_CONFIG = /^(core\.(hookspath|fsmonitor|worktree)|init\.templatedir|include\.path|includeif\..*\.path)$/i
+const COMMIT_CONFIG = new RegExp(`${CONTENT_CONFIG.source}|^filter\\.`, 'i')
+// Settings that decide where a push goes without the command line showing it.
+const PUSH_CONFIG = /^(remote\.pushdefault|remote\..*\.(push|url|pushurl)|branch\..*\.(remote|pushremote|merge)|url\..*\.(insteadof|pushinsteadof))$/i
+// Settings that change who answers a push to a protected branch, so the address in the grant says nothing.
+const PUSH_TRANSPORT_CONFIG = /^(core\.sshcommand|core\.gitproxy|ssh\..*|remote\..*\.(receivepack|proxy))$/i
+const PUSH_TRANSPORT_ENV = ['GIT_SSH_COMMAND', 'GIT_SSH', 'GIT_PROXY_COMMAND']
+const PUSH_DEFAULTS_SHOWN = new Set(['current', 'simple', 'nothing', 'upstream', 'tracking'])
+
+// The settings this one command is given -> { config: { key: value }, unknown, env }. `unknown` means
+// some of them cannot be read here; `env` means they come through GIT_CONFIG_*.
+function givenConfig(cmd) {
+  const g = splitGit(cmd.args)
+  const config = { ...cmd.parentConfig, ...g.inlineConfig }
+  const env = cmd.env || {}
+  let unknown = g.globalOpts.some((o) => /^--(config-env|exec-path=)/.test(o)) || Object.keys(config).some((k) => k.includes('$'))
+  if (Object.keys(env).some((k) => /^(GIT_CONFIG(_PARAMETERS|_GLOBAL|_SYSTEM)?|GIT_EXEC_PATH)$/.test(k))) unknown = true
+  let fromEnv = false
+  for (const [k, v] of Object.entries(env)) {
+    const m = /^GIT_CONFIG_(COUNT|KEY_(\d+)|VALUE_\d+)$/.exec(k)
+    if (!m) continue
+    fromEnv = true
+    if (!m[2]) continue
+    if (v.includes('$')) unknown = true
+    config[v.toLowerCase()] = env[`GIT_CONFIG_VALUE_${m[2]}`] ?? ''
+  }
+  return { config, unknown, env: fromEnv }
+}
+
+// A setting on the line that could change what a granted commit, merge or push runs or contains.
+function contentConfig(cmd) {
+  const { config, unknown, env } = givenConfig(cmd)
+  return unknown || env || Object.keys(config).some((k) => COMMIT_CONFIG.test(k))
+}
+
+// A verdict that allowed a change to a protected branch does not stand with such a setting on the line.
+function withoutContentConfig(v, cmd, vars) {
+  return v.decision === ALLOW && contentConfig(cmd) ? deny('grant.config', { ...vars, cmd: shortCmd(cmd) }) : v
+}
+
+const INIT_WITH_VALUE = new Set(['--template', '-b', '--initial-branch', '--object-format', '--ref-format', '--separate-git-dir'])
+
+// A bare repository created in a folder that does not exist yet has no hooks to fill, so its template
+// changes nothing that is here. Anything less certain than that counts as filling.
+function initsNewBare(args, cmd, target) {
+  if (!args.some((a) => a.text === '--bare') || args.some((a) => a.dynamic) || cmd.env?.GIT_DIR !== undefined) return false
+  const dir = positional(args, INIT_WITH_VALUE)[0]
+  return !!dir && !fs.existsSync(path.resolve(target.cwd, dir))
+}
+
+// `git init` run again fills .git/hooks from a template, in an existing repository too -> what names it, or null.
+function initTemplate(args, cmd, target) {
+  const { config, unknown } = givenConfig(cmd)
+  if (initsNewBare(args, cmd, target)) return null
+  const option = args.find((a) => /^--t[a-z]*(=|$)/.test(a.text) && '--template'.startsWith(a.text.split('=')[0]))
+  if (option) return option.text
+  if (cmd.env?.GIT_TEMPLATE_DIR !== undefined) return 'GIT_TEMPLATE_DIR'
+  if (config['init.templatedir'] !== undefined) return 'init.templateDir'
+  return unknown ? 'GIT_CONFIG' : null
+}
+
+// `git config` writing a setting that can change what commits contain or where a push goes -> the key, or null.
+function configWrite(args) {
+  const VERBS = new Set(['set', 'unset', 'get', 'list', 'edit', 'rename-section', 'remove-section'])
+  const pos = positional(args, new Set(['--file', '-f', '--blob', '--default', '--type', '--comment', '--value', '--fixed-value']))
+  const o = opts(args)
+  const verb = VERBS.has(pos[0]) ? pos.shift() : null
+  if (verb === 'edit' || o.includes('-e') || o.includes('--edit')) return 'edit'
+  const reads = verb === 'get' || verb === 'list' || o.some((x) => /^--(get|list|get-all|get-regexp|get-urlmatch|show-)/.test(x) || x === '-l')
+  const writes = verb === 'set' || verb === 'unset' || o.some((x) => /^--(add|unset|unset-all|replace-all)$/.test(x)) || pos.length > 1
+  if (reads || !writes || !pos[0]) return null
+  return CONTENT_CONFIG.test(pos[0]) || /^remote\..*\.(push|mirror)$/i.test(pos[0]) || pos[0].includes('$') ? pos[0] : null
+}
+
+// With remote.<name>.mirror true, a push to that remote overwrites all its refs, like --mirror.
+function mirrorRemote(p, cmd, target, info, ctx) {
+  const name = p.remote || ctx.git.defaultRemote(target, info.branch)
+  const given = givenConfig(cmd).config[`remote.${name.toLowerCase()}.mirror`]
+  if (given === undefined) return ctx.git.configBool(target, `remote.${name}.mirror`) === 'true'
+  return given.includes('$') || /^(true|yes|on)$/i.test(given) || (/^-?\d+$/.test(given) && Number(given) !== 0)
+}
+
+// A push whose destination cannot be told from the command line, so it counts like --all.
+// A refspec without `:` is not what it looks like when remote.<name>.push is set: git takes the
+// destination from that setting. Only refspecs with `:` and deletions show where they go.
+function pushUnknowable(p, cmd, target, info, f, ctx) {
+  if (mirrorRemote(p, cmd, target, info, ctx)) return true
+  for (const r of p.refspecs) {
+    if (!r || /[*?{}$`]/.test(r)) return true
+    const k = r.indexOf(':')
+    if (k !== -1 && k === r.length - 1) return true
+  }
+  const srcOnly = !p.del && p.refspecs.some((r) => !r.includes(':'))
+  if (p.refspecs.length && !srcOnly && !refspecDests(p, info).some((d) => f.isProtected(d.dst))) return false
+  const { config, unknown, env } = givenConfig(cmd)
+  if (unknown || env || Object.keys(config).some((k) => PUSH_CONFIG.test(k))) return true
+  if (config['push.default'] !== undefined && !PUSH_DEFAULTS_SHOWN.has(config['push.default'].toLowerCase())) return true
+  if (!srcOnly && (p.refspecs.length || p.tagsOnly)) return false
+  if (!p.refspecs.length) {
+    const def = ctx.git.configGet(target, 'push.default').at(-1)
+    if (def && !PUSH_DEFAULTS_SHOWN.has(def.toLowerCase())) return true
+  }
+  return ctx.git.configGet(target, `remote.${p.remote || ctx.git.defaultRemote(target, info.branch)}.push`).length > 0
+}
+
+const QUIET_GIT = new Set(['status', 'diff', 'log', 'show', 'rev-parse'])
+const QUIET_NAMES = new Set(['cat', 'less', 'more', 'head', 'tail', 'ls', 'stat', 'test', '[', 'jq', 'wc', 'file', 'grep', 'rg', 'diff', 'echo', 'printf', 'cd', 'pushd', 'popd', 'pwd', 'true', 'false', 'date', 'sleep'])
+
+// A command that cannot change the staged content on the same line as a commit under a grant.
+export function quietCommand(cmd) {
+  if (cmd.redirs?.some((r) => r.op.includes('>') && r.target !== '/dev/null')) return false
+  if (cmd.name === 'git') return QUIET_GIT.has(splitGit(cmd.args).sub)
+  return QUIET_NAMES.has(cmd.name)
+}
 
 // Which table row a git command belongs to (null = not guarded).
 export function classify(sub, args) {
@@ -272,7 +441,7 @@ function sameDir(a, b) {
 
 // strip remote prefix / refs/heads/
 function branchName(ref, remotes = ['origin', 'upstream']) {
-  let r = ref.replace(/^refs\/heads\//, '').replace(/^refs\/remotes\//, '')
+  let r = ref.replace(/^(refs\/)?heads\//, '').replace(/^refs\/remotes\//, '')
   for (const rm of remotes) if (r.startsWith(`${rm}/`)) return r.slice(rm.length + 1)
   return r
 }
@@ -360,9 +529,15 @@ function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
   const vars = { branch: info.branch || 'HEAD' }
   const onProtected = f.branchKind === 'protected'
   switch (kind) {
-    case 'commit':
+    case 'commit': {
       if (!onProtected) return allow()
-      return withGrant(ctx, info, 'commit-main', info.head, false, vars, cmd)
+      const form = commitForm(sub, args)
+      const index = form || contentConfig(cmd) ? undefined : ctx.git.writeTree(target)
+      const v = withGrant(ctx, info, 'commit-main', info.head || (ctx.git.unborn(target) ? unbornHead(info.branch) : null), false, vars, cmd, { index })
+      if (v.decision !== ALLOW) return v
+      if (form) return deny(`grant.commit_${form}`, { ...vars, cmd: shortCmd(cmd) })
+      return withoutContentConfig({ ...v, stagedBound: true }, cmd, vars)
+    }
     case 'control':
       return allow()
     case 'merge':
@@ -379,7 +554,7 @@ function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
       if (srcs.every((s) => s === '@{u}' || s === '@{upstream}' || (up && s === up) || (/^(origin|upstream)\//.test(s) && branchName(s) === info.branch))) return allow()
       if (srcs.length !== 1) return deny('git.main_merge', vars)
       const sha = ctx.git.revParse(target, srcs[0])
-      return withGrant(ctx, info, 'merge-main', sha, true, { ...vars, source: srcs[0] }, cmd)
+      return withoutContentConfig(withGrant(ctx, info, 'merge-main', sha, true, { ...vars, source: srcs[0] }, cmd, { dest: info.branch }), cmd, vars)
     }
     case 'push':
       return judgePush(args, target, info, f, ctx, vars, cmd)
@@ -415,44 +590,95 @@ function judgeMain(kind, sub, args, target, info, f, ctx, cmd) {
 
 const PUSH_WITH_VALUE = new Set(['--repo', '-o', '--push-option', '--receive-pack', '--exec'])
 
+// The options of a push as git reads them: the value of an option is not an option itself.
+function pushOptions(args) {
+  const out = []
+  for (let i = 0; i < args.length; i++) {
+    const t = args[i].text
+    if (t === '--') break
+    if (!t.startsWith('-') || t === '-') continue
+    out.push(t)
+    const name = t.split('=')[0]
+    if (t.includes('=')) continue
+    if (name.startsWith('--') ? [...PUSH_WITH_VALUE].some((o) => o.startsWith(name)) : name.endsWith('o')) i++
+  }
+  return out
+}
+
+// The last --[no-]dry-run counts. Anything unread on the line means it is not known to be a dry run.
+function isDryRun(args) {
+  if (args.some((a) => a.dynamic)) return false
+  let dry = false
+  for (const x of pushOptions(args)) {
+    const name = x.split('=')[0]
+    if (name.startsWith('--')) {
+      if (name.length > 3 && '--dry-run'.startsWith(name)) dry = true
+      else if (name.length > 3 && '--no-dry-run'.startsWith(name)) dry = false
+    } else {
+      const letters = name.slice(1)
+      const value = letters.indexOf('o')
+      if ((value === -1 ? letters : letters.slice(0, value)).includes('n')) dry = true
+    }
+  }
+  return dry
+}
+
+// A setting or option that changes who answers a push -> true.
+function pushTransport(cmd) {
+  const { config } = givenConfig(cmd)
+  if (Object.keys(config).some((k) => PUSH_TRANSPORT_CONFIG.test(k))) return true
+  if (PUSH_TRANSPORT_ENV.some((k) => cmd.env?.[k] !== undefined)) return true
+  return pushOptions(splitGit(cmd.args).args).some((x) => {
+    const name = x.split('=')[0]
+    return name.startsWith('--') && name.length > 3 && ['--exec', '--receive-pack'].some((o) => o.startsWith(name))
+  })
+}
+
 export function parsePush(args) {
   const o = opts(args)
+  // Git accepts a shortened long option, so any prefix counts.
+  const long = (...names) => o.some((x) => x.startsWith('--') && x.split('=')[0].length > 2 && names.some((n) => n.startsWith(x.split('=')[0])))
   const force =
-    o.some((x) => x === '--force' || x.startsWith('--force-with-lease') || x === '--force-if-includes' || /^-[A-Za-z]*f/.test(x)) ||
+    long('--force', '--force-with-lease', '--force-if-includes') || o.some((x) => x.startsWith('--force-with-lease') || /^-[A-Za-z]*f/.test(x)) ||
     positional(args, PUSH_WITH_VALUE).slice(1).some((r) => r.startsWith('+'))
-  const dry = o.some((x) => x === '--dry-run' || x === '-n' || /^-[A-Za-z]*n/.test(x))
-  const all = o.some((x) => x === '--all' || x === '--mirror' || x === '--branches')
-  const del = o.some((x) => x === '--delete' || x === '-d' || /^-[A-Za-z]*d/.test(x))
-  const tagsOnly = o.includes('--tags')
+  const dry = isDryRun(args)
+  const all = long('--all', '--mirror', '--branches')
+  const del = long('--delete') || o.some((x) => x === '-d' || /^-[A-Za-z]*d/.test(x))
+  const tagsOnly = long('--tags')
+  const withTags = tagsOnly || long('--follow-tags')
   const pos = positional(args, PUSH_WITH_VALUE)
-  const remote = pos[0] || null
-  const refspecs = pos.slice(1)
-  return { force, dry, all, del, tagsOnly, remote, refspecs }
+  const repoAt = args.findIndex((a) => a.text === '--repo' || a.text.startsWith('--repo='))
+  const repo = repoAt === -1 ? null : args[repoAt].text.startsWith('--repo=') ? args[repoAt].text.slice(7) : args[repoAt + 1]?.text
+  const remote = pos[0] || repo || null
+  // `tag <name>` is one refspec written as two words, the same as refs/tags/<name>:refs/tags/<name>
+  const refspecs = pos.slice(1).flatMap((r, i, all) => (r === 'tag' && all[i + 1] !== undefined ? [`refs/tags/${all[i + 1]}:refs/tags/${all[i + 1]}`] : all[i - 1] === 'tag' ? [] : [r]))
+  return { force, dry, all, del, tagsOnly, withTags, remote, refspecs }
+}
+
+// Where each written-out refspec goes. refs/remotes/... on the remote is not one of its branches.
+const pushDest = (r) => (r.startsWith('refs/remotes/') ? r : branchName(r))
+function refspecDests(p, info) {
+  return p.refspecs.map((r) => {
+    if (p.del) return { src: null, dst: pushDest(r), delete: true }
+    const k = r.indexOf(':')
+    if (k === 0) return { src: null, dst: pushDest(r.slice(1)), delete: true }
+    if (k > 0) return { src: r.slice(0, k), dst: pushDest(r.slice(k + 1)) }
+    return { src: r, dst: r === 'HEAD' || r === '@' ? info.branch : pushDest(r) }
+  })
 }
 
 function judgePush(args, target, info, f, ctx, vars, cmd) {
   const p = parsePush(args)
   if (p.dry) return allow()
   if (p.force) return deny('git.force_push', vars)
-  if (p.all) return deny('git.push_all', vars)
+  if (p.all || pushUnknowable(p, cmd, target, info, f, ctx)) return deny('git.push_all', vars)
   // destinations
   const dests = []
   if (!p.refspecs.length) {
     if (p.tagsOnly) return pushFeature(f, vars)
     const up = ctx.git.upstream(target)
     dests.push({ src: 'HEAD', dst: up ? branchName(up) : info.branch })
-  } else {
-    for (const r of p.refspecs) {
-      if (p.del) {
-        dests.push({ src: null, dst: branchName(r), delete: true })
-        continue
-      }
-      const k = r.indexOf(':')
-      if (k === 0) dests.push({ src: null, dst: branchName(r.slice(1)), delete: true })
-      else if (k > 0) dests.push({ src: r.slice(0, k), dst: branchName(r.slice(k + 1)) })
-      else dests.push({ src: r, dst: r === 'HEAD' ? info.branch : branchName(r) })
-    }
-  }
+  } else dests.push(...refspecDests(p, info))
   const out = []
   for (const d of dests) {
     if (!d.dst || d.dst.startsWith('refs/tags/')) {
@@ -465,7 +691,13 @@ function judgePush(args, target, info, f, ctx, vars, cmd) {
         continue
       }
       const sha = ctx.git.revParse(target, d.src || 'HEAD')
-      out.push(withGrant(ctx, info, 'push-main', sha, true, { ...vars, branch: d.dst, target: d.dst }, cmd))
+      const named = p.remote || ctx.git.defaultRemote(target, info.branch)
+      const remote = named.includes('$') ? null : ctx.git.pushAddress(target, named)
+      // the tags go along under a grant that only showed this commit, so it counts as a second change
+      if (p.withTags) ctx.landings = (ctx.landings || 0) + 1
+      const pushVars = { ...vars, branch: d.dst, target: d.dst }
+      const v = withoutContentConfig(withGrant(ctx, info, 'push-main', sha, true, pushVars, cmd, { dest: d.dst, remote }), cmd, pushVars)
+      out.push(v.decision === ALLOW && pushTransport(cmd) ? deny('grant.config', { ...pushVars, cmd: shortCmd(cmd) }) : v)
     } else out.push(pushFeature(f, vars))
   }
   return out
@@ -478,17 +710,24 @@ function pushFeature(f, vars) {
   return ask('git.push_feature', vars)
 }
 
+// The gate stamp for this commit, also read by the dialog that shows whether there is one.
+export function stampFor(ctx, stateDir, cwd, sha) {
+  const t = { cwd, globalOpts: [], env: {} }
+  const resultsOnly = (from) => !!sha && !!ctx.git.changedSince && onlyUnder(resultsPrefix(ctx.config), ctx.git.changedSince(t, from, sha))
+  return checkStamp(stateDir, ctx.config.project?.git?.gate_stamp, sha, resultsOnly)
+}
+
 // Allowed only with a matching unused owner grant (and gate stamp when a gate
 // command is configured). The grant is consumed when the whole command passes.
-function withGrant(ctx, info, action, sha, needStamp, vars, cmd) {
-  const short = sha ? sha.slice(0, 9) : '?'
-  const g = checkGrant(info.stateDir, action, sha, ctx.now)
-  if (!g.ok) return deny(`grant.${g.why}`, { ...vars, action, head: short, granted: g.grant?.head?.slice(0, 9) || '-' })
+function withGrant(ctx, info, action, sha, needStamp, vars, cmd, bind = {}) {
+  ctx.landings = (ctx.landings || 0) + 1
+  ctx.landedCmds?.push(cmd)
+  const short = sha ? shortHead(sha) : '?'
+  const g = checkGrant(info.stateDir, action, sha, ctx.now, bind)
+  if (!g.ok) return deny(`grant.${g.why}`, { ...vars, action, head: short, granted: g.grant?.head ? shortHead(g.grant.head) : '-', dest: bind.dest ?? '-', grantedDest: g.grant?.dest ?? '-', remote: bind.remote ?? '-', grantedRemote: g.grant?.remoteUrl ?? '-', ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15 })
   const gateCmd = ctx.config.project?.gate?.command
   if (needStamp && gateCmd) {
-    const t = { cwd: info.top, globalOpts: [], env: {} }
-    const resultsOnly = (from) => !!sha && !!ctx.git.changedSince && onlyUnder(resultsPrefix(ctx.config), ctx.git.changedSince(t, from, sha))
-    const s = checkStamp(info.stateDir, ctx.config.project?.git?.gate_stamp, sha, resultsOnly)
+    const s = stampFor(ctx, info.stateDir, info.top, sha)
     if (!s.ok) return deny(`stamp.${s.why}`, { ...vars, action, head: short, stamped: s.stamp?.head?.slice(0, 9) || '-' })
   }
   return allow({ consume: { stateDir: info.stateDir, by: shortCmd(cmd) } })
@@ -498,7 +737,8 @@ function withGrant(ctx, info, action, sha, needStamp, vars, cmd) {
 function judgeGh(cmd, ctx) {
   const words = cmd.args.map((a) => a.text)
   const isPrMerge = words[0] === 'pr' && words[1] === 'merge'
-  const isApiMerge = words[0] === 'api' && words.some((w) => /\/pulls\/[^/]+\/merge$/.test(w)) && words.some((w, i) => (w === '-X' || w === '--method') && /^put$/i.test(words[i + 1] || ''))
+  const isPut = (w, i) => /^(-X|--method=?)put$/i.test(w) || ((w === '-X' || w === '--method') && /^put$/i.test(words[i + 1] || ''))
+  const isApiMerge = words[0] === 'api' && ((words.some((w) => /\/pulls\/[^/?]+\/merge(\?|$)/.test(w)) && words.some(isPut)) || words.some((w) => /mergePullRequest/i.test(w)))
   if (!isPrMerge && !isApiMerge) return null
   const target = { cwd: cmd.cwd, cwdKnown: cmd.cwdKnown, globalOpts: [], env: {} }
   const info = cmd.cwdKnown ? ctx.git.info(target) : null
@@ -509,5 +749,5 @@ function judgeGh(cmd, ctx) {
   const protectedGlobs = ctx.config.project?.git?.protected_branches || []
   if (!matchAny(pr.base, protectedGlobs, { wide: true })) return allow()
   if (!info) return deny('gh.unresolved', {})
-  return withGrant(ctx, info, 'merge-main', pr.headOid, false, { branch: pr.base, source: `PR` }, cmd)
+  return withGrant(ctx, info, 'merge-main', pr.headOid, false, { branch: pr.base, source: `PR` }, cmd, { dest: pr.base })
 }

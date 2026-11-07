@@ -22,11 +22,11 @@
 
 ### 보호 브랜치 반영은 소유자 허가 후 (`protected-branch-owner-grant`)
 
-main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다. 허가는 정해진 시간 안에 한 번만 쓸 수 있고, 허가할 때 지정한 커밋에만 적용된다.
+main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다. 허가는 정해진 시간 안에 한 번만 쓸 수 있고, 허가할 때 지정한 커밋에만 적용된다. 병합과 push 는 지정한 목적지에만, 커밋은 허가할 때 스테이지된 내용에만 쓴다. 한 줄에 반영이 2건 이상이면 거부한다.
 
 - 왜: 보호 브랜치는 모든 작업의 기준이 된다. 에이전트가 직접 반영하면 검토하지 않은 변경이 기준이 된다.
-- 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`
-- 막혔을 때: 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 직접 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 입력한다.
+- 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
+- 막혔을 때: 메인 세션에서 `lanekeeper-grant merge-main` 을 한 줄 단독으로 실행해 소유자에게 확인 창을 띄우거나, 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 받는다.
 
 ### 게이트 실행 중 병합 금지 (`gate-lock`)
 
@@ -130,11 +130,11 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 
 ### 허가 명령은 사람만 입력 (`human-only-approve`)
 
-`/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 띄운 확인 창에 사람이 답해도 된다.
+`/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다. 보호 브랜치의 허가, 약화 결과 승인, 게이트 잠금 삭제는 메인 세션에서 띄운 확인 창에 사람이 답해도 된다.
 
 - 왜: 에이전트가 허가를 스스로 만들 수 있으면 소유자 허가 절차가 의미가 없어진다.
 - 어디서 지키나: `hooks/scripts/safety/approve.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `skills/approve/SKILL.md`
-- 막혔을 때: 어떤 작업에 허가가 필요한지 소유자에게 알리고, 직접 입력해 달라고 요청한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 명령을 한 줄 단독으로 실행해 창을 띄워도 된다. 레인은 요청을 메인 세션으로 올린다.
+- 막혔을 때: 어떤 작업에 허가가 필요한지 소유자에게 알린다. 메인 세션은 `lanekeeper-grant` 같은 해당 명령을 한 줄 단독으로 실행해 창을 먼저 띄우고, 그것이 안 되면 소유자에게 직접 입력해 달라고 요청한다. 레인은 요청을 메인 세션으로 올린다.
 
 ### 판정할 수 없으면 차단 (`safety-fails-closed`)
 

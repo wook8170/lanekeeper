@@ -118,3 +118,34 @@ test('harmless git commands pass', () => {
     assert.equal(f.judge(c, { cwd: f.repo }).decision, 'allow', c)
   }
 })
+
+test('shell keywords do not hide the command after them', () => {
+  for (const c of [
+    'if true; then git push origin main; fi',
+    'if false; then true; else git push origin main; fi',
+    'if false; then true; elif git push origin main; then true; fi',
+    'for i in 1 2; do git push origin main; done',
+    'while true; do git push origin main; done',
+    'until false; do git push origin main; done',
+    'if git push origin main; then true; fi',
+    '! git push origin main',
+  ]) blocked(c)
+  for (const c of ['if true; then pkill node; fi', 'for i in 1; do rm -rf /; done']) assert.equal(f.judge(c).decision, 'deny', c)
+})
+test('a quoted word that looks like a keyword is not skipped', () => {
+  assert.equal(f.judge(`"do" git push origin main`, { cwd: f.wt.feat }).decision, 'allow')
+})
+
+test('wrappers: the commands inside them are judged, and an input that cannot be read is refused', () => {
+  for (const c of ['coproc git push origin main', 'find . -exec git push origin main \;', 'flock /tmp/l git push origin main', 'ssh-agent git push origin main', 'setsid git push origin main', 'script -q /dev/null git push origin main', 'parallel git push origin main ::: 1', 'watch -n1 git push origin main', 'gtimeout 10 git push origin main', 'ionice git push origin main', 'arch -arm64 git push origin main', 'echo "git push origin main" | sh', 'sh <<< "git push origin main"', 'cat a | sh', 'sh < a.sh']) blocked(c)
+  for (const c of ['find . -name x', 'watch ls', 'flock /tmp/l ls', 'echo ls | sh', 'sh script.sh']) assert.equal(f.judge(c).decision, 'allow', c)
+})
+test('a lookup that fails only because of what the line sets is not taken for a folder outside git', () => {
+  blocked('git --config-env=core.hooksPath=NOPE push origin main', { cwd: f.repo })
+  blocked('GIT_DIR=/nowhere git push origin main', { cwd: f.repo })
+  blocked('git -c push.default=NOPE push origin main', { cwd: f.repo })
+})
+
+test('wrappers: the command after -- in flock and script is judged', () => {
+  for (const c of ['flock /tmp/l -- git push origin main', 'script /dev/null -- git push origin main']) blocked(c)
+})

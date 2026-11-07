@@ -67,11 +67,12 @@ export function makeFixture() {
     machine(obj) {
       fs.writeFileSync(path.join(lanekeeperHome, 'machine.json'), JSON.stringify(obj))
     },
-    grant(action, head, { minutes = 15, used = false } = {}) {
+    // A merge or push grant lands on main, and a commit grant holds what is staged now, unless told otherwise.
+    grant(action, head, { minutes = 15, used = false, dest = action === 'commit-main' ? undefined : 'main', index = action === 'commit-main' ? git(repo, 'write-tree') : undefined, remoteUrl = action === 'push-main' ? 'origin' : undefined } = {}) {
       const now = Date.now()
       fs.writeFileSync(
         path.join(state, 'owner-grant.json'),
-        JSON.stringify({ version: 1, action, ref: '-', head, created: new Date(now).toISOString(), expires: new Date(now + minutes * 60000).toISOString(), used }),
+        JSON.stringify({ version: 1, action, ref: '-', head, dest, remoteUrl, index, created: new Date(now).toISOString(), expires: new Date(now + minutes * 60000).toISOString(), used }),
       )
     },
     readGrant: () => JSON.parse(fs.readFileSync(path.join(state, 'owner-grant.json'), 'utf8')),

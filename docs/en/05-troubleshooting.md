@@ -36,7 +36,7 @@ Inside Claude Code, `/lanekeeper:explain` and `/lanekeeper:doctor` do the same. 
 | `A lane may only commit on its own lane branch (…)` | A lane tried to commit on another branch | Go to your lane worktree and commit there |
 | `Lanes may not push.` | A lane tried to push | Commit only and report. The main session decides about pushing |
 | `Force pushes (--force, --force-with-lease, +refspec) are not allowed for anyone.` | Force push | Integrate the remote and push normally. Ask the owner if history must be rewritten |
-| `This action (…) on the protected branch … needs an owner grant, and there is none.` | Merge, push or commit on a protected branch | The owner types `/lanekeeper:approve merge-main` (or `push-main`, `commit-main`). When a push is blocked, the branch name in the message is the branch checked out now, not the target |
+| `This action (…) on the protected branch … needs an owner grant, and there is none.` | Merge, push or commit on a protected branch | Raise the dialog with `lanekeeper-grant merge-main` (or `push-main`, `commit-main`) in the main session, or have the owner type `/lanekeeper:approve merge-main`. When a push is blocked, the branch name in the message is the branch checked out now, not the target |
 | `There is no gate pass stamp for commit …` | In a project with `project.gate.command`, the gate has not passed on the commit being applied | In the folder that has that commit checked out (usually the integration branch), pass `lanekeeper-test-report gate-pass` or `lanekeeper-test-report run` to the end. No stamp is written while there are uncommitted changes |
 | `The gate pass stamp belongs to another commit (…)` | Changes other than result files were committed after the stamp | Run the gate again on the current commit |
 | `A verification gate is running` | `lanekeeper-test-report run` holds the gate lock | Run again when it ends. If a crash left the lock, the owner types `/lanekeeper:approve clear-gate-lock` in the prompt once the lock is older than `machine.slots.stale_after_min`, or allows the dialog that `lanekeeper-reap --gate-lock` raises in the main session |
@@ -54,7 +54,13 @@ Inside Claude Code, `/lanekeeper:explain` and `/lanekeeper:doctor` do the same. 
 | Stopping a process on a protected port is blocked | The target of `kill <PID>` uses a `machine.ports.protected` port | Ask the owner |
 | `Removing … wipes the home folder, a system folder or the whole project.` | Deleting home, root, the project root or `.git` | Name the exact subfolder to remove |
 | `A browser that opens a window (…) steals focus from the person using the machine.` · `… opens a browser window.` | A browser that is not headless, `open` | Add `--headless=new` or use Playwright's default (headless), and share the result file |
-| `… is a Lanekeeper state file (owner grant, gate stamp, lane ledger)` | Claude tried to write a Lanekeeper state file | Grants come only from `/lanekeeper:approve`; the ledger changes only through `lanekeeper-waves` |
+| `This line has more than one change to a protected branch, or has one inside a loop` | Commits, pushes or merges were chained on one line | Run them one at a time, each with its own grant |
+| `This grant goes to …, but this push goes to …` | A push went to another remote than the grant | Check the address and get a new grant with `--remote <remote>` |
+| `This cannot be judged before it runs` | The commands inside cannot be read, as in `cat a \| sh`, `sh < file` or `parallel` | Write the command to run literally |
+| `… is a git hook or git settings file, or a path that fills them` | A command not on the list of commands that only read named `.git/hooks/*` or `.git/config`, or something ran `git init --template` or a copy into `.git/` | Check what is being written, then answer the confirmation |
+| `The staged content changed after the grant` | The staged content changed after a `commit-main` grant | Finish staging, then get a new grant |
+| `This grant lands on …, but this command lands on …` | A merge or push went to another protected branch than the grant | Check the destination and get a new grant with `--to <branch>` |
+| `… is a Lanekeeper state file (owner grant, gate stamp, lane ledger)` | Claude tried to write a Lanekeeper state file | Grants come only from `/lanekeeper:approve` or the dialog of `lanekeeper-grant`; the ledger changes only through `lanekeeper-waves` |
 | `… is a protected path (…)` | Writing to `project.protected_paths` | Ask the owner |
 | `Lanekeeper settings have an error, so safety checks cannot run` | A settings file has a format error | Fix the file and key named in the message and check with `lanekeeper-config validate`. Until then git changes, killing processes, deletion and browser runs are blocked |
 | Blocked because the command target is unknown before it runs | The command name or target folder is a variable | Write out the real value |
@@ -116,7 +122,7 @@ Put `"lanes": { "max": 6 }` in `~/.lanekeeper/machine.json`. If the project sett
 Add the model name to `denied` in `~/.lanekeeper/routing.json`. It is removed from every fallback order.
 
 **Can Claude run `/lanekeeper:approve` for me?**
-No. The skill creates a grant only when a person types it in the prompt. Subagent reports and messages from other sessions never create one. The same holds for `accept-quality`, `retry-bypass` and `clear-gate-lock`. The main session's agent can raise a dialog with `lanekeeper-quality accept` or `lanekeeper-reap --gate-lock`, and a person answers that dialog.
+No. The skill creates a grant only when a person types it in the prompt. Subagent reports and messages from other sessions never create one. The same holds for `accept-quality`, `retry-bypass` and `clear-gate-lock`. The main session's agent can raise a dialog with `lanekeeper-grant`, `lanekeeper-quality accept` or `lanekeeper-reap --gate-lock`, and a person answers that dialog.
 
 **Do I need codegraph?**
 No. Without it the related hooks and commands do nothing. With it, every new worktree gets its index through the queue.
@@ -144,5 +150,5 @@ In the default permission mode (`default`), tools that need approval are refused
 | Item | Effect | What you can do now |
 |---|---|---|
 | UI stability check and term check | Not part of this release. Their settings keys (`project.ui_stability.*`, `project.glossary.terms_scan` and `copy_globs`) are reserved | They come in a later release |
-| Dialog for owner decisions | It does not prove that a person allowed it, and a declined dialog is not recorded. An agent that starts a nested interactive session and answers its dialog, or that forges the ticket file in a form the hook cannot recognise, is not stopped. Interactive `bypassPermissions` and Remote Control were not checked | Use `/lanekeeper:approve`. The hook cannot see managed settings or `--allowedTools`, so do not list these commands there |
-| Reach of the safety hooks | Commands inside script files, and git or kill calls from python or node, are not judged | Do not wrap risky work in scripts |
+| Dialog for owner decisions | Protected branch grants raise no dialog in `auto`. It does not prove that a person allowed it, and this limit also applies to grants for landing on `main`. A declined dialog is not recorded. An agent that starts a nested interactive session and answers its dialog, or that forges the ticket file in a form the hook cannot recognise, is not stopped. Interactive `bypassPermissions` and Remote Control were not checked | Use `/lanekeeper:approve`. The hook cannot see managed settings or `--allowedTools`, so do not list these commands there |
+| Reach of the safety hooks | Commands inside script files, git or kill calls from python or node, and commands inside wrappers not on the list are not judged. A `pre-commit` hook already in the repository that changes the staged content is not prevented either | Do not wrap risky work in scripts |

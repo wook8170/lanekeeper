@@ -11,8 +11,13 @@
 
 Lanekeeper 의 안전 훅은 에이전트가 실수로 위험한 명령을 실행하는 것을 막는 장치다. 같은 머신에서 악의적으로 동작하는 프로그램을 막는 보안 경계가 아니다.
 
+- 이 훅은 명령의 글자를 읽어 판정하는 로컬 방어선이다. 다른 경로로 실행하면 판정이 일어나지 않으므로, 서버 쪽 브랜치 보호를 대신하지 않는다. 중요한 저장소는 서버의 브랜치 보호를 함께 설정한다.
 - 안전 훅은 Bash 명령 문자열과 Write·Edit 대상 경로를 판정한다. 스크립트 파일 안의 명령, python·node 에서 실행하는 git·kill 호출, `find -delete`, `git checkout -- .` 같은 일괄 되돌리기는 판정하지 않는다.
-- 소유자 허가(`/lanekeeper:approve`)는 사람이 프롬프트에 입력할 때만 만들어진다. 허가 파일은 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 있다. 허가는 정해진 시간(기본 15분) 안에 한 번, 지정한 커밋에만 쓸 수 있다. 같은 머신의 다른 프로세스가 이 파일을 직접 쓰는 경우는 막지 못한다. 에이전트의 Write·Edit 와 Bash 명령에서 이 경로를 언급하는 경우는 막지만, 경로를 조립해 쓰는 스크립트까지 막지는 못한다.
+- 소유자 허가는 두 경로로 만들어진다. 사람이 프롬프트에 `/lanekeeper:approve` 를 입력하거나, 메인 세션에서 `lanekeeper-grant` 가 띄운 확인 창에서 허용하는 경우다. 확인 창은 허용한 쪽이 사람인지 증명하지 못하고, 이 한계는 `main` 에 반영하는 허가에도 적용된다. 허가 파일은 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 있다. 허가는 정해진 시간(기본 15분) 안에 한 번, 지정한 커밋에만 쓸 수 있다. 같은 머신의 다른 프로세스가 이 파일을 직접 쓰는 경우는 막지 못한다. 에이전트의 Write·Edit 와 Bash 명령에서 이 경로를 언급하는 경우는 막지만, 경로를 조립해 쓰는 스크립트까지 막지는 못한다.
+- `commit-main` 허가는 판정 순간의 스테이지 내용과 대조한다. 그래서 판정 뒤 다른 프로세스가 스테이지를 바꾸는 경우는 막지 못한다.
+- 저장소에 이미 있는 `pre-commit` 훅이 커밋 중에 스테이지를 바꾸면, 허가와 다른 내용이 커밋된다. 안전 훅은 이 경우를 막지 못하고 커밋 뒤 내용도 대조하지 않는다. 에이전트가 새로 훅을 심는 경로 중 찾은 형태는 따로 다룬다. 같은 줄의 `core.hooksPath` · `core.fsmonitor` · `GIT_CONFIG_*` 지정은 보호 브랜치 커밋 · push · 병합에서 거부한다. 다음은 확인 창으로 묻는다: `.git/hooks/*` · `.git/config` 쓰기, `git config core.hooksPath`, `git init --template` · `GIT_TEMPLATE_DIR` · `init.templateDir`, `.git/` 를 대상으로 한 `cp` · `mv` · `rsync` · `install` · `ln` · `tar` · `unzip`, 읽기만 하는 것으로 정해 둔 명령 밖에서 `.git/config` · `.git/hooks` · `.gitconfig` 를 적은 명령, `.git/` 안에서 실행한 그런 명령, 단독 `export` · `declare -x` · `typeset -x` 로 내보낸 `GIT_CONFIG_*` · `GIT_DIR` · `GIT_INDEX_FILE` · `GIT_WORK_TREE`, `git config remote.<이름>.push` · `remote.<이름>.mirror` 쓰기, `git remote add --mirror`. 그 창을 허용하면 이후 커밋에 그 훅이 적용된다. `.git/` 만 적고 쓰는 경우(`ditto hooks .git`), `awk` · `sed` 프로그램 안의 쓰기, 경로를 조립해 쓰는 스크립트는 막지 못한다.
+- `echo ... > .git/refs/heads/main` 같은 ref 파일 직접 쓰기는 판정하지 않는다. 로컬 브랜치만 옮겨지고, push 는 허가의 커밋 대조로 막힌다.
+- 명령을 감싸는 도구는 정해진 목록만 푼다. `coproc`, `find -exec` · `-execdir` · `-ok`, `flock`, `ssh-agent`, `setsid`, `script`, `watch`, `gtimeout`, `ionice`, `arch` 는 안의 명령을 판정한다. `parallel` 과, 내용을 읽을 수 없는 입력을 셸에 넘기는 형태(`cat a | sh`, `sh < 파일`)는 `shell.unresolved` 로 거부한다. 목록에 없는 감싸기 명령(`su -c`, `busybox sh`, `make` 등)과 `source <(...)` 안의 명령은 판정하지 못한다.
 - 안전 훅(`safety/pretool`)·디스패치 가드·출하 관문 훅에는 `"onFailure": "block"` 을 지정했다. 훅이 실행되지 않거나(node 미설치) 시간 초과(20초)·비정상 종료하면 Claude Code 2.1.295 이상은 그 도구 호출을 막는다. 그보다 낮은 판은 이 필드를 모르므로 같은 상황을 차단하지 않는 오류로 처리한다. 그래서 이때는 안전 훅도 동작하지 않는다. `/lanekeeper:doctor` 가 node 설치를 확인한다.
 - 안전 훅(`safety/pretool`, `safety/approve`)은 모든 저장소에서 돈다. 그 밖의 작업 훅은 `.lanekeeper/config.json` 이 있는 저장소에서만 동작한다(`LANEKEEPER_ACTIVE=1` 이면 모든 저장소).
 

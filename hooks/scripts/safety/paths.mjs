@@ -1,5 +1,6 @@
-// paths: protected paths (project.protected_paths) and the Lanekeeper state files that
-// only hooks may write (owner grant, dialog ticket, gate stamp, lane ledger).
+// paths: protected paths (project.protected_paths), the Lanekeeper state files that
+// only hooks may write (owner grant, dialog ticket, gate stamp, lane ledger), and the git
+// hooks and config that can change what a commit contains, which need a person's answer.
 import path from 'node:path'
 import { ask, deny, globToRe, inside } from './common.mjs'
 import { resolvePath } from './shell.mjs'
@@ -14,6 +15,60 @@ export function isStatePath(p, stateDirs = []) {
   if (/\/\.git\/(lanekeeper|wb)(\/|$)/.test(p)) return true
   if (['owner-grant.json', 'owner-ticket.json'].includes(path.basename(p))) return true
   return stateDirs.some((d) => d && inside(p, d))
+}
+
+// In the words of a command that may be a script (`python -c "open('.git/hooks/x')"`).
+const GIT_CONTROL_TEXT = /(^|[^A-Za-z0-9_.-])\.git\/(hooks(\/|\b)|config\b)|\.gitconfig\b|\.config\/git\/config\b/
+
+// Commands that can name these files without a question. Any command not known to only read gets one,
+// because there is no list of everything that can write: curl -o, tar, patch, go run and so on.
+const READS_NAMED_FILES = new Set([...READ_ONLY, 'awk', 'bat', 'tree', 'docker', 'npm', 'pnpm', 'cd', 'pushd', 'popd'])
+function readsNamedFiles(cmd, texts) {
+  if (cmd.name === 'sed') return !texts.some((t) => /^-[a-zA-Z]*i/.test(t) || t.startsWith('--in-place'))
+  if (cmd.name === 'find') return !texts.some((t) => /^-(exec|execdir|ok|okdir|delete|fprint|fprint0|fprintf|fls)$/.test(t))
+  return READS_NAMED_FILES.has(cmd.name)
+}
+
+const isGitDir = (p, ctx) => /\/\.git$/.test(p) || (ctx.stateDirs || []).some((d) => d && p === path.dirname(d))
+const insideGitDir = (p, ctx) => /\/\.git(\/|$)/.test(p) || (ctx.stateDirs || []).some((d) => d && inside(p, path.dirname(d)))
+
+// A copy or an unpacking aimed at .git itself, which can fill .git/hooks without naming it -> the target, or null.
+function intoGitDir(cmd, texts, ctx) {
+  const at = (t) => resolvePath(cmd.cwd, t, ctx.home)
+  const words = texts.slice(1)
+  // The value of a short option, also when it is attached (-C.git) or ends a group of letters (-rt .git).
+  const shortValue = (letter) => {
+    const i = words.findIndex((t) => new RegExp(`^-[A-Za-z]*${letter}`).test(t) && !t.startsWith('--'))
+    if (i === -1) return null
+    const rest = words[i].slice(words[i].indexOf(letter) + 1)
+    return rest || words[i + 1] || null
+  }
+  if (['cp', 'mv', 'rsync', 'install', 'ln'].includes(cmd.name)) {
+    const long = words.find((t) => t.startsWith('--target-directory'))
+    const named = [long?.includes('=') ? long.split('=')[1] : long ? words[words.indexOf(long) + 1] : null, shortValue('t'), words.filter((t) => !t.startsWith('-')).at(-1)]
+    return named.find((t) => t && isGitDir(at(t), ctx)) || null
+  }
+  if (cmd.name === 'tar') {
+    if (!words.some((t) => t === '--extract' || t === '--get' || /^-[A-Za-z]*x/.test(t) || /^[A-Za-z]*x[A-Za-z]*$/.test(t))) return null
+    const long = words.find((t) => t.startsWith('--directory'))
+    const named = (long?.includes('=') ? long.split('=')[1] : long ? words[words.indexOf(long) + 1] : shortValue('C')) || '.'
+    return insideGitDir(at(named), ctx) ? named : null
+  }
+  if (cmd.name === 'unzip') {
+    const opt = words.indexOf('-d')
+    const named = opt === -1 ? '.' : words[opt + 1]
+    return named && insideGitDir(at(named), ctx) ? named : null
+  }
+  return null
+}
+
+// Exported here, these reach every git command that follows in the same shell.
+const GIT_ENV = /^(GIT_CONFIG(_(COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|GLOBAL|SYSTEM))?|GIT_DIR|GIT_TEMPLATE_DIR|GIT_INDEX_FILE|GIT_WORK_TREE)$/
+
+export function isGitControlPath(p, ctx) {
+  if (/\/\.git\/(?:worktrees\/[^/]+\/)?(?:hooks(?:\/|$)|config(?:\.worktree)?$)/.test(p)) return true
+  if (ctx.home && [path.join(ctx.home, '.gitconfig'), path.join(ctx.home, '.config/git/config')].includes(p)) return true
+  return (ctx.stateDirs || []).some((d) => d && (inside(p, path.join(path.dirname(d), 'hooks')) || p === path.join(path.dirname(d), 'config')))
 }
 
 export function isProtectedPath(p, root, globs) {
@@ -44,6 +99,7 @@ export function judgeFileTool(file, ctx, toolInput = {}) {
   if (isStatePath(p, ctx.stateDirs)) return deny('paths.state', { path: file })
   const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
   if (hit) return deny('paths.protected', { path: file, glob: hit })
+  if (isGitControlPath(p, ctx)) return ask('paths.git_control', { path: file })
   return null
 }
 
@@ -69,8 +125,21 @@ export function judgeBashPaths(cmd, ctx) {
     if (ownerCode(r.target)) out.push(deny(ownerCode(r.target), { path: r.target }))
     const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
     if (hit) out.push(deny('paths.protected', { path: r.target, glob: hit }))
+    if (isGitControlPath(p, ctx) || GIT_CONTROL_TEXT.test(r.target)) out.push(ask('paths.git_control', { path: r.target }))
   }
   const texts = cmd.words.map((w) => w.text)
+  if (cmd.name && !readsNamedFiles(cmd, texts)) {
+    const control = texts.find((t) => GIT_CONTROL_TEXT.test(t) || (!t.startsWith('-') && isGitControlPath(resolvePath(cmd.cwd, t, ctx.home), ctx)))
+    if (control) out.push(ask('paths.git_control', { path: control }))
+    // from inside .git, a file can be written without its name saying so (cd .git/hooks && curl -O ...)
+    else if (insideGitDir(cmd.cwd, ctx)) out.push(ask('paths.git_control', { path: cmd.cwd }))
+  }
+  const target = intoGitDir(cmd, texts, ctx)
+  if (target) out.push(ask('paths.git_control', { path: target }))
+  if (cmd.name === 'export' || (['declare', 'typeset'].includes(cmd.name) && texts.some((t) => /^-[A-Za-z]*x/.test(t)))) {
+    const name = texts.slice(1).map((t) => t.split('=')[0]).find((n) => GIT_ENV.test(n))
+    if (name) out.push(ask('paths.git_env', { name }))
+  }
   if (texts.some(mentions) && !READ_ONLY.has(cmd.name)) out.push(deny('paths.state', { path: texts.find(mentions) }))
   if (!READ_ONLY.has(cmd.name)) for (const t of texts.slice(1)) if (ownerCode(t)) out.push(deny(ownerCode(t), { path: t }))
   if (WRITERS.has(cmd.name) && (cmd.name !== 'sed' || texts.some((t) => /^-[a-zA-Z]*i/.test(t)))) {

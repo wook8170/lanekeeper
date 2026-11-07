@@ -569,7 +569,7 @@ Removed the worktree ~/work/wt-l1 (ports released 1, unregistered l1, branch del
 
 ### 4.10 Changes to the protected branch
 
-To merge into or push to a protected branch such as `main`, the owner types this in the prompt:
+To merge into or push to a protected branch such as `main`, an owner grant is needed. The owner types this in the prompt, or allows the dialog that Claude raises in the main session with `lanekeeper-grant merge-main lanekeeper/search/int`:
 
 ```
 /lanekeeper:approve merge-main lanekeeper/search/int
