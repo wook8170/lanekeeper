@@ -97,9 +97,9 @@ $ git reset --hard HEAD~1
 [lanekeeper] 확인이 필요합니다: `git reset --hard` 는 커밋하지 않은 변경을 되돌릴 수 없게 지웁니다(현재 `lanekeeper/search/int`).
 ```
 
-**소유자 허가.** 보호 브랜치 반영은 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분 동안 한 번, 입력한 시점의 커밋에만 유효하다. Claude 는 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. 소유자의 다른 결정 세 가지(약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제)도 같은 명령으로 받는다. 약화 결과 승인과 잠금 삭제는 메인 세션의 확인 창으로도 할 수 있다. `bypassPermissions` 는 슬래시 명령으로만 받는다.
+**소유자 허가.** 보호 브랜치 반영에는 소유자 허가가 필요하다. 소유자는 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 입력하거나, 메인 세션에서 `lanekeeper-grant` 가 띄운 확인 창에서 허용한다. 허가는 15분 동안 한 번, 허가한 시점의 커밋에만 유효하다. Claude 는 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. 소유자의 다른 결정 세 가지(약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제)도 같은 명령으로 받는다. 약화 결과 승인과 잠금 삭제는 메인 세션의 확인 창으로도 할 수 있다. `bypassPermissions` 는 슬래시 명령으로만 받는다.
 
-**검사 범위 밖.** 안전 훅은 명령 문자열만 판정한다. 그래서 스크립트 파일 안의 명령이나 python·node 로 실행하는 git 호출은 판정하지 않는다.
+**검사 범위 밖.** 안전 훅은 명령 문자열만 판정한다. 그래서 스크립트 파일 안의 명령이나 python·node 로 실행하는 git 호출은 판정하지 않는다. 감싸는 명령은 정해진 목록만 풀고, 목록에 없는 명령 안의 명령은 판정하지 못한다. 이 훅은 로컬 방어선이어서 서버 쪽 브랜치 보호를 대신하지 않는다.
 
 ## 4. 실행 슬롯·포트·레인 워크트리
 
@@ -634,7 +634,11 @@ lanekeeper-quality precheck --run
 - 언제: 보호 브랜치(`main` 등)에 병합·push·커밋해야 할 때, 시험 결과의 약화가 의도한 변경일 때, 자동 재개를 묻지 않고 실행하려 할 때, 멈춘 게이트가 잠금을 남겼을 때. 저장소 소유자만 입력한다.
 - 어떻게: `/lanekeeper:approve merge-main|push-main|commit-main [브랜치나 커밋]` 을 프롬프트에 직접 입력한다. 허가는 기본 15분 동안 한 번, 입력할 때의 커밋에만 유효하다. 게이트 명령을 설정한 프로젝트는 같은 커밋의 게이트 통과 표식도 필요하다. 상태는 `/lanekeeper:approve status`, 취소는 `/lanekeeper:approve revoke` 다. 강제 push 는 허가가 있어도 막힌다.
 - 그 밖의 결정: 아래 세 가지는 입력하는 즉시 적용되고, 유효한 허가는 그대로 둔다. `accept-quality <종류> --reason 사유` 는 그 종류의 최신 결과가 있는 커밋에 승인을 기록한다. 기록 위치는 결과 폴더의 `accepted.json` 이고, 이 파일은 나중에 커밋한다. `retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. 되돌리려면 `lanekeeper-retry mode default` 를 실행한다. `clear-gate-lock` 은 `machine.slots.stale_after_min` 보다 오래된 `gate.lock` 을 지운다.
-- 확인 창: 메인 세션의 에이전트가 `lanekeeper-quality accept <종류> --reason "사유"` 나 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행하면, `default` · `acceptEdits` · `auto` 모드에서 창이 뜬다. 허용하면 실행되고 거절하면 아무것도 바뀌지 않는다. 다른 모드, `-p` · SDK, 서브에이전트, 묶거나 바꾼 명령, 이 명령을 덮는 허용 규칙은 거부되고 슬래시 명령을 안내한다. `retry-bypass` 에는 창이 없다.
+- 첫 커밋: `refs/` 아래에 ref 가 하나도 없는 저장소의 주 체크아웃에서는 HEAD 가 가리키는 보호 브랜치에 `commit-main` 허가를 만들 수 있다. 저장소에 커밋이 생기면 이 허가는 거부된다. 고아 브랜치와 연결 워크트리는 거부한다.
+- 목적지: `merge-main` · `push-main` 허가는 `--to <브랜치>` 로 정한 보호 브랜치에만 쓴다. 생략하면 지금 체크아웃한 보호 브랜치, 그것도 아니면 설정의 첫 보호 브랜치다. `push-main` 은 지정한 대상이 보호 브랜치면 그 브랜치다. `push-main` 허가는 원격 주소에도 묶인다. `--remote <이름>` 으로 정하고, 생략하면 그 브랜치의 기본 원격이다. 주소를 직접 쓴 push 는 허가의 주소와 같을 때만 통과한다. `git@host:path` 는 `ssh://host/~/path` 와 같고 `https://host/path` 와는 다르게 본다. `remote.<이름>.push` 가 줄이나 저장소에 있는 push 는 `:` 없는 refspec 의 목적지가 바뀌므로 거부하고, 이 설정의 쓰기는 확인 창으로 묻는다. `remote.<이름>.mirror` 가 참인 원격으로 가는 push 도 거부하고, 이 설정의 쓰기와 `git remote add --mirror` 는 확인 창으로 묻는다.
+- 스테이지: `commit-main` 허가는 허가할 때 스테이지된 내용으로 만드는 새 커밋 1개에만 쓴다. 스테이지가 달라지거나, `git commit -a` · `git commit <경로>` · `--amend` · `cherry-pick` 이거나, 스테이지를 바꿀 수 있는 명령이 같은 줄에 있으면 거부한다.
+- 한 줄에 반영 한 건: 한 줄에 보호 브랜치 반영이 2건 이상이거나 반복문 안에 있으면 거부한다. 함수로 두 번 호출하는 형태와 `--tags` · `--follow-tags` 를 붙인 push 도 2건으로 센다.
+- 확인 창: 메인 세션의 에이전트가 `lanekeeper-grant merge-main|push-main|commit-main [브랜치나 커밋] [--to 브랜치] [--remote 원격]`, `lanekeeper-quality accept <종류> --reason "사유"`, `lanekeeper-reap --gate-lock` 중 하나를 한 줄 단독으로 실행하면, `default` · `acceptEdits` · `auto` 모드에서 창이 뜬다. 허용하면 실행되고 거절하면 아무것도 바뀌지 않는다. 다른 모드, `-p` · SDK, 서브에이전트, 묶거나 바꾼 명령, 이 명령을 덮는 허용 규칙은 거부되고 슬래시 명령을 안내한다. 보호 브랜치 허가 3종은 `auto` 에서도 거부한다. `retry-bypass` 에는 창이 없다.
 - 기록: 실행된 결정은 `<git 공용 폴더>/lanekeeper/owner-decisions.jsonl` 에 `via`(`dialog` · `slash`)와 함께 남는다. 거절된 창은 기록되지 않는다.
 - 예시: `/lanekeeper:approve merge-main lanekeeper/search/int`
 

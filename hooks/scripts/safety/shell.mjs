@@ -7,7 +7,9 @@
 //   - pulls $( ... ) and backtick bodies out as commands of their own and marks
 //     the word that held them as dynamic
 //   - unwraps env/sudo/command/exec/nohup/time/nice/timeout/xargs/stdbuf,
-//     sh|bash|zsh -c '...', eval '...', and heredocs fed to a shell
+//     flock/setsid/ssh-agent/ionice/gtimeout/arch/script, coproc, find -exec and watch,
+//     sh|bash|zsh -c '...', eval '...', and scripts fed to a shell on its input
+//   - marks a command it cannot look inside as opaque (`cat a | sh`, parallel)
 //   - expands aliases defined earlier in the same command line
 //   - follows cd / pushd so later commands know their working directory
 //
@@ -15,7 +17,9 @@
 // at run time ($VAR, $(...), globs are left as text).
 
 const OPS = ['&&', '||', '|&', ';;', ';', '|', '&', '\n', '(', ')']
-const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish'])
+const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish', 'ash', 'csh', 'tcsh'])
+// The command after these words runs as usual: `then git push` is `git push`.
+const LEADING_KEYWORDS = new Set(['do', 'then', 'else', 'elif', 'if', 'while', 'until', '!', 'coproc'])
 
 export function tokenize(src) {
   const tokens = []
@@ -243,7 +247,15 @@ function unwrapIndex(words, i) {
     command: new Set(),
     builtin: new Set(),
     exec: new Set(['-a']),
+    flock: new Set(['-w', '--wait', '--timeout', '-E', '--conflict-exit-code']),
+    setsid: new Set(),
+    'ssh-agent': new Set(['-a', '-E', '-O', '-P', '-t']),
+    ionice: new Set(['-c', '--class', '-n', '--classdata', '-p', '--pid', '-P', '--pgid', '-u', '--uid']),
+    arch: new Set(['-d', '-e', '-arch']),
+    script: new Set(['-t', '-T', '-E', '-I', '-O', '-B', '-m', '-o']),
+    watch: new Set(['-n', '--interval', '-q', '--equexit']),
   }
+  optArgs.gtimeout = optArgs.timeout
   if (!(w in optArgs)) return null
   let j = i + 1
   while (j < words.length) {
@@ -264,8 +276,39 @@ function unwrapIndex(words, i) {
     }
     break
   }
-  if (w === 'timeout' && j < words.length && /^[0-9.]+[smhd]?$/.test(words[j].text)) j++
+  if ((w === 'timeout' || w === 'gtimeout') && j < words.length && /^[0-9.]+[smhd]?$/.test(words[j].text)) j++
+  // the lock file and the typescript file come before the command
+  if (w === 'flock' || w === 'script') {
+    j++
+    if (words[j]?.text === '--') j++
+  }
   return j < words.length ? j : -1
+}
+
+// flock and script also take the command as one string.
+function commandString(words, i) {
+  if (!['flock', 'script'].includes(base(words[i].text))) return null
+  for (let j = i + 1; j < words.length; j++) {
+    const t = words[j].text
+    if (t === '-c' || t === '--command') return words[j + 1]?.text ?? ''
+    if (t.startsWith('--command=')) return t.slice(10)
+  }
+  return null
+}
+
+// What a shell reading its input would run -> { text } | { opaque: true } | null when it does not read it.
+function shellInput(cmd, rds, pipedFrom) {
+  const hasC = cmd.args.some((a) => /^-[a-z]*c[a-z]*$/.test(a.text))
+  const hasScript = cmd.args.some((a) => !a.text.startsWith('-'))
+  if (hasC || (hasScript && !cmd.args.some((a) => a.text === '-s'))) return null
+  const given = rds.find((r) => r.op === '<<<')
+  if (given) return given.dynamic ? { opaque: true } : { text: given.target }
+  if (rds.some((r) => r.op === '<' && r.target !== '/dev/null')) return { opaque: true }
+  if (!pipedFrom) return null
+  // echo and printf with literal words show what they print; anything else cannot be read
+  const words = pipedFrom.args.filter((a) => !/^-[a-zA-Z]+$/.test(a.text))
+  if (!['echo', 'printf'].includes(pipedFrom.name) || words.some((a) => a.dynamic)) return { opaque: true }
+  return { text: words.map((a) => a.text).join(' ').replace(/\\n/g, '\n') }
 }
 
 export const base = (t) => {
@@ -283,6 +326,8 @@ export function parse(src, opts = {}, depth = 0, state = null) {
     cwdKnown: true,
     aliases: new Map(),
     home: opts.home || process.env.HOME || '',
+    functions: new Set(),
+    env: {},
   }
   const out = []
   if (depth > 6 || typeof src !== 'string') return out
@@ -296,6 +341,12 @@ export function parse(src, opts = {}, depth = 0, state = null) {
     cur = []
     redirs = []
   }
+  // Commands run from inside another one, possibly many times.
+  const nested = (text, repeats, env) => {
+    const inner = parse(text, opts, depth + 1, { ...childState(st), env: { ...st.env, ...env } })
+    if (repeats) for (const c of inner) c.repeats = true
+    out.push(...inner)
+  }
   const emit = (words, rds, pipedFrom) => {
     let ws = words
     // alias expansion (first word only)
@@ -304,7 +355,8 @@ export function parse(src, opts = {}, depth = 0, state = null) {
       const exp = tokenize(st.aliases.get(ws[0].text)).tokens.filter((t) => t.type === 'word')
       ws = [...exp, ...ws.slice(1)]
     }
-    const env = {}
+    while (ws.length && LEADING_KEYWORDS.has(ws[0].text) && !ws[0].quoted) ws = ws.slice(1)
+    const env = { ...st.env }
     let i = 0
     while (i < ws.length && ASSIGN.test(ws[i].text) && !ws[i].quotedName) {
       const t = ws[i].text
@@ -312,7 +364,14 @@ export function parse(src, opts = {}, depth = 0, state = null) {
       i++
     }
     const via = []
-    while (i < ws.length) {
+    while (i < ws.length && base(ws[i].text) !== 'watch') {
+      const str = commandString(ws, i)
+      if (str !== null) {
+        via.push(base(ws[i].text))
+        nested(str, false, env)
+        i = ws.length
+        break
+      }
       const k = unwrapIndex(ws, i)
       if (k === null) break
       via.push(base(ws[i].text))
@@ -344,6 +403,28 @@ export function parse(src, opts = {}, depth = 0, state = null) {
       xargs: via.includes('xargs'),
     }
     if (rest.length || rds.length) out.push(cmd)
+    if (st.functions.has(cmd.name)) cmd.functionCall = true
+    if (cmd.name === 'function' && cmd.args[0]) st.functions.add(cmd.args[0].text.replace(/\(\)$/, ''))
+    if (cmd.name === 'watch') {
+      const k = unwrapIndex(rest, 0)
+      if (k > 0) nested(rest.slice(k).map((w) => w.text).join(' '), true, env)
+    }
+    if (cmd.name === 'find') {
+      for (let a = 0; a < cmd.args.length; a++) {
+        if (!/^-(exec|execdir|ok|okdir)$/.test(cmd.args[a].text)) continue
+        let e = a + 1
+        while (e < cmd.args.length && ![';', '+'].includes(cmd.args[e].text)) e++
+        const from = out.length
+        emit(cmd.args.slice(a + 1, e), [], null)
+        for (const c of out.slice(from)) c.repeats = true
+        a = e
+      }
+    }
+    if (cmd.name === 'parallel') {
+      const first = cmd.args.findIndex((a) => !a.text.startsWith('-'))
+      const fromInput = first === -1 || /^:::/.test(cmd.args[first].text) || cmd.args.some((a) => ['-a', '--arg-file', '--pipe'].includes(a.text))
+      cmd.opaque = fromInput ? 'always' : 'guarded'
+    }
     // follow-ups
     if (cmd.name === 'cd' || cmd.name === 'pushd') {
       const target = cmd.args.find((a) => !a.text.startsWith('-'))
@@ -364,8 +445,11 @@ export function parse(src, opts = {}, depth = 0, state = null) {
     // shell -c / eval / heredoc into a shell
     if (SHELLS.has(cmd.name)) {
       const ci = cmd.args.findIndex((a) => /^-[a-z]*c[a-z]*$/.test(a.text))
-      if (ci !== -1 && cmd.args[ci + 1]) out.push(...parse(cmd.args[ci + 1].text, opts, depth + 1, childState(st)))
-      for (const r of rds) if (r.body !== undefined) out.push(...parse(r.body, opts, depth + 1, childState(st)))
+      if (ci !== -1 && cmd.args[ci + 1]) nested(cmd.args[ci + 1].text, false, env)
+      for (const r of rds) if (r.body !== undefined) nested(r.body, false, env)
+      const input = rds.some((r) => r.body !== undefined) ? null : shellInput(cmd, rds, pipedFrom)
+      if (input?.opaque) cmd.opaque = 'always'
+      else if (input) nested(input.text, false, env)
     }
     if (cmd.name === 'eval' && cmd.args.length) {
       out.push(...parse(cmd.args.map((a) => a.text).join(' '), opts, depth + 1, st))
@@ -393,8 +477,11 @@ export function parse(src, opts = {}, depth = 0, state = null) {
       lastPiped = prev
       continue
     }
+    // `name()` starts a function definition, so later uses of the name are calls
+    const defined = t.op === '(' && tokens[k + 1]?.op === ')' && cur.length === 1 ? cur[0].text : null
     flush(lastPiped)
     lastPiped = null
+    if (defined) st.functions.add(defined)
     // a subshell keeps its cd to itself
     if (t.op === '(') scopes.push({ cwd: st.cwd, cwdKnown: st.cwdKnown })
     if (t.op === ')' && scopes.length) Object.assign(st, scopes.pop())

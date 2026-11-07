@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { procListeners } from '../../../lib/procs.mjs'
 import { stateInfo } from '../../../lib/naming.mjs'
+import { cleanRemoteUrl } from './grant.mjs'
 
 function run(bin, args, { cwd, env, timeout = 4000 } = {}) {
   try {
@@ -13,6 +14,7 @@ function run(bin, args, { cwd, env, timeout = 4000 } = {}) {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout,
+      maxBuffer: 64 * 1024 * 1024,
     }).trim()
   } catch {
     return null
@@ -30,6 +32,54 @@ export const realGit = {
     const branch = gitIn(t, ['symbolic-ref', '-q', '--short', 'HEAD']) || null
     const head = gitIn(t, ['rev-parse', '-q', '--verify', 'HEAD']) || null
     return { top, gitDir, commonDir, stateDir: stateInfo(commonDir).dir, branch, head, linked: path.resolve(gitDir) !== path.resolve(commonDir) }
+  },
+  // A repository before its first commit: HEAD points at a branch, no ref of any kind exists under
+  // refs/, and this is the main checkout. False for a detached HEAD, a broken ref, an orphan branch,
+  // a linked worktree and a failed lookup, which `rev-parse HEAD` alone cannot tell apart from this.
+  unborn(t) {
+    const ref = gitIn(t, ['symbolic-ref', '-q', 'HEAD'])
+    if (!ref?.startsWith('refs/heads/') || gitIn(t, ['for-each-ref', '--count=1', '--format=%(refname)']) !== '') return false
+    const out = gitIn(t, ['rev-parse', '--absolute-git-dir', '--git-common-dir'])
+    if (!out) return false
+    const [gitDir, common] = out.split('\n')
+    return fs.realpathSync(gitDir) === fs.realpathSync(path.resolve(t.cwd, common))
+  },
+  // The tree the staged content would become. Null when it has none, as during a conflict.
+  writeTree(t) {
+    return gitIn(t, ['write-tree']) || null
+  },
+  subject(t, sha) {
+    return gitIn(t, ['log', '-1', '--format=%s', sha])
+  },
+  // Staged paths, each as `<status> <path>`. Null when the lookup failed.
+  staged(t) {
+    const out = gitIn(t, ['-c', 'core.quotepath=off', 'diff', '--cached', '--name-status', '--no-renames'])
+    return out === null ? null : out.split('\n').filter(Boolean).map((l) => l.replace('\t', ' '))
+  },
+  configGet(t, key) {
+    return (gitIn(t, ['config', '--get-all', key]) || '').split('\n').filter(Boolean)
+  },
+  // The value git would read for a true-or-false setting, 'true' for a key with no value too -> 'true'|'false'|null.
+  configBool(t, key) {
+    return gitIn(t, ['config', '--type=bool', '--get', key]) || null
+  },
+  // The remote `git push` uses for this branch when none is named.
+  defaultRemote(t, branch) {
+    const keys = [...(branch ? [`branch.${branch}.pushRemote`] : []), 'remote.pushDefault', ...(branch ? [`branch.${branch}.remote`] : [])]
+    for (const k of keys) {
+      const v = realGit.configGet(t, k)
+      if (v.length) return v.at(-1)
+    }
+    return 'origin'
+  },
+  isRemote(t, name) {
+    return gitIn(t, ['remote', 'get-url', name]) !== null
+  },
+  // Where a push to this remote name or address goes, with credentials removed. A remote can have
+  // several push addresses, and a pushed address can be rewritten by url.*.insteadOf.
+  pushAddress(t, remote) {
+    const out = gitIn(t, ['remote', 'get-url', '--push', '--all', remote]) ?? gitIn(t, ['ls-remote', '--get-url', remote])
+    return out ? out.split('\n').map(cleanRemoteUrl).join(' ') : null
   },
   revParse(t, ref) {
     return gitIn(t, ['rev-parse', '-q', '--verify', `${ref}^{commit}`]) || null

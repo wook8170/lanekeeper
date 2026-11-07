@@ -25,6 +25,9 @@ const commands = () => fs.readdirSync(path.join(ROOT, 'bin')).filter((f) => f.st
 // still be mentioned by a locale message; remove it when the skill lands.
 const ABSENT_SKILLS = {}
 
+// Commands added after the wb- rename, so the move from wb has no row for them.
+const AFTER_WB = new Set(['lanekeeper-grant'])
+
 // lanekeeper-* words that are names, not commands.
 const NOT_COMMANDS = new Set(['lanekeeper', 'lanekeeper-brief', 'lanekeeper-decision', 'lanekeeper-gate-pass', 'lanekeeper-scratch'])
 
@@ -141,7 +144,7 @@ test('docs: the install sample shows the current version, and the move from wb l
   for (const l of LANGS) assert.ok(doc(l, '01-getting-started.md').includes(`Version: ${version}\n`), `${l}: stale version in the install sample`)
   for (const text of [...LANGS.map((l) => doc(l, '01-getting-started.md')), read('README.md'), read('README.ko.md')]) {
     assert.match(text, /claude plugin marketplace remove wb-plugin/)
-    for (const c of commands()) assert.ok(text.includes(`| \`${c.replace('lanekeeper-', 'wb-')}\` | \`${c}\` |`), `no row for ${c}`)
+    for (const c of commands()) assert.equal(text.includes(`| \`${c.replace('lanekeeper-', 'wb-')}\` | \`${c}\` |`), !AFTER_WB.has(c), `row for ${c}`)
   }
 })
 

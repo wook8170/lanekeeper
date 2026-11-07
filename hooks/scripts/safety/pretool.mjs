@@ -17,7 +17,7 @@ import { issueTicket } from '../../../lib/owner-decisions.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { ALLOW, ASK, DENY, combine, deny, formatReasons } from './common.mjs'
 import { parse } from './shell.mjs'
-import { judgeGit } from './git-guard.mjs'
+import { judgeGit, quietCommand } from './git-guard.mjs'
 import { judgeKill } from './kill-guard.mjs'
 import { judgeRm } from './destructive.mjs'
 import { judgeBrowser } from './browser-guard.mjs'
@@ -29,7 +29,7 @@ import { realGit, realListenPorts, realPr } from './context.mjs'
 
 const GUARDED_WORDS = /\b(push|merge|rebase|commit|reset|stash|clean|checkout|switch|cherry-pick|revert|update-ref|kill|pkill|killall|fuser|rm|chrome|chromium|playwright|headed|open)\b/
 
-const NESTED_OWNER = /lanekeeper:approve|lanekeeper-reap\b[\s\S]*--gate-lock|lanekeeper-quality\b[\s\S]*\baccept\b/
+const NESTED_OWNER = /lanekeeper:approve|lanekeeper-reap\b[\s\S]*--gate-lock|lanekeeper-quality\b[\s\S]*\baccept\b|lanekeeper-grant\b[\s\S]*\b(?:merge|push|commit)-main\b/
 
 export function buildContext(input, env = process.env, overrides = {}) {
   const cwd = input.cwd || process.cwd()
@@ -67,20 +67,33 @@ export function judgeCommand(command, ctx) {
   if (NESTED_OWNER.test(command) && cmds.some((c) => path.basename(c.name || '') === 'claude')) verdicts.push(deny('approve.model', {}))
   const owner = judgeOwnerCall(command, cmds, ctx)
   if (owner) verdicts.push(owner)
+  ctx.landings = 0
+  ctx.landedCmds = []
+  ctx.aliasCmds = []
+  const landed = []
   for (const cmd of cmds) {
     cmd.home = ctx.home
+    const before = ctx.landings
     const vs = []
-    if (cmd.dynamicName) {
-      const text = cmd.words.map((w) => w.text).join(' ')
-      if (GUARDED_WORDS.test(text)) vs.push(deny('shell.unresolved', { cmd: text.slice(0, 120) }))
-    }
+    const text = cmd.words.map((w) => w.text).join(' ')
+    if (cmd.opaque === 'always' || ((cmd.dynamicName || cmd.opaque === 'guarded') && GUARDED_WORDS.test(text))) vs.push(deny('shell.unresolved', { cmd: text.slice(0, 120) }))
     vs.push(judgeGit(cmd, ctx), judgeKill(cmd, ctx), judgeRm(cmd, ctx), judgeBrowser(cmd), judgeBashPaths(cmd, ctx), judgeData(cmd, ctx))
     const flat = vs.flat(Infinity).filter(Boolean)
+    if (ctx.landings > before) landed.push(cmd)
     if (ctx.configErrors?.length && flat.length) {
       verdicts.push(deny('config.broken', { file: ctx.configErrors[0].file, key: ctx.configErrors[0].path, msg: ctx.configErrors[0].msg }))
       continue
     }
     verdicts.push(...flat)
+  }
+  const everything = [...cmds, ...ctx.aliasCmds]
+  // A grant is one change. Several on a line, or one repeated, would run under one use.
+  const repeated = everything.some((c) => c.name === 'done' || c.repeats) || everything.filter((c) => c.functionCall).length > 1
+  if (ctx.landings > 1 || (ctx.landings && repeated)) verdicts.push(deny('grant.once', {}))
+  // The staged content was compared just now, so nothing beside the commit may change it first.
+  if (verdicts.some((v) => v?.stagedBound)) {
+    const other = everything.find((c) => !landed.includes(c) && !ctx.landedCmds.includes(c) && !quietCommand(c))
+    if (other) verdicts.push(deny('grant.commit_alone', { cmd: other.words.map((w) => w.text).join(' ').slice(0, 120) }))
   }
   return { ...combine(verdicts), dialog: owner?.dialog }
 }
@@ -119,7 +132,7 @@ export function evaluate(input, env = process.env, overrides = {}) {
   const r = judgeTool(input, ctx)
   if (r.decision !== DENY) for (const c of r.consume) consumeGrant(c.stateDir, c.by, ctx.now)
   // The ticket goes out only with the dialog that carries it.
-  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now)) } : undefined
+  const updatedInput = r.decision === ASK && r.dialog ? { ...input.tool_input, command: r.dialog.command(issueTicket(ctx.stateDirs[0], r.dialog.action, r.dialog.content, ctx.now, input.session_id)) } : undefined
   return { ...r, updatedInput, language: ctx.language }
 }
 

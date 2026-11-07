@@ -4,6 +4,46 @@
 
 ## [Unreleased]
 
+### Added
+- `main` 같은 보호 브랜치의 허가(`merge-main`·`push-main`·`commit-main`)를 Claude Code 확인 창으로도 받는다. 메인 세션의 에이전트가 `lanekeeper-grant <동작> [브랜치나 커밋] [--to 브랜치] [--remote 원격]` 를 한 줄 단독으로 실행하면, `default`·`acceptEdits` 모드에서 창이 뜬다. `auto` 에서는 슬래시 명령을 안내한다. `merge-main`·`push-main` 창에는 목적지(`push-main` 은 원격 이름과, 비밀번호·토큰을 지운 주소 포함), 보낼 대상, 짧은 커밋 ID, 커밋 제목, 유효 시간이 보이고, 게이트 명령이 있는 프로젝트에서는 같은 커밋에 게이트 표식이 있는지도 보인다. `commit-main` 창에는 현재 커밋 위에 새 커밋 1개가 생긴다는 것과 스테이지된 파일 목록이 보인다
+- 허용하면 슬래시 명령과 같은 `owner-grant.json` 을 쓴다. 15분·1회·지정 커밋 제한도 같고, 병합·push·커밋을 판정하는 `git-guard` 의 허가·게이트 표식 검사도 그대로다. 표는 동작·대상·커밋과 목적지 또는 스테이지 내용에 묶이므로, 창을 띄운 뒤 이 값이 달라지면 허가를 만들지 않는다. 허가와 결정 기록에는 창을 띄운 세션의 식별자도 남는다
+- 허가도 `owner-decisions.jsonl` 에 `via`(`dialog`·`slash`)와 함께 남긴다. `owner-grant.json` 에도 `via` 가 붙는다
+- `/lanekeeper:doctor` 와 허용 규칙 검사가 `lanekeeper-grant` 를 덮는 `permissions.allow` 규칙도 찾는다. `claude -p` 를 함께 쓴 명령의 거절 범위에도 이 명령을 넣었다
+- 시험 `tests/owner-dialog.test.mjs`: 허가 3개 동작 × 권한 모드 6개 × 주 세션·서브에이전트, 묶인 명령, 표 재사용·위조, 창을 띄운 뒤 커밋 이동, 만들어진 허가로 커밋 통과, 빈 저장소의 첫 커밋
+
+### Changed
+- **기존 슬래시 허가의 동작이 바뀐다.** 슬래시와 확인 창 허가 모두에 아래 규칙을 적용한다
+  - 한 줄에 보호 브랜치 반영(커밋·push·병합, 섞인 경우 포함)이 2건 이상이거나 반복문 안에 있으면 거부한다. 전에는 `git commit -m a && git commit -m b` 가 허가 하나로 통과했다
+  - `merge-main`·`push-main` 허가는 목적지 브랜치에 묶인다. `/lanekeeper:approve merge-main|push-main [브랜치나 커밋] [--to 보호 브랜치]` 로 정하고, 생략하면 지금 체크아웃한 보호 브랜치, 그것도 아니면 설정의 첫 보호 브랜치다. `push-main` 은 지정한 대상이 보호 브랜치면 그 브랜치다. `main` 이 아닌 보호 브랜치로 보내려면 `--to` 가 필요할 수 있다
+  - `commit-main` 허가는 허가할 때 스테이지된 내용에 묶인다. 그래서 스테이지를 먼저 끝낸 뒤 허가를 받아야 한다. 스테이지가 달라지면 거부한다. `git commit -a`, `git commit <경로>`, `--include`·`--only`·`--patch`·`--interactive`, `--amend`, `cherry-pick`·`revert`·`am` 은 이 허가로 실행할 수 없다. 스테이지를 바꿀 수 있는 명령을 같은 줄에 쓴 커밋도 거부한다(`git add . && git commit` 등)
+  - `push-main` 허가는 원격 주소에도 묶인다. `--remote <이름>` 으로 정하고, 생략하면 그 브랜치의 기본 원격이다. 이름으로 한 push 와 주소를 직접 쓴 push 모두 비밀번호·토큰을 뺀 주소로 대조한다. 그래서 허가 뒤 `git remote set-url` 로 주소를 바꾸면 거부된다
+  - 함수로 두 번 호출한 반영과, `--tags`·`--follow-tags` 를 붙인 보호 브랜치 push 는 2건으로 세어 거부한다. 태그는 창에 보이지 않는 내용이 함께 올라가기 때문이다
+  - 보호 브랜치 커밋·push·병합의 같은 줄에 `core.hooksPath`·`core.fsmonitor`·`GIT_CONFIG_*`·`--config-env` 처럼 내용을 바꿀 수 있는 지정이 있으면 거부한다. 기능 브랜치 push 는 그대로다
+  - `https://`·`ssh://` 로 적은 같은 서버 경로는 같은 주소로 대조한다. `git@host:path` 는 로그인 홈 기준 경로여서 `ssh://host/~/path` 와 같고 `https://host/path` 와는 다르게 본다. 경로의 대소문자는 구분한다
+  - 보호 브랜치 push 의 같은 줄에 `core.sshCommand`·`GIT_SSH_COMMAND`·`GIT_SSH`·`-c ssh.*`·`--exec`·`--receive-pack` 이 있으면 거부한다
+  - 허가 파일의 `version`, 미래의 `created`, 그 동작에 없는 항목을 검사한다
+  - 현재 폴더의 저장소와 `LANEKEEPER_PROJECT_DIR` 의 저장소가 다르면 허가를 만들지 않는다. 같은 저장소 안의 하위 폴더 프로젝트는 그대로 쓸 수 있다
+- 다음은 이제 확인 창으로 묻는다: `.git/hooks/*`·`.git/config`·`~/.gitconfig` 쓰기(파일 도구·리디렉션), 읽기만 하는 것으로 정해 둔 명령 밖에서 이 글자를 적은 명령과 `.git/` 안에서 실행한 그런 명령, `git config core.hooksPath`·`git config remote.<이름>.push` 같은 설정 변경, `git init --template`·`GIT_TEMPLATE_DIR`·`init.templateDir`, `.git/` 를 대상으로 한 `cp`·`mv`·`rsync`·`install`·`ln`·`tar`·`unzip`, 단독 `export`·`declare -x`·`typeset -x` 로 내보낸 `GIT_CONFIG_*`·`GIT_DIR`·`GIT_INDEX_FILE`·`GIT_WORK_TREE`. 평범한 `git init`, 새 폴더의 `git init --bare --template`, `git clone --template` 은 묻지 않는다. 묻지 않는 읽기 명령은 기존 읽기 목록, `-i` 없는 `sed`, `awk`, `bat`, `tree`, `-exec`·`-delete` 없는 `find`, `docker`, `npm`·`pnpm` 이다
+- `:` 없는 refspec 의 push 는 `remote.<이름>.push` 가 목적지를 바꾼다. 그래서 같은 줄이나 저장소·전역 설정에 이 값이 있으면, 평범한 `git push origin feature/x` 도 `--all` 처럼 거부한다. 같은 줄의 `GIT_CONFIG_*`·`--config-env` 도 같다. `:` 를 적은 기능 브랜치 refspec 은 이 설정의 영향을 받지 않아 그대로 판정한다
+- 저장소·전역·같은 줄(`-c`, `GIT_CONFIG_*`)에서 `remote.<이름>.mirror` 가 참인 원격으로 가는 push 는 그 원격의 모든 ref 를 덮어쓰므로 `--all` 처럼 거부한다. 그 원격의 설정만 보고, 값이 거짓이면 이 이유로 거부하지 않는다. `git config remote.<이름>.mirror` 쓰기와 `git remote add --mirror` 는 확인 창으로 묻는다
+- 이 훅은 명령의 글자를 읽어 판정하는 로컬 방어선이어서 서버 쪽 브랜치 보호를 대신하지 않는다(`README`·`SECURITY`)
+- 목적지가 `*`·`?`·빈 값인 push, `push.default=matching`, `-c remote.*.push`, `GIT_CONFIG_*` 로 준 같은 설정, 저장소 설정의 `remote.<이름>.push` 는 `--all` 처럼 거부한다. 와일드카드 태그 push 도 여기에 포함된다
+- 허가가 없어 막혔을 때의 안내와 `skills/approve`·`skills/integrate`·`skills/work` 가 확인 창을 먼저 띄우도록 안내한다. 강제 push 금지, 게이트 표식 요구, 서브에이전트 차단, 허가 파일 직접 쓰기 차단은 바뀌지 않았고, `retry-bypass` 는 슬래시 명령으로만 받는다
+- 확인 창은 허용한 쪽이 사람인지 증명하지 못한다. 이제 이 한계가 `main` 에 반영하는 허가에도 적용된다(`README`·`SECURITY` 의 한계 절)
+
+### Fixed
+- 커밋이 하나도 없는 저장소에서 `main` 에 첫 커밋을 만들 수 없었다. `/lanekeeper:approve commit-main` 이 `HEAD` 를 풀지 못해 거절했고, `main` 위의 `git commit` 은 허가가 없어 거부됐다. 이제 `refs/` 아래에 ref 가 하나도 없고 연결 워크트리가 아니며 HEAD 가 보호 브랜치를 가리킬 때에 한해, 슬래시와 확인 창 모두 `commit-main` 허가를 만든다. 이 허가의 `head` 는 실제 커밋 ID 와 겹치지 않는 표식값이어서, 저장소에 커밋이 생기면 거부된다. 고아 브랜치, 연결 워크트리, 분리된 HEAD, 깨진 ref, `merge-main`·`push-main` 은 거절한다
+- 안전 훅이 `do`·`then`·`else`·`elif`·`if`·`while`·`until`·`!`·`coproc` 뒤의 명령을 검사하지 않았다. 그래서 `if true; then git push origin main; fi` 같은 줄이 허가 없이 통과했다. 이제 이 낱말 뒤의 명령도 같은 규칙으로 판정한다
+- 안전 훅이 `find -exec`·`-execdir`·`-ok`, `flock`, `ssh-agent`, `setsid`, `script`, `watch`, `gtimeout`, `ionice`, `arch` 안의 명령을 검사하지 않았다. 이제 판정한다. `sh <<< "..."` 와 `echo "..." | sh` 는 그 글자를 판정하고, `parallel` 과 내용을 읽을 수 없는 입력(`cat a | sh`, `sh < 파일`)은 `shell.unresolved` 로 거부한다. 목록에 없는 감싸기 명령 안의 명령은 여전히 판정하지 못한다
+- `!` git 별칭 안의 `git add` 가 같은 줄 검사를 지나쳐, 스테이지 밖 내용이 커밋될 수 있었다. 미리 만들어 둔 별칭도 실행할 때 같은 검사를 받는다
+- `gh api -XPUT`·`--method=PUT` 처럼 붙여 쓴 PR 병합과 `mergePullRequest` 호출을 찾지 못했다
+- `git push` 의 축약 옵션(`--forc`, `--mirr`)과 `@`·`heads/main`·`HEAD:heads/main` 표기가 보호 브랜치 판정을 지나쳤다
+- `--dry` 와 `HEAD:refs/remotes/origin/main` 처럼 보호 브랜치에 반영되지 않는 push 가 허가를 소비했다
+- `--dry-run --no-dry-run`, `-o -n`, `--push-option -n` 을 dry-run 으로 봐서 허가 없이 통과했다. 이제 옵션의 값을 옵션으로 세지 않고 마지막 `--[no-]dry-run` 으로 판정하며, 읽지 못하는 낱말이 있으면 dry-run 으로 보지 않는다
+- `git push origin tag v1` 이 기능 push 2건으로 세어 창이 두 번 떴다
+- 허가가 없을 때의 안내가 설정과 관계없이 15분으로 적던 것을 `git.owner_grant_ttl_min` 값으로 고쳤다
+- 확인 창 판정 안에서 도는 git 호출에 4초 제한을 두었다
+
 ## [0.2.3] - 2026-11-06
 
 ### Fixed

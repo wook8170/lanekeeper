@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 // UserPromptExpansion hook for /lanekeeper:approve.
 //
-// UserPromptExpansion fires only when a person types a slash command, so it is
-// the one place an owner grant can be created. The model cannot reach it: the
-// skill sets disable-model-invocation, and the PreToolUse guard denies the
-// Skill tool for lanekeeper:approve. (UserPromptSubmit is not used: it also fires for
-// subagent reports and messages from other sessions.)
+// UserPromptExpansion fires only when a person types a slash command. The model cannot reach it: the
+// skill sets disable-model-invocation, and the PreToolUse guard denies the Skill tool for
+// lanekeeper:approve. (UserPromptSubmit is not used: it also fires for subagent reports and messages
+// from other sessions.) The other way to a grant is the dialog owner-dialog.mjs raises for
+// lanekeeper-grant. Both routes share resolveTarget and recordGrant below.
 //
-//   /lanekeeper:approve merge-main [ref]   allow one merge of <ref> into a protected branch
-//   /lanekeeper:approve push-main  [ref]   allow one push of <ref> to a protected branch
-//   /lanekeeper:approve commit-main [ref]  allow one commit on a protected branch at <ref>
+//   /lanekeeper:approve merge-main [ref] [--to <branch>]  allow one merge of <ref> into that protected branch
+//   /lanekeeper:approve push-main  [ref] [--to <branch>] [--remote <name>]  allow one push of <ref> to that branch of that remote
+//   /lanekeeper:approve commit-main [ref]  allow one commit of what is staged now, on a protected branch at <ref>
 //   /lanekeeper:approve status             show the current grant
 //   /lanekeeper:approve revoke             delete the current grant
 //
 // Owner decisions that take effect at once, with no grant left behind (an active
 // merge, push or commit grant stays as it is). accept-quality and clear-gate-lock can also be
-// confirmed in a dialog (owner-dialog.mjs); retry-bypass cannot:
+// confirmed in a dialog (owner-dialog.mjs). retry-bypass cannot, because it turns permission checks off:
 //   /lanekeeper:approve accept-quality <kind> --reason <why>   accept a weakened result of <kind>
 //   /lanekeeper:approve retry-bypass       let the automatic resume use bypassPermissions
 //   /lanekeeper:approve clear-gate-lock    remove a gate.lock older than machine.slots.stale_after_min
@@ -30,7 +30,8 @@ import * as Q from '../../../lib/quality.mjs'
 import { setPersonal } from '../../../lib/runtime.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
-import { ACTIONS, OWNER_ACTIONS, grantPath, writeGrant } from './grant.mjs'
+import { realGit } from './context.mjs'
+import { ACTIONS, OWNER_ACTIONS, cleanRemoteUrl, grantPath, isUnborn, shortHead, unbornHead, writeGrant } from './grant.mjs'
 
 // Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
 export function localTime(iso) {
@@ -44,7 +45,8 @@ export function localTime(iso) {
 
 function git(args, cwd) {
   try {
-    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    // This also runs inside the PreToolUse judgement, which has to answer quickly.
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 4000 }).trim()
   } catch {
     return null
   }
@@ -68,6 +70,92 @@ export function defaultRef(action, cwd, gitCfg) {
   const all = (git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd) || '').split('\n').filter(Boolean)
   const ints = all.filter((b) => matchAny(b, [pattern]))
   return ints.length === 1 ? ints[0] : null
+}
+
+// The first commit of a repository: commit-main on a protected branch, with no commit anywhere yet.
+function firstCommitHead(action, ref, cwd, gitCfg) {
+  if (action !== 'commit-main') return null
+  const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
+  if (!cur || (ref !== 'HEAD' && ref !== cur) || !matchAny(cur, gitCfg.protected_branches || [], { wide: true })) return null
+  return realGit.unborn({ cwd, globalOpts: [], env: {} }) ? unbornHead(cur) : null
+}
+
+const isProtected = (branch, gitCfg) => matchAny(branch, gitCfg.protected_branches || [], { wide: true })
+
+// Which protected branch a merge or push lands on when --to is not given.
+function defaultDest(action, ref, cwd, gitCfg) {
+  const named = ref.replace(/^refs\/heads\//, '')
+  if (action === 'push-main' && isProtected(named, gitCfg)) return named
+  const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
+  if (cur && isProtected(cur, gitCfg)) return cur
+  return (gitCfg.protected_branches || []).filter((b) => !/[*?]/.test(b)).find((b) => sha(cwd, b)) || null
+}
+
+// The shared git folder of the repository a folder belongs to, or null.
+function repositoryOf(dir) {
+  const common = git(['rev-parse', '--git-common-dir'], dir)
+  try {
+    return common ? fs.realpathSync(path.resolve(dir, common)) : null
+  } catch {
+    return null
+  }
+}
+
+// `[ref] [--to <branch>] [--remote <name>]` -> { ref, to, remote }
+export function parseGrantArgs(words) {
+  const out = {}
+  for (let i = 0; i < words.length; i++) {
+    if (words[i] === '--to') out.to = words[++i] ?? ''
+    else if (words[i].startsWith('--to=')) out.to = words[i].slice(5)
+    else if (words[i] === '--remote') out.remote = words[++i] ?? ''
+    else if (words[i].startsWith('--remote=')) out.remote = words[i].slice(9)
+    else out.ref ??= words[i]
+  }
+  return out
+}
+
+// What a grant would be for -> { ref, head, dest, remote, remoteUrl | index }, or { why, vars } when it
+// cannot be given. A project folder inside the repository is fine; another repository is not.
+export function resolveTarget(action, ref, cwd, gitCfg, { to, remote, root } = {}) {
+  const here = root ? repositoryOf(cwd) : null
+  if (here && repositoryOf(root) !== here) return { why: 'other_root', vars: { top: here, root } }
+  const useRef = ref || defaultRef(action, cwd, gitCfg)
+  if (!useRef) return { why: 'need_ref', vars: { action } }
+  const head = sha(cwd, useRef) || firstCommitHead(action, useRef, cwd, gitCfg)
+  if (!head) return { why: 'bad_ref', vars: { ref: useRef } }
+  if (remote !== undefined && action !== 'push-main') return { why: 'bad_remote', vars: { remote: cleanRemoteUrl(remote) } }
+  if (action === 'commit-main') {
+    if (to !== undefined) return { why: 'bad_dest', vars: { dest: to } }
+    const index = realGit.writeTree({ cwd, globalOpts: [], env: {} })
+    return index ? { ref: useRef, head, index } : { why: 'bad_index', vars: {} }
+  }
+  const dest = to === undefined ? defaultDest(action, useRef, cwd, gitCfg) : to.replace(/^refs\/heads\//, '')
+  if (!dest) return { why: 'need_dest', vars: { action } }
+  if (!isProtected(dest, gitCfg)) return { why: 'bad_dest', vars: { dest } }
+  if (action === 'merge-main') return { ref: useRef, head, dest }
+  const where = { cwd, globalOpts: [], env: {} }
+  if (remote === '') return { why: 'need_remote', vars: { action } }
+  // a name other than the default has to exist; an address is taken as written
+  const fallback = realGit.defaultRemote(where, dest)
+  if (remote !== undefined && remote !== fallback && !/[:/]/.test(remote) && !realGit.isRemote(where, remote)) return { why: 'bad_remote', vars: { remote } }
+  const named = remote ?? fallback
+  const remoteUrl = realGit.pushAddress(where, named)
+  return remoteUrl ? { ref: useRef, head, dest, remote: cleanRemoteUrl(named), remoteUrl } : { why: 'bad_remote', vars: { remote: cleanRemoteUrl(named) } }
+}
+
+// Writes the grant and its line in the decision log, and returns the message for the person.
+export function recordGrant({ sd, action, target, resolved, t, now, session, via }) {
+  const gitCfg = resolved.config.project?.git || {}
+  const ttl = gitCfg.owner_grant_ttl_min || 15
+  const { ref, head, dest, remote, remoteUrl, index } = target
+  const g = writeGrant(sd, { action, ref, head, dest, remote, remoteUrl, index, ttlMin: ttl, now, session, via })
+  OD.logDecision(sd, { action, via, ref, head, dest, remote, remoteUrl, index, session }, new Date(now))
+  const vars = { action, ref, head: shortHead(head), dest, remote, url: remoteUrl, ttl, expires: localTime(g.expires) }
+  const bound = t(remote ? 'approve.bound_remote' : dest ? 'approve.bound_dest' : 'approve.bound_index', vars)
+  if (isUnborn(head)) return `${t('approve.granted_first', vars)} ${bound}`
+  const gateCmd = resolved.config.project?.gate?.command
+  const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
+  return `${t('approve.granted', vars)} ${bound}` + (stampNote ? ` ${stampNote}` : '')
 }
 
 // `<kind> --reason <why>`, the reason running to the end and optionally quoted.
@@ -107,7 +195,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   if (input.command_name !== 'lanekeeper:approve') return null
   if (resolved.errors.length) return block('approve.config_broken', { file: resolved.errors[0].file, key: resolved.errors[0].path })
   const rawArgs = String(input.command_args || '').trim()
-  const [action = '', ref] = rawArgs.split(/\s+/)
+  const [action = '', ...grantWords] = rawArgs.split(/\s+/)
   if (action === 'retry-bypass') {
     setPersonal(env, 'auto_retry.permission_mode', 'bypassPermissions')
     setPersonal(env, 'auto_retry.bypass_ack', true)
@@ -124,7 +212,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
     const g = readJsonSafe(file)
     if (!g) return context(t('approve.none'))
     const state = g.used ? t('approve.state.used') : now >= Date.parse(g.expires) ? t('approve.state.expired') : t('approve.state.active')
-    return context(t('approve.status', { action: g.action, ref: g.ref, head: String(g.head).slice(0, 9), expires: localTime(g.expires), state }))
+    return context(t('approve.status', { action: g.action, ref: g.ref, head: shortHead(g.head), expires: localTime(g.expires), state }))
   }
   if (action === 'revoke') {
     fs.rmSync(file, { force: true })
@@ -132,16 +220,10 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   }
   if (!ACTIONS.includes(action)) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
 
-  const gitCfg = resolved.config.project?.git || {}
-  const useRef = ref || defaultRef(action, cwd, gitCfg)
-  if (!useRef) return block('approve.need_ref', { action })
-  const head = sha(cwd, useRef)
-  if (!head) return block('approve.bad_ref', { ref: useRef })
-  const ttl = gitCfg.owner_grant_ttl_min || 15
-  const g = writeGrant(sd, { action, ref: useRef, head, ttlMin: ttl, now, session: input.session_id })
-  const gateCmd = resolved.config.project?.gate?.command
-  const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
-  return context(t('approve.granted', { action, ref: useRef, head: head.slice(0, 9), ttl, expires: localTime(g.expires) }) + (stampNote ? ` ${stampNote}` : ''))
+  const { ref, to, remote } = parseGrantArgs(grantWords)
+  const target = resolveTarget(action, ref, cwd, resolved.config.project?.git || {}, { to, remote, root })
+  if (target.why) return block(`approve.${target.why}`, target.vars)
+  return context(recordGrant({ sd, action, target, resolved, t, now, session: input.session_id, via: 'slash' }))
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) {
