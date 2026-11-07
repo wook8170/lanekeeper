@@ -639,7 +639,7 @@ lanekeeper-quality precheck --run
 - 스테이지: `commit-main` 허가는 허가할 때 스테이지된 내용으로 만드는 새 커밋 1개에만 쓴다. 스테이지가 달라지거나, `git commit -a` · `git commit <경로>` · `--amend` · `cherry-pick` 이거나, 스테이지를 바꿀 수 있는 명령이 같은 줄에 있으면 거부한다.
 - 한 줄에 반영 한 건: 한 줄에 보호 브랜치 반영이 2건 이상이거나 반복문 안에 있으면 거부한다. 함수로 두 번 호출하는 형태와 `--tags` · `--follow-tags` 를 붙인 push 도 2건으로 센다.
 - 확인 창: 메인 세션의 에이전트가 `lanekeeper-grant merge-main|push-main|commit-main [브랜치나 커밋] [--to 브랜치] [--remote 원격]`, `lanekeeper-quality accept <종류> --reason "사유"`, `lanekeeper-reap --gate-lock` 중 하나를 한 줄 단독으로 실행하면, `default` · `acceptEdits` · `auto` 모드에서 창이 뜬다. 허용하면 실행되고 거절하면 아무것도 바뀌지 않는다. 다른 모드, `-p` · SDK, 서브에이전트, 묶거나 바꾼 명령, 이 명령을 덮는 허용 규칙은 거부되고 슬래시 명령을 안내한다. 보호 브랜치 허가 3종은 `auto` 에서도 거부한다. `retry-bypass` 에는 창이 없다.
-- PR 병합: `gh pr merge` 가 막히면 메인 세션에서 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 으로 창을 띄운다. 허용한 뒤 같은 병합 명령을 다시 실행한다. 소유자가 직접 입력할 때는 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 이다. 허가는 저장소 · PR · 머리 커밋 · 대상 브랜치에 묶이고, `~/.lanekeeper/owner/` 에 저장되어 세션 폴더와 상관없이 동작한다. `merge-main` 허가는 `--repo` · `GH_REPO` · `GH_HOST` 를 적은 병합에 쓰이지 않는다.
+- PR 병합: `gh pr merge` 가 막히면 메인 세션에서 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 으로 창을 띄운다. 오너는 창에서 허용만 누른다. 그다음 에이전트가 안내받은 `gh pr merge <번호> --repo <호스트/소유자/이름> --match-head-commit <머리> [--squash|--merge|--rebase|-d]` 한 줄을 앞뒤에 아무것도 붙이지 않고 실행한다. 소유자가 직접 입력할 때는 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 이다. 허가는 저장소 · PR · 머리 커밋 · 대상 브랜치에 묶이고, `~/.lanekeeper/owner/` 에 저장되어 세션 폴더와 상관없이 동작한다. `merge-main` 허가는 `gh pr merge` 에 쓰이지 않는다. 세션 폴더가 PR 저장소의 복사본이 아니면 대상 브랜치와 상관없이 이 허가가 필요하다.
 - 기록: 실행된 결정은 `<git 공용 폴더>/lanekeeper/owner-decisions.jsonl` 에 `via`(`dialog` · `slash`)와 함께 남는다. 거절된 창은 기록되지 않는다.
 - 예시: `/lanekeeper:approve merge-main lanekeeper/search/int`
 

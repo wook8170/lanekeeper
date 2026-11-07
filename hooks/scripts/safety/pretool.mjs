@@ -61,6 +61,7 @@ export function buildContext(input, env = process.env, overrides = {}) {
 }
 
 export function judgeCommand(command, ctx) {
+  ctx.commandLine = command
   const cmds = parse(command, { cwd: ctx.cwd, home: ctx.home })
   const verdicts = []
   // A headless `claude -p "/lanekeeper:approve …"` would count as a typed command in that session, and

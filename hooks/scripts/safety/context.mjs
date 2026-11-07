@@ -81,6 +81,11 @@ export const realGit = {
     const out = gitIn(t, ['remote', 'get-url', '--push', '--all', remote]) ?? gitIn(t, ['ls-remote', '--get-url', remote])
     return out ? out.split('\n').map(cleanRemoteUrl).join(' ') : null
   },
+  // The repositories this folder is a copy of, as host/owner/name.
+  remoteAddresses(t) {
+    const lines = (gitIn(t, ['remote', '-v']) || '').split('\n').filter(Boolean)
+    return [...new Set(lines.map((l) => cleanRemoteUrl(l.split(/\s+/)[1]).replace('/~/', '/')))]
+  },
   revParse(t, ref) {
     return gitIn(t, ['rev-parse', '-q', '--verify', `${ref}^{commit}`]) || null
   },

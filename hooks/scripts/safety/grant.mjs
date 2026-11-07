@@ -17,7 +17,7 @@
 //   non-protected branches wait for it.
 import fs from 'node:fs'
 import path from 'node:path'
-import { readJsonSafe } from './common.mjs'
+import { matchAny, readJsonSafe } from './common.mjs'
 import { LEGACY_GATE_STAMP } from '../../../lib/naming.mjs'
 
 export const GRANT_FILE = 'owner-grant.json'
@@ -40,6 +40,18 @@ export const shortHead = (head) => (isUnborn(head) ? String(head) : String(head)
 export function prKey(pr) {
   const m = /^https?:\/\/([^/]+)\/([^/]+\/[^/]+)\/pull\/(\d+)(?:[/?#]|$)/.exec(String(pr?.url ?? ''))
   return m ? `${m[1]}/${m[2]}#${m[3]}` : null
+}
+
+export const repoOfKey = (key) => key.split('#')[0]
+
+// The line that spends a merge-pr grant, with --squash when no merge method was asked for: without a
+// method gh stops with an error when no one is there to choose, and the grant would be gone.
+export const prMergeLine = ({ number, repo, head, method, del }) => `gh pr merge ${number} --repo ${repo} --match-head-commit ${head} ${method || '--squash'}${del ? ' -d' : ''}`
+
+// Whether a merge into this branch needs a grant. The settings read here are those of the session's
+// folder, and they say nothing about the protected branches of a repository that folder is not a copy of.
+export function grantNeeded(base, repo, protectedBranches, sessionRemotes) {
+  return matchAny(base, protectedBranches || [], { wide: true }) || !sessionRemotes.some((a) => a.toLowerCase() === repo.toLowerCase())
 }
 
 // A remote address fit to show and compare: no user, password, token or query, no .git or final slash.

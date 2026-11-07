@@ -32,7 +32,7 @@ import { setPersonal } from '../../../lib/runtime.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
 import { realGit, realPr } from './context.mjs'
-import { ACTIONS, OWNER_ACTIONS, cleanRemoteUrl, grantPath, isUnborn, ownerDir, prKey, shortHead, unbornHead, writeGrant } from './grant.mjs'
+import { ACTIONS, OWNER_ACTIONS, cleanRemoteUrl, grantNeeded, grantPath, isUnborn, ownerDir, prKey, prMergeLine, repoOfKey, shortHead, unbornHead, writeGrant } from './grant.mjs'
 
 // Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
 export function localTime(iso) {
@@ -154,15 +154,16 @@ export function resolvePrTarget(selector, cwd, gitCfg, { repo, lookup = realPr }
   const pr = lookup({ cwd, globalOpts: [], env: {} }, { selector, repo })
   const key = prKey(pr)
   if (!key || !pr.base || !pr.headOid) return unresolved
-  if (!isProtected(pr.base, gitCfg)) return { why: 'pr_not_protected', vars: { pr: key, dest: pr.base } }
-  return { ref: key, head: pr.headOid, dest: pr.base, number: pr.number, repo: key.split('#')[0], title: pr.title }
+  const repoName = repoOfKey(key)
+  if (!grantNeeded(pr.base, repoName, gitCfg.protected_branches, realGit.remoteAddresses({ cwd, globalOpts: [], env: {} }))) return { why: 'pr_not_protected', vars: { pr: key, dest: pr.base } }
+  return { ref: key, head: pr.headOid, dest: pr.base, number: pr.number, repo: repoName, title: pr.title }
 }
 
 // Writes the grant and its line in the decision log, and returns the message for the person.
 export function recordGrant({ sd, action, target, resolved, t, now, session, via }) {
   const gitCfg = resolved.config.project?.git || {}
   const ttl = gitCfg.owner_grant_ttl_min || 15
-  const { ref, head, dest, remote, remoteUrl, index } = target
+  const { ref, head, dest, remote, remoteUrl, index, number, repo } = target
   const g = writeGrant(sd, { action, ref, head, dest, remote, remoteUrl, index, ttlMin: ttl, now, session, via })
   OD.logDecision(sd, { action, via, ref, head, dest, remote, remoteUrl, index, session }, new Date(now))
   const vars = { action, ref, head: shortHead(head), dest, remote, url: remoteUrl, ttl, expires: localTime(g.expires) }
@@ -170,7 +171,8 @@ export function recordGrant({ sd, action, target, resolved, t, now, session, via
   if (isUnborn(head)) return `${t('approve.granted_first', vars)} ${bound}`
   const gateCmd = resolved.config.project?.gate?.command
   const stampNote = gateCmd && ['merge-main', 'push-main'].includes(action) ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
-  return `${t('approve.granted', vars)} ${bound}` + (stampNote ? ` ${stampNote}` : '')
+  const mergeNote = action === 'merge-pr' ? t('approve.merge_line', { line: prMergeLine({ number, repo, head }) }) : ''
+  return `${t('approve.granted', vars)} ${bound}` + (stampNote ? ` ${stampNote}` : '') + (mergeNote ? ` ${mergeNote}` : '')
 }
 
 // `<kind> --reason <why>`, the reason running to the end and optionally quoted.

@@ -11,10 +11,13 @@ const WRITERS = new Set(['cp', 'mv', 'tee', 'touch', 'ln', 'install', 'rsync', '
 
 // A path is state when it lives under <git-common-dir>/lanekeeper/ (or the
 // <git-common-dir>/wb/ used before 0.2.0).
+// The home folder and the disk of a Mac do not tell cases apart, so neither do these comparisons.
+const fold = (s) => s.toLowerCase()
+
 export function isStatePath(p, stateDirs = []) {
-  if (/\/\.git\/(lanekeeper|wb)(\/|$)/.test(p)) return true
-  if (['owner-grant.json', 'owner-ticket.json'].includes(path.basename(p))) return true
-  return stateDirs.some((d) => d && inside(p, d))
+  if (/\/\.git\/(lanekeeper|wb)(\/|$)/i.test(p)) return true
+  if (['owner-grant.json', 'owner-ticket.json'].includes(fold(path.basename(p)))) return true
+  return stateDirs.some((d) => d && inside(fold(p), fold(d)))
 }
 
 // With the folder that holds the grant for a pull request, which is in no repository.
@@ -35,34 +38,75 @@ function readsNamedFiles(cmd, texts) {
 const isGitDir = (p, ctx) => /\/\.git$/.test(p) || (ctx.stateDirs || []).some((d) => d && p === path.dirname(d))
 const insideGitDir = (p, ctx) => /\/\.git(\/|$)/.test(p) || (ctx.stateDirs || []).some((d) => d && inside(p, path.dirname(d)))
 
+// The value of a short option, also when it is attached (-C.git) or ends a group of letters (-rt .git).
+function shortValue(words, letter) {
+  const i = words.findIndex((t) => new RegExp(`^-[A-Za-z]*${letter}`).test(t) && !t.startsWith('--'))
+  if (i === -1) return null
+  const rest = words[i].slice(words[i].indexOf(letter) + 1)
+  return rest || words[i + 1] || null
+}
+
+// The words that can be where a copy lands.
+function copyTargets(words) {
+  const long = words.find((t) => t.startsWith('--target-directory'))
+  return [long?.includes('=') ? long.split('=')[1] : long ? words[words.indexOf(long) + 1] : null, shortValue(words, 't'), words.filter((t) => !t.startsWith('-')).at(-1)].filter(Boolean)
+}
+
+// Where tar or unzip unpacks -> the folder as written, or null when the command does not unpack.
+function unpackTarget(cmd, words) {
+  if (cmd.name === 'tar') {
+    if (!words.some((t) => t === '--extract' || t === '--get' || /^-[A-Za-z]*x/.test(t) || /^[A-Za-z]*x[A-Za-z]*$/.test(t))) return null
+    const long = words.find((t) => t.startsWith('--directory'))
+    return (long?.includes('=') ? long.split('=')[1] : long ? words[words.indexOf(long) + 1] : shortValue(words, 'C')) || '.'
+  }
+  if (cmd.name === 'unzip') {
+    const opt = words.indexOf('-d')
+    return opt === -1 ? '.' : words[opt + 1] || null
+  }
+  return null
+}
+
 // A copy or an unpacking aimed at .git itself, which can fill .git/hooks without naming it -> the target, or null.
 function intoGitDir(cmd, texts, ctx) {
   const at = (t) => resolvePath(cmd.cwd, t, ctx.home)
   const words = texts.slice(1)
-  // The value of a short option, also when it is attached (-C.git) or ends a group of letters (-rt .git).
-  const shortValue = (letter) => {
-    const i = words.findIndex((t) => new RegExp(`^-[A-Za-z]*${letter}`).test(t) && !t.startsWith('--'))
-    if (i === -1) return null
-    const rest = words[i].slice(words[i].indexOf(letter) + 1)
-    return rest || words[i + 1] || null
-  }
-  if (['cp', 'mv', 'rsync', 'install', 'ln'].includes(cmd.name)) {
-    const long = words.find((t) => t.startsWith('--target-directory'))
-    const named = [long?.includes('=') ? long.split('=')[1] : long ? words[words.indexOf(long) + 1] : null, shortValue('t'), words.filter((t) => !t.startsWith('-')).at(-1)]
-    return named.find((t) => t && isGitDir(at(t), ctx)) || null
-  }
-  if (cmd.name === 'tar') {
-    if (!words.some((t) => t === '--extract' || t === '--get' || /^-[A-Za-z]*x/.test(t) || /^[A-Za-z]*x[A-Za-z]*$/.test(t))) return null
-    const long = words.find((t) => t.startsWith('--directory'))
-    const named = (long?.includes('=') ? long.split('=')[1] : long ? words[words.indexOf(long) + 1] : shortValue('C')) || '.'
-    return insideGitDir(at(named), ctx) ? named : null
-  }
-  if (cmd.name === 'unzip') {
-    const opt = words.indexOf('-d')
-    const named = opt === -1 ? '.' : words[opt + 1]
-    return named && insideGitDir(at(named), ctx) ? named : null
-  }
-  return null
+  if (['cp', 'mv', 'rsync', 'install', 'ln'].includes(cmd.name)) return copyTargets(words).find((t) => isGitDir(at(t), ctx)) || null
+  const named = unpackTarget(cmd, words)
+  return named && insideGitDir(at(named), ctx) ? named : null
+}
+
+// A folder that holds the grant folder somewhere below it: ~ and ~/.lanekeeper, and everything above them.
+const aboveOwnerDir = (p, ctx) => !!ctx.ownerDir && (p === '/' || fold(ctx.ownerDir).startsWith(`${fold(p)}/`))
+
+// A tree copied or unpacked over such a folder makes the grant file without naming it -> the target, or null.
+function overOwnerDir(cmd, texts, ctx) {
+  const above = (t) => aboveOwnerDir(resolvePath(cmd.cwd, t, ctx.home), ctx)
+  const words = texts.slice(1)
+  // A link to such a folder gives it a second name that nothing here would know.
+  if (cmd.name === 'ln') return words.find((t) => !t.startsWith('-') && above(t)) || null
+  const recursive = words.some((t) => t === '--recursive' || t === '--archive' || (/^-[A-Za-z]+$/.test(t) && /[rRa]/.test(t)))
+  if (['mv', 'rsync', 'ditto'].includes(cmd.name) || (cmd.name === 'cp' && recursive)) return copyTargets(words).find(above) || null
+  const named = unpackTarget(cmd, words)
+  return named && above(named) ? named : null
+}
+
+// A word with a glob or a brace can come out as the grant folder. The part before it shows whether it may.
+function mayNameOwnerDir(word, cmd, ctx) {
+  const t = word.replace(/^\$(HOME|\{HOME\})(?=\/|$)/, '~')
+  const cut = t.search(/[*?[{$]/)
+  if (cut === -1) return false
+  const head = t.slice(0, cut)
+  if (/\.(lanekeeper|wb)\/(o|ow|own|owne)?$/i.test(head)) return true
+  return !!ctx.ownerDir && fold(ctx.ownerDir).startsWith(fold(resolvePath(cmd.cwd, head, ctx.home)))
+}
+
+const insideHome = (p, ctx) => !!ctx.lanekeeperHome && inside(fold(p), fold(ctx.lanekeeperHome))
+const gitMakesTreeHere = (cmd, texts, ctx) => cmd.name === 'git' && insideHome(cmd.cwd, ctx) && texts.some((t) => ['clone', 'init', 'worktree'].includes(t))
+
+// A variable that holds the home of the grants: `D=~/.lanekeeper/ow; cp x ${D}ner/y`.
+function namesHomeInVariable(cmd, ctx) {
+  const values = String(ctx.commandLine ?? '').matchAll(/(?:^|[\s;&|(])[A-Za-z_]\w*=["']?([^\s;&|"']+)/g)
+  return [...values].some((m) => insideHome(resolvePath(cmd.cwd, m[1], ctx.home), ctx))
 }
 
 // Exported here, these reach every git or gh command that follows in the same shell.
@@ -91,13 +135,14 @@ export function isProtectedPath(p, root, globs) {
 const personalFile = (ctx) => (ctx.lanekeeperHome ? path.join(ctx.lanekeeperHome, 'personal.json') : null)
 const resultsRoot = (ctx) => ctx.config.project?.quality?.results_root || 'docs/test-results'
 const acceptedFile = (ctx) => (ctx.projectRoot ? path.join(ctx.projectRoot, resultsRoot(ctx), 'accepted.json') : null)
+const samePath = (p, file) => !!file && fold(p) === fold(file)
 
 // Write / Edit / MultiEdit / NotebookEdit
 export function judgeFileTool(file, ctx, toolInput = {}) {
   if (!file) return null
   const p = path.isAbsolute(file) ? path.normalize(file) : path.resolve(ctx.cwd, file)
   if (p === acceptedFile(ctx)) return deny('paths.accepted', { path: file })
-  if (p === personalFile(ctx) && JSON.stringify(toolInput).includes('bypass_ack')) return deny('paths.ack', { path: file })
+  if (samePath(p, personalFile(ctx)) && JSON.stringify(toolInput).includes('bypass_ack')) return deny('paths.ack', { path: file })
   if (isStatePath(p, allStateDirs(ctx))) return deny('paths.state', { path: file })
   if (isLanekeeperConfigFile(p, ctx)) return ask('paths.config', { path: file })
   const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
@@ -107,7 +152,7 @@ export function judgeFileTool(file, ctx, toolInput = {}) {
 }
 
 export function isLanekeeperConfigFile(p, ctx) {
-  return (ctx.projectRoot && [DIR, LEGACY_DIR].some((d) => p === path.join(ctx.projectRoot, d, 'config.json'))) || (ctx.lanekeeperHome && inside(p, ctx.lanekeeperHome) && p.endsWith('.json'))
+  return (ctx.projectRoot && [DIR, LEGACY_DIR].some((d) => p === path.join(ctx.projectRoot, d, 'config.json'))) || (insideHome(p, ctx) && fold(p).endsWith('.json'))
 }
 
 // Bash: state files may be read, never written; protected paths may not be
@@ -117,14 +162,14 @@ export function judgeBashPaths(cmd, ctx) {
   const ownerCode = (t) => {
     const p = resolvePath(cmd.cwd, t, ctx.home)
     if (p === acceptedFile(ctx) || t.includes(`${resultsRoot(ctx)}/accepted.json`)) return 'paths.accepted'
-    if (p === personalFile(ctx) || /\.(lanekeeper|wb)\/personal\.json/.test(t)) return 'paths.ack'
+    if (samePath(p, personalFile(ctx)) || /\.(lanekeeper|wb)\/personal\.json/i.test(t)) return 'paths.ack'
     return null
   }
-  const mentions = (t) => /owner-(grant|ticket)/.test(t) || /\.git\/(lanekeeper|wb)\//.test(t) || /\.(lanekeeper|wb)\/owner(\/|$)/.test(t) || allStateDirs(ctx).some((d) => d && t.includes(d))
+  const mentions = (t) => /owner-(grant|ticket)/i.test(t) || /\.git\/(lanekeeper|wb)\//i.test(t) || /\.(lanekeeper|wb)\/owner(\/|$)/i.test(t) || allStateDirs(ctx).some((d) => d && fold(t).includes(fold(d)))
   for (const r of cmd.redirs) {
     if (!/>/.test(r.op) || !r.target || /^&?\d$/.test(r.target)) continue
     const p = resolvePath(cmd.cwd, r.target, ctx.home)
-    if (mentions(r.target) || isStatePath(p, allStateDirs(ctx))) out.push(deny('paths.state', { path: r.target }))
+    if (mentions(r.target) || isStatePath(p, allStateDirs(ctx)) || mayNameOwnerDir(r.target, cmd, ctx)) out.push(deny('paths.state', { path: r.target }))
     if (ownerCode(r.target)) out.push(deny(ownerCode(r.target), { path: r.target }))
     const hit = isProtectedPath(p, ctx.projectRoot, ctx.config.project?.protected_paths)
     if (hit) out.push(deny('paths.protected', { path: r.target, glob: hit }))
@@ -139,11 +184,23 @@ export function judgeBashPaths(cmd, ctx) {
   }
   const target = intoGitDir(cmd, texts, ctx)
   if (target) out.push(ask('paths.git_control', { path: target }))
+  const over = overOwnerDir(cmd, texts, ctx)
+  if (over) out.push(deny('paths.state', { path: over }))
+  if (gitMakesTreeHere(cmd, texts, ctx)) out.push(deny('paths.state', { path: cmd.cwd }))
+  if (cmd.name && !readsNamedFiles(cmd, texts)) {
+    // from inside the home of the grants, a file can be written without its name saying so
+    if (insideHome(cmd.cwd, ctx)) out.push(deny('paths.state', { path: cmd.cwd }))
+    const word = texts.slice(1).find((t) => mayNameOwnerDir(t, cmd, ctx))
+    if (word) out.push(deny('paths.state', { path: word }))
+    if (namesHomeInVariable(cmd, ctx)) out.push(deny('paths.state', { path: ctx.lanekeeperHome }))
+  }
   if (cmd.name === 'export' || (['declare', 'typeset'].includes(cmd.name) && texts.some((t) => /^-[A-Za-z]*x/.test(t)))) {
     const name = texts.slice(1).map((t) => t.split('=')[0]).find((n) => GIT_ENV.test(n))
     if (name) out.push(ask('paths.git_env', { name }))
   }
-  if (texts.some(mentions) && !READ_ONLY.has(cmd.name)) out.push(deny('paths.state', { path: texts.find(mentions) }))
+  // git counts as reading, but these make a tree where they are told to.
+  const gitMakesTree = cmd.name === 'git' && texts.some((t) => ['clone', 'init', 'worktree'].includes(t))
+  if (texts.some(mentions) && (!READ_ONLY.has(cmd.name) || gitMakesTree)) out.push(deny('paths.state', { path: texts.find(mentions) }))
   if (!READ_ONLY.has(cmd.name)) for (const t of texts.slice(1)) if (ownerCode(t)) out.push(deny(ownerCode(t), { path: t }))
   if (WRITERS.has(cmd.name) && (cmd.name !== 'sed' || texts.some((t) => /^-[a-zA-Z]*i/.test(t)))) {
     for (const t of texts.slice(1)) {

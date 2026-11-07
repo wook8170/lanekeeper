@@ -119,14 +119,22 @@ test('main: --all / --mirror push and deleting a protected branch are blocked', 
   expect(main('git push origin :main', f.wt.feat), 'deny', 'git.branch_protected')
   expect(main('git push origin --delete release/1.0', f.wt.feat), 'deny', 'git.branch_protected')
 })
-test('main: gh pr merge into a non-protected base is allowed, into a protected base needs a grant', () => {
-  const pr = (base) => ({ pr: () => ({ base, headOid: f.sha('lanekeeper/t/int') }) })
-  expect(f.judge('gh pr merge 3', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: pr('main') }), 'deny', 'grant.missing')
-  f.grant('merge-main', f.sha('lanekeeper/t/int'))
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: pr('main') }), 'allow')
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: pr('main') }), 'deny', 'grant.used')
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: { pr: () => null } }), 'deny', 'gh.unresolved')
+test('main: gh pr merge into a non-protected base is allowed, into a protected base needs a PR grant', () => {
+  const head = f.sha('lanekeeper/t/int')
+  const pr = (base) => ({ pr: () => ({ base, headOid: head, number: 3, url: 'https://github.com/o/r/pull/3' }) })
+  const line = `gh pr merge 3 --repo github.com/o/r --match-head-commit ${head} --squash`
+  git(f.repo, 'remote', 'add', 'origin', 'https://github.com/o/r.git')
+  try {
+    expect(f.judge(line, { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
+    expect(f.judge('gh pr merge 3', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'deny', 'gh.form')
+    expect(f.judge(line, { cwd: f.repo, overrides: pr('main') }), 'deny', 'gh.need_grant')
+    f.grant('merge-main', head)
+    expect(f.judge(line, { cwd: f.repo, overrides: pr('main') }), 'deny', 'gh.need_grant')
+    assert.equal(f.readGrant().used, false)
+    expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: { pr: () => null } }), 'deny', 'gh.unresolved')
+  } finally {
+    git(f.repo, 'remote', 'remove', 'origin')
+  }
 })
 test('main on integration/feature: switching branch is allowed', () => {
   expect(main('git checkout feature/x', f.wt.int), 'allow')

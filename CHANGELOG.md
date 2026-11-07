@@ -5,9 +5,9 @@
 ## [Unreleased]
 
 ### Added
-- 보호 브랜치로 가는 `gh pr merge` 를 PR 단위로 허가한다. 막히면 메인 세션의 에이전트가 안내대로 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 을 실행해 확인 창을 띄우고, 허용 뒤 같은 병합을 다시 실행한다. 소유자는 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 으로도 줄 수 있다. 허가는 저장소 · PR · 머리 커밋 · 대상 브랜치에 묶이고 1회 · 15분이다. `~/.lanekeeper/owner/` 에 저장되므로 세션 폴더가 다른 저장소이거나 저장소가 아니어도, 통합 브랜치 이름이 달라도 동작한다
+- 보호 브랜치로 가는 `gh pr merge` 를 PR 단위로 허가한다. 막히면 메인 세션의 에이전트가 안내대로 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 을 실행해 확인 창을 띄우고, 허용 뒤 안내받은 `gh pr merge <번호> --repo <호스트/소유자/이름> --match-head-commit <머리> [--squash|--merge|--rebase|-d]` 한 줄을 실행한다. 소유자는 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 으로도 줄 수 있다. 허가는 저장소 · PR · 머리 커밋 · 대상 브랜치에 묶이고 1회 · 15분이다. `~/.lanekeeper/owner/` 에 저장되므로 세션 폴더가 다른 저장소이거나 저장소가 아니어도, 통합 브랜치 이름이 달라도 동작한다
 - `/` 를 빼고 `approve merge-pr 162` 처럼 입력하면 허가가 생기지 않았다는 한 줄을 에이전트에게 알린다(`safety/prompt-hint`). 이 훅은 허가를 만들지 않는다
-- 시험 `tests/pr-grant.test.mjs`
+- 시험 `tests/pr-grant.test.mjs`, `tests/pr-grant-forms.test.mjs`
 - `main` 같은 보호 브랜치의 허가(`merge-main`·`push-main`·`commit-main`)를 Claude Code 확인 창으로도 받는다. 메인 세션의 에이전트가 `lanekeeper-grant <동작> [브랜치나 커밋] [--to 브랜치] [--remote 원격]` 를 한 줄 단독으로 실행하면, `default`·`acceptEdits` 모드에서 창이 뜬다. `auto` 에서는 슬래시 명령을 안내한다. `merge-main`·`push-main` 창에는 목적지(`push-main` 은 원격 이름과, 비밀번호·토큰을 지운 주소 포함), 보낼 대상, 짧은 커밋 ID, 커밋 제목, 유효 시간이 보이고, 게이트 명령이 있는 프로젝트에서는 같은 커밋에 게이트 표식이 있는지도 보인다. `commit-main` 창에는 현재 커밋 위에 새 커밋 1개가 생긴다는 것과 스테이지된 파일 목록이 보인다
 - 허용하면 슬래시 명령과 같은 `owner-grant.json` 을 쓴다. 15분·1회·지정 커밋 제한도 같고, 병합·push·커밋을 판정하는 `git-guard` 의 허가·게이트 표식 검사도 그대로다. 표는 동작·대상·커밋과 목적지 또는 스테이지 내용에 묶이므로, 창을 띄운 뒤 이 값이 달라지면 허가를 만들지 않는다. 허가와 결정 기록에는 창을 띄운 세션의 식별자도 남는다
 - 허가도 `owner-decisions.jsonl` 에 `via`(`dialog`·`slash`)와 함께 남긴다. `owner-grant.json` 에도 `via` 가 붙는다
@@ -15,6 +15,7 @@
 - 시험 `tests/owner-dialog.test.mjs`: 허가 3개 동작 × 권한 모드 6개 × 주 세션·서브에이전트, 묶인 명령, 표 재사용·위조, 창을 띄운 뒤 커밋 이동, 만들어진 허가로 커밋 통과, 빈 저장소의 첫 커밋
 
 ### Changed
+- **`gh pr merge` 의 형태가 바뀐다.** 허가가 필요 없는 PR 도 번호와 `--repo <호스트/소유자/이름>` 을 적어야 한다. 알려진 하위 명령이 아닌 `gh <낱말>`(별칭 · 확장, `gh co` 포함)과 `gh alias set|import`, `gh extension install|upgrade|create|exec` 는 거부한다
 - **기존 슬래시 허가의 동작이 바뀐다.** 슬래시와 확인 창 허가 모두에 아래 규칙을 적용한다
   - 한 줄에 보호 브랜치 반영(커밋·push·병합, 섞인 경우 포함)이 2건 이상이거나 반복문 안에 있으면 거부한다. 전에는 `git commit -m a && git commit -m b` 가 허가 하나로 통과했다
   - `merge-main`·`push-main` 허가는 목적지 브랜치에 묶인다. `/lanekeeper:approve merge-main|push-main [브랜치나 커밋] [--to 보호 브랜치]` 로 정하고, 생략하면 지금 체크아웃한 보호 브랜치, 그것도 아니면 설정의 첫 보호 브랜치다. `push-main` 은 지정한 대상이 보호 브랜치면 그 브랜치다. `main` 이 아닌 보호 브랜치로 보내려면 `--to` 가 필요할 수 있다
@@ -35,8 +36,12 @@
 - 확인 창은 허용한 쪽이 사람인지 증명하지 못한다. 이제 이 한계가 `main` 에 반영하는 허가에도 적용된다(`README`·`SECURITY` 의 한계 절)
 
 ### Fixed
-- `gh pr merge` 판정이 실제로 병합될 PR 과 다른 PR 을 볼 수 있었다. `--repo` · `-R` · `GH_REPO` 를 조회에 넘기지 않았고, `--subject 5 162` 의 `5` 를 PR 로 읽었고, `gh pr --repo o/r merge 1` 을 병합으로 알아보지 못했다. 그래서 다른 저장소나 다른 PR 의 보호 브랜치 병합이 허가 없이 통과할 수 있었다. 이제 옵션을 읽어 같은 PR 을 조회하고, 모르는 옵션이나 PR 이 둘인 줄은 거부한다. `export GH_REPO` · `GH_HOST` 는 확인 창으로 묻는다
-- `merge-main` 허가가 커밋만 같으면 `--repo` 로 지정한 다른 저장소의 PR 에도 쓰였다. 이제 저장소를 적은 병합에는 쓰이지 않는다
+- `gh pr merge` 판정이 실제로 병합될 PR 과 다른 PR 을 볼 수 있었다. `--repo` · `-R` · `GH_REPO` 를 조회에 넘기지 않았고, `--subject 5 162` 의 `5` 를 PR 로 읽었고, `gh pr --repo o/r merge 1` 을 병합으로 알아보지 못했다. 그래서 다른 저장소나 다른 PR 의 보호 브랜치 병합이 허가 없이 통과할 수 있었다. 이제 번호와 `--repo <호스트/소유자/이름>` 을 적은 줄만 통과한다. 그 밖의 줄은 거부하고 실행할 줄을 알려 준다. 모르는 옵션이나 PR 이 둘인 줄, 하위 명령 앞의 옵션, 변수, 별칭 · 확장, xargs 도 거부한다. `export GH_REPO` · `GH_HOST` 는 확인 창으로 묻는다
+- `merge-main` 허가가 커밋만 같으면 다른 저장소의 PR 에도 쓰였다. 이제 `gh pr merge` 에는 쓰이지 않고, `merge-pr` 허가만 쓰인다
+- `merge-pr` 허가가 앞뒤에 다른 명령을 붙인 줄이나 `--auto` · `--admin` 에도 쓰였고, 판정 뒤 머리가 움직이면 다른 커밋이 병합될 수 있었다. 이제 앞뒤에 아무것도 없는 정해진 한 줄에만 쓰이고, 그 줄의 `--match-head-commit` 으로 GitHub 가 머리 이동을 거부한다
+- 세션 폴더의 설정만 보고 다른 저장소 PR 의 보호 여부를 판정했다. 그래서 그 저장소에서만 보호하는 브랜치로 허가 없이 병합할 수 있었다. 이제 세션 폴더가 PR 저장소의 복사본이 아니면 대상 브랜치와 상관없이 허가가 필요하고, 그 경우 창도 뜬다
+- `gh api graphql` 의 `-F query=@파일` · `--input` · `mutation`, 쓰기 `gh api` 의 `/merges` · `/merge-upstream` · `git/refs` · `contents` · 브랜치 이름 변경 · 브랜치 보호 · `rulesets`, 변수를 쓴 `gh api`, `gh repo sync --force`, 글자로 적은 주소의 쓰기 `curl` 이 병합 판정을 지나쳤다. 이제 거부한다
+- `~/.lanekeeper/owner/` 보호가 글자로 경로를 적은 경우만 잡았다. 이제 `~/.lanekeeper` 안에서 실행한 쓰기, 그 상위 폴더(`~` 등)로 향한 `cp -R` · `mv` · `rsync` · `ditto` · `tar` · `unzip` · `ln`, 글로브 · 중괄호 · 변수로 만든 경로, 대소문자만 다른 이름, 이 경로로 향한 `git clone` 도 거부한다
 - 파일 도구가 `~/.lanekeeper` 아래의 `owner-grant.json` · `owner-ticket.json` 쓰기를 설정 파일로 보고 확인 창을 띄웠다. 이제 거부한다
 - 슬래시 명령의 `need_ref` 안내가 PR 병합에 쓸 형태를 알려 주지 않았다
 - 커밋이 하나도 없는 저장소에서 `main` 에 첫 커밋을 만들 수 없었다. `/lanekeeper:approve commit-main` 이 `HEAD` 를 풀지 못해 거절했고, `main` 위의 `git commit` 은 허가가 없어 거부됐다. 이제 `refs/` 아래에 ref 가 하나도 없고 연결 워크트리가 아니며 HEAD 가 보호 브랜치를 가리킬 때에 한해, 슬래시와 확인 창 모두 `commit-main` 허가를 만든다. 이 허가의 `head` 는 실제 커밋 ID 와 겹치지 않는 표식값이어서, 저장소에 커밋이 생기면 거부된다. 고아 브랜치, 연결 워크트리, 분리된 HEAD, 깨진 ref, `merge-main`·`push-main` 은 거절한다

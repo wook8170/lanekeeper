@@ -884,12 +884,8 @@ test('a merge or push grant is tied to its destination on both routes', () => {
     assert.equal(f.judge('git push origin main').decision, 'allow')
   }
   const main = f.sha('main')
-  f.grant('merge-main', f.sha(INT))
-  const pr = { pr: () => ({ base: 'release/1.0', headOid: f.sha(INT) }) }
-  assert.deepEqual(f.judge('gh pr merge 3', { overrides: pr }).codes, ['grant.dest'])
   f.grant('merge-main', f.sha(INT), { dest: 'release/1.0' })
   assert.deepEqual(f.judge(`git merge ${INT}`).codes, ['grant.dest'])
-  assert.equal(f.judge('gh pr merge 3', { overrides: pr }).decision, 'allow')
   assert.equal(f.sha('main'), main)
 })
 test('a grant that names no destination matches nothing', () => {

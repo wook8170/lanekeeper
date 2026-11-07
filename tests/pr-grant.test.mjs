@@ -21,7 +21,7 @@ const KEY = 'github.com/acme/widgets#162'
 const PR = { baseRefName: 'main', headRefOid: HEAD, number: 162, url: URL_162, title: 'fix the grid' }
 const REPO = '--repo acme/widgets'
 const GRANT_LINE = `lanekeeper-grant merge-pr 162 ${REPO}`
-const MERGE = `gh pr merge 162 ${REPO}`
+const MERGE = `gh pr merge 162 --repo github.com/acme/widgets --match-head-commit ${HEAD} --squash`
 
 let f, other, plain, fake, calls, answer, env, ownerGrant, ownerTicket, sessionGrant
 
@@ -41,6 +41,8 @@ const runShown = (command, cwd = f.repo) => spawnSync('sh', ['-c', command], { c
 
 before(() => {
   f = makeFixture()
+  // The session's folder is a copy of the PR's repository, unless a test says otherwise.
+  git(f.repo, 'remote', 'add', 'origin', 'https://github.com/acme/widgets.git')
   other = makeFixture()
   plain = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-plain-')))
   fake = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'lanekeeper-fake-gh-')))
@@ -83,6 +85,7 @@ test('merge-pr by slash: a person names the PR and the grant holds repository, P
   assert.equal(g.via, 'slash')
   assert.equal(g.used, false)
   assert.ok(!fs.existsSync(sessionGrant), 'the folder of the session holds nothing')
+  assert.ok(r.hookSpecificOutput.additionalContext.includes(MERGE), 'the agent is told the line to run')
   assert.match(fs.readFileSync(calls, 'utf8'), /pr view 162 --repo acme\/widgets --json /)
 })
 
@@ -135,9 +138,9 @@ test('the grant lets one merge through from any folder, once', () => {
   assert.deepEqual(hook(MERGE, { cwd: other.repo }).codes, ['gh.need_grant'], 'used up')
 })
 
-test('the same grant works from the folder of the PR with no --repo, and outside any repository', () => {
+test('the same grant works in another repository and outside any repository', () => {
   slash(`merge-pr 162 ${REPO}`)
-  assert.equal(hook('gh pr merge 162 --squash -d', { cwd: other.repo }).decision, 'allow')
+  assert.equal(hook(`${MERGE} -d`, { cwd: other.repo }).decision, 'allow')
   fs.rmSync(ownerGrant)
   slash(`merge-pr 162 ${REPO}`)
   assert.equal(hook(MERGE, { cwd: plain }).decision, 'allow')
@@ -187,7 +190,7 @@ test('a merge into a branch that is not protected needs no grant', () => {
 
 test('two merges on one line are refused, the same PR twice as well', () => {
   slash(`merge-pr 162 ${REPO}`)
-  assert.ok(hook(`${MERGE} && ${MERGE}`).codes.includes('grant.once'))
+  assert.equal(hook(`${MERGE} && ${MERGE}`).decision, 'deny')
   assert.equal(readGrant().used, false)
 })
 
@@ -231,13 +234,12 @@ test('other gh commands are left alone', () => {
   for (const line of ['gh pr view 162 --json url', 'gh pr list', 'gh pr comment 162 --body merge', 'gh pr create --title merge', 'gh repo view']) assert.equal(hook(line).decision, 'allow', line)
 })
 
-test('a merge-main grant of this folder does not reach a PR of a repository named on the line', () => {
+test('a merge-main grant does not reach a PR at all, in this folder or another repository', () => {
   f.grant('merge-main', HEAD)
   assert.deepEqual(hook('gh pr merge 162 --repo o/other', { overrides: looked({ url: 'https://github.com/o/other/pull/162' }) }).codes, ['gh.need_grant'])
   assert.deepEqual(hook('GH_REPO=o/other gh pr merge 162', { overrides: looked({ url: 'https://github.com/o/other/pull/162' }) }).codes, ['gh.need_grant'])
+  assert.deepEqual(hook(MERGE).codes, ['gh.need_grant'])
   assert.equal(f.readGrant().used, false)
-  assert.equal(hook('gh pr merge 162', { overrides: looked() }).decision, 'allow', 'with no repository named the merge-main route stays')
-  assert.equal(f.readGrant().used, true)
 })
 
 test('exporting GH_REPO or GH_HOST asks, because the merge after it would go elsewhere', () => {
@@ -267,6 +269,7 @@ test('the dialog: allowed, the grant appears and the merge passes; the grant doe
 
   const run = runShown(r.updatedInput.command, plain)
   assert.equal(run.status, 0, run.stderr)
+  assert.ok(run.stdout.includes(MERGE), 'the agent is told the line to run')
   const g = readGrant()
   assert.equal(g.via, 'dialog')
   assert.equal(g.session, 's1')

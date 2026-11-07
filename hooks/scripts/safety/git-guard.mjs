@@ -11,7 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { ALLOW, allow, ask, deny, matchAny, inside, readJsonSafe } from './common.mjs'
-import { checkGrant, checkStamp, gateLocked, prKey, shortHead, unbornHead } from './grant.mjs'
+import { checkGrant, checkStamp, gateLocked, grantNeeded, prKey, prMergeLine, repoOfKey, shortHead, unbornHead } from './grant.mjs'
 import { parse, tokenize } from './shell.mjs'
 import { onlyUnder, resultsPrefix } from '../../../lib/testresults.mjs'
 import { laneCommitPolicy } from '../../../lib/brief.mjs'
@@ -122,6 +122,7 @@ function targetOf(cmd, globalOpts) {
 // Judge one parsed simple command whose name is git or gh.
 export function judgeGit(cmd, ctx, depth = 0) {
   if (cmd.name === 'gh') return judgeGh(cmd, ctx)
+  if (cmd.name === 'curl') return judgeCurl(cmd)
   if (cmd.name !== 'git') return null
   const g = splitGit(cmd.args)
   let { sub, args } = g
@@ -733,16 +734,14 @@ function withGrant(ctx, info, action, sha, needStamp, vars, cmd, bind = {}) {
   return allow({ consume: { stateDir: info.stateDir, by: shortCmd(cmd) } })
 }
 
-// The options of `gh pr merge`, and -R/--repo that gh takes before the subcommand as well. An option not
-// listed here makes the line unreadable, so what is judged is always the PR that gh would merge.
-const GH_FLAGS = new Set(['--admin', '--auto', '--delete-branch', '--disable-auto', '--merge', '--rebase', '--squash'])
-const GH_VALUES = new Set(['--author-email', '--body', '--body-file', '--match-head-commit', '--repo', '--subject'])
-const GH_SHORT_FLAGS = 'dmrs'
-const GH_SHORT_VALUES = 'AbFRt'
-
-// -> { positional, repo, known }
-function readGhWords(words) {
-  const out = { positional: [], repo: undefined, known: true }
+// Reads the words of a gh command by its option table -> { positional, seen, values, known }. A short
+// option is held under its long name, and an option not in the table makes the line unreadable.
+function readGhWords(words, { flags, values, short }) {
+  const out = { positional: [], seen: new Set(), values: {}, known: true }
+  const hold = (name, value) => {
+    if (value === undefined) out.known = false
+    else (out.values[name] ||= []).push(value)
+  }
   for (let i = 0; i < words.length; i++) {
     const w = words[i]
     if (w === '--') {
@@ -752,19 +751,21 @@ function readGhWords(words) {
     if (w.startsWith('--')) {
       const eq = w.indexOf('=')
       const name = eq === -1 ? w : w.slice(0, eq)
-      if (GH_VALUES.has(name)) {
-        const value = eq === -1 ? words[++i] : w.slice(eq + 1)
-        if (name === '--repo') out.repo = value
-      } else if (!GH_FLAGS.has(name)) out.known = false
+      if (values.has(name)) hold(name, eq === -1 ? words[++i] : w.slice(eq + 1))
+      else if (flags.has(name)) out.seen.add(name)
+      else out.known = false
     } else if (w.length > 1 && w.startsWith('-')) {
       for (let j = 1; j < w.length; j++) {
-        if (GH_SHORT_FLAGS.includes(w[j])) continue
-        if (!GH_SHORT_VALUES.includes(w[j])) {
+        const name = short[w[j]]
+        if (flags.has(name)) {
+          out.seen.add(name)
+          continue
+        }
+        if (!values.has(name)) {
           out.known = false
           break
         }
-        const value = w.slice(j + 1) || words[++i]
-        if (w[j] === 'R') out.repo = value
+        hold(name, w.slice(j + 1).replace(/^=/, '') || words[++i])
         break
       }
     } else out.positional.push(w)
@@ -772,40 +773,145 @@ function readGhWords(words) {
   return out
 }
 
-// gh pr merge / gh api .../merge
-function judgeGh(cmd, ctx) {
+const GH_MERGE_OPTIONS = {
+  flags: new Set(['--admin', '--auto', '--delete-branch', '--disable-auto', '--merge', '--rebase', '--squash']),
+  values: new Set(['--author-email', '--body', '--body-file', '--match-head-commit', '--repo', '--subject']),
+  short: { A: '--author-email', F: '--body-file', R: '--repo', b: '--body', d: '--delete-branch', m: '--merge', r: '--rebase', s: '--squash', t: '--subject' },
+}
+const GH_API_OPTIONS = {
+  flags: new Set(['--include', '--paginate', '--silent', '--slurp', '--verbose']),
+  values: new Set(['--cache', '--field', '--header', '--hostname', '--input', '--jq', '--method', '--preview', '--raw-field', '--template']),
+  short: { F: '--field', H: '--header', X: '--method', f: '--raw-field', i: '--include', p: '--preview', q: '--jq', t: '--template' },
+}
+
+// gh runs an extension or an alias for any other first word, so what such a word does is unknown.
+// `co` is one of those aliases, kept out because its definition is in a file. help topics are harmless.
+const GH_COMMANDS = new Set(['accessibility', 'actions', 'agent-task', 'alias', 'api', 'attestation', 'auth', 'browse', 'cache', 'codespace', 'completion', 'config', 'copilot', 'cs', 'environment', 'exit-codes', 'ext', 'extension', 'extensions', 'formatting', 'gist', 'gpg-key', 'help', 'issue', 'label', 'licenses', 'mintty', 'org', 'pr', 'preview', 'project', 'reference', 'release', 'repo', 'rs', 'ruleset', 'run', 'search', 'secret', 'ssh-key', 'status', 'variable', 'version', 'workflow'])
+const GH_PR_READS_OR_ELSE = new Set(['checkout', 'checks', 'close', 'comment', 'create', 'diff', 'edit', 'list', 'lock', 'ls', 'new', 'ready', 'reopen', 'revert', 'review', 'status', 'unlock', 'update-branch', 'view'])
+const GH_SECOND_WORD = new Set(['pr', 'repo', 'alias', 'extension', 'extensions', 'ext'])
+const GH_EXTENSION_SAFE = new Set(['browse', 'list', 'ls', 'remove', 'search'])
+
+// The words that decide what gh runs, or null when they cannot be read from the line. gh takes the word
+// after an unknown option as that option's value when it looks for the subcommand, and the same word can
+// come back later as the PR. So only -R and --repo may come before a subcommand.
+function ghCommandPath(args) {
+  const words = []
+  for (let i = 0; i < args.length; i++) {
+    const t = args[i].text
+    if (args[i].dynamic) return null
+    if (t === '-R' || t === '--repo') {
+      if (args[++i]?.dynamic) return null
+    } else if (t.startsWith('-')) {
+      if (!/^(-R.|--repo=)/.test(t)) return null
+    } else {
+      words.push(t)
+      if (words.length === 2 || !GH_SECOND_WORD.has(words[0])) return words
+    }
+  }
+  return words
+}
+
+// What moves or unprotects a branch, as the path of a REST call.
+const BRANCH_WRITE = /(^|\/)(pulls\/[^/]+\/merge|merges|merge-upstream|git\/refs?(\/.+)?|contents(\/.+)?|branches\/.+\/(rename|protection(\/.+)?)|rulesets(\/.+)?)$/i
+const decodedPath = (t) => {
+  let s = t
+  try {
+    s = decodeURIComponent(t)
+  } catch {}
+  return s.replace(/[?#].*$/, '').replace(/^\/+|\/+$/g, '')
+}
+
+// A query in the line itself can be read. A file, or a mutation of any name, cannot be told from a merge.
+function graphqlOnlyReads(api) {
+  if (api.values['--input']) return false
+  const queries = [...(api.values['--raw-field'] || []), ...(api.values['--field'] || [])].filter((f) => f.startsWith('query='))
+  return queries.length === 1 && /^\s*(query\b|\{)/.test(queries[0].slice(6)) && !/\bmutation\b/i.test(queries[0])
+}
+
+function judgeGhApi(cmd) {
+  const refused = deny('gh.unresolved', {})
+  if (cmd.args.some((a) => a.dynamic)) return refused
   const words = cmd.args.map((a) => a.text)
-  const read = readGhWords(words)
-  const isPrMerge = read.positional[0] === 'pr' && read.positional[1] === 'merge'
-  const isPut = (w, i) => /^(-X|--method=?)put$/i.test(w) || ((w === '-X' || w === '--method') && /^put$/i.test(words[i + 1] || ''))
-  const isApiMerge = words[0] === 'api' && ((words.some((w) => /\/pulls\/[^/?]+\/merge(\?|$)/.test(w)) && words.some(isPut)) || words.some((w) => /mergePullRequest/i.test(w)))
-  if (!isPrMerge && !isApiMerge) return null
-  // Prefixed to the command, these name the PR's repository as --repo does.
-  const ghEnv = Object.fromEntries(['GH_REPO', 'GH_HOST'].filter((k) => cmd.env?.[k] !== undefined).map((k) => [k, cmd.env[k]]))
-  const target = { cwd: cmd.cwd, cwdKnown: cmd.cwdKnown, globalOpts: [], env: ghEnv }
-  const info = cmd.cwdKnown ? ctx.git.info({ ...target, env: {} }) : null
+  const api = readGhWords(words.slice(words.indexOf('api') + 1), GH_API_OPTIONS)
+  if (!api.known || api.positional.length !== 1) return refused
+  const target = decodedPath(api.positional[0])
+  if (/^(api\/)?graphql$/i.test(target)) return graphqlOnlyReads(api) ? null : refused
+  const method = api.values['--method']?.at(-1)?.toUpperCase()
+  const writes = method ? !['GET', 'HEAD'].includes(method) : !!(api.values['--raw-field'] || api.values['--field'] || api.values['--input'])
+  return writes && BRANCH_WRITE.test(target) ? refused : null
+}
+
+// curl with an address and a method in the line. An address in a variable, and other HTTP tools, are not read.
+function judgeCurl(cmd) {
+  const words = cmd.args.map((a) => a.text)
+  const writes = words.some((w, i) => {
+    const m = /^(?:-[A-Za-z]*X|--request=?)(.*)$/.exec(w)
+    if (m) return !/^(GET|HEAD)$/i.test(m[1] || words[i + 1] || '')
+    return /^(-[A-Za-z]*[dFT]|--(data|form|upload-file|json))/.test(w)
+  })
+  if (!writes) return null
+  const hits = words.some((w) => {
+    const url = decodedPath(w.replace(/^--url=/, ''))
+    if (/^(https?:\/\/)?(api\.github\.[^/\s]+\/|[^/\s]+\/api\/)graphql$/i.test(url)) return true
+    const rest = /^(?:https?:\/\/)?[^/\s]+\/(?:api\/v3\/)?repos\/[^/]+\/[^/]+\/(.+)$/.exec(url)
+    return !!rest && BRANCH_WRITE.test(rest[1])
+  })
+  return hits ? deny('gh.unresolved', {}) : null
+}
+
+// The one line a grant is spent on: nothing before or after it, so no folder, variable, wrapper or second
+// command has a say in what gh merges or when. --match-head-commit makes the server refuse a moved head.
+const GRANTED_MERGE = /^gh[ \t]+pr[ \t]+merge[ \t]+(\d+)[ \t]+--repo[ \t]+([A-Za-z0-9][A-Za-z0-9.-]*\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)[ \t]+--match-head-commit[ \t]+([0-9a-f]{40})((?:[ \t]+(?:--squash|--merge|--rebase|-d))*)$/
+const isGrantedMerge = (line, number, repo, head) => {
+  const m = GRANTED_MERGE.exec(String(line ?? '').trim())
+  if (!m || m[1] !== String(number) || m[2] !== repo || m[3] !== head) return false
+  const tail = m[4].trim().split(/[ \t]+/).filter(Boolean)
+  return tail.filter((w) => w !== '-d').length <= 1 && tail.filter((w) => w === '-d').length <= 1
+}
+
+// `gh pr merge`, in any form. A number and a whole [host/]owner/name settle which PR gh merges, so only
+// a line with both can pass. The lookup for other lines only serves to name the line to run instead.
+function judgeGhMerge(cmd, ctx) {
   if (ctx.agentId) return deny('gh.lane_merge', {})
-  if (isApiMerge || !read.known || read.positional.length > 3) return deny('gh.unresolved', {})
-  const pr = ctx.pr(target, { selector: read.positional[2], repo: read.repo })
-  if (!pr || !pr.base) return deny('gh.unresolved', {})
-  const protectedGlobs = ctx.config.project?.git?.protected_branches || []
-  if (!matchAny(pr.base, protectedGlobs, { wide: true })) return allow()
-  // A grant for this very PR, wherever the command runs.
+  const read = readGhWords(cmd.args.map((a) => a.text), GH_MERGE_OPTIONS)
+  const repoWord = read.values['--repo']?.at(-1)
+  const selector = read.positional[2]
+  // Prefixed to the command, these name the PR's repository as --repo does.
+  const env = Object.fromEntries(['GH_REPO', 'GH_HOST'].filter((k) => cmd.env?.[k] !== undefined).map((k) => [k, cmd.env[k]]))
+  // With the repository written out whole, the folder gh runs in does not matter.
+  const folderMatters = !/^[^/]+\/[^/]+\/[^/]+$/.test(repoWord ?? '') || !/^\d+$/.test(selector ?? '')
+  const readable = read.known && read.positional.length <= 3 && (cmd.cwdKnown || !folderMatters) && !cmd.xargs && !cmd.args.some((a) => a.dynamic)
+  const pr = readable ? ctx.pr({ cwd: cmd.cwd, cwdKnown: true, globalOpts: [], env }, { selector, repo: repoWord }) : null
   const key = prKey(pr)
-  if (key && checkGrant(ctx.ownerDir, 'merge-pr', pr.headOid, ctx.now, { dest: pr.base, pr: key }).ok) {
-    ctx.landings = (ctx.landings || 0) + 1
-    ctx.landedCmds?.push(cmd)
-    return allow({ consume: { stateDir: ctx.ownerDir, by: ['gh', ...words].join(' ').slice(0, 120) } })
+  if (!key || !pr.base || !pr.headOid) return deny('gh.unresolved', {})
+  const repo = repoOfKey(key)
+  const named = selector === String(pr.number) && repoWord === repo
+  const method = ['--squash', '--merge', '--rebase'].find((m) => read.seen.has(m))
+  const line = prMergeLine({ number: pr.number, repo, head: pr.headOid, method, del: read.seen.has('--delete-branch') })
+  const vars = { number: pr.number, repo, branch: pr.base, head: shortHead(pr.headOid), ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15, line }
+  const session = ctx.git.remoteAddresses({ cwd: ctx.cwd, globalOpts: [], env: {} })
+  if (!grantNeeded(pr.base, repo, ctx.config.project?.git?.protected_branches, session)) return named ? allow() : deny('gh.form', vars)
+  // Only a grant for this very PR, wherever the command runs. merge-main is for a merge in this folder.
+  if (!checkGrant(ctx.ownerDir, 'merge-pr', pr.headOid, ctx.now, { dest: pr.base, pr: key }).ok) return deny('gh.need_grant', vars)
+  if (!isGrantedMerge(ctx.commandLine, pr.number, repo, pr.headOid)) return deny('gh.form', vars)
+  return allow({ consume: { stateDir: ctx.ownerDir, by: ctx.commandLine.trim().slice(0, 120) } })
+}
+
+// Every gh command is read here. What cannot be told apart from a merge is refused.
+function judgeGh(cmd, ctx) {
+  const refused = deny('gh.unresolved', {})
+  const words = cmd.args.map((a) => a.text)
+  if (words.length === 1 && /^(--version|--help|-h)$/.test(words[0])) return null
+  const path = ghCommandPath(cmd.args)
+  if (!path || (path[0] && !GH_COMMANDS.has(path[0]))) return refused
+  const [first, second] = path
+  if (first === 'pr') {
+    if (second === 'merge') return judgeGhMerge(cmd, ctx)
+    return second === undefined || GH_PR_READS_OR_ELSE.has(second) ? null : refused
   }
-  // A merge-main grant belongs to the repository of this folder, so it says nothing about a PR of a repository named on the line.
-  const namesRepo = read.repo !== undefined || ghEnv.GH_REPO !== undefined || ghEnv.GH_HOST !== undefined
-  if (info && !namesRepo) {
-    const v = withGrant(ctx, info, 'merge-main', pr.headOid, false, { branch: pr.base, source: `PR` }, cmd, { dest: pr.base })
-    if (v.decision === ALLOW || !key) return v
-  } else {
-    ctx.landings = (ctx.landings || 0) + 1
-    ctx.landedCmds?.push(cmd)
-  }
-  if (!key) return deny('gh.unresolved', {})
-  return deny('gh.need_grant', { number: pr.number, repo: key.split('#')[0], branch: pr.base, head: shortHead(pr.headOid), ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15 })
+  if (first === 'api') return judgeGhApi(cmd)
+  if (first === 'repo' && second === 'sync') return words.some((w) => /^--force(=|$)/.test(w)) ? refused : null
+  if (first === 'alias' && ['set', 'import'].includes(second)) return refused
+  if (['extension', 'extensions', 'ext'].includes(first) && second !== undefined && !GH_EXTENSION_SAFE.has(second)) return refused
+  return null
 }
