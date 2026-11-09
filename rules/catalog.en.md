@@ -22,11 +22,11 @@ Force pushes and whole-repository pushes (--all, --mirror) are not allowed for a
 
 ### Protected branches need the owner's grant (`protected-branch-owner-grant`)
 
-Landing work on a protected branch such as main needs the owner's grant. A grant can be used once, within a time limit, and only for the commit named when it was given.
+Landing work on a protected branch such as main needs the owner's grant. A grant can be used once, within a time limit, and only for the commit named when it was given. A merge or push works only on the named destination, and a commit only for what was staged when the grant was given. A line with two or more changes is refused.
 
 - Why: Every piece of work builds on the protected branches. If an agent lands work by itself, unreviewed changes become the base for everyone.
-- Enforced in: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`
-- If blocked: The owner types `/lanekeeper:approve merge-main` (or another action) in the prompt. If a gate command is set, the gate must pass on the same commit first. If the grant has expired, type it again.
+- Enforced in: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
+- If blocked: Run the `lanekeeper-grant` line the block message gives, alone on one line in the main session, to raise a dialog. The owner only presses allow. With a gate command set, the same commit has to pass the gate first, or no dialog opens. If the grant has expired, get a new one.
 
 ### No merging while the gate runs (`gate-lock`)
 
@@ -34,7 +34,7 @@ Nothing is merged while the gate is running.
 
 - Why: If the code changes during a gate run, nobody can tell which commit the result belongs to.
 - Enforced in: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
-- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, ask the owner to type `/lanekeeper:approve clear-gate-lock` in the prompt.
+- If blocked: Try again after the gate finishes. If the gate has stopped and only its lock is left, run `lanekeeper-reap --gate-lock` alone on one line in the main session to raise a dialog.
 
 ### Destructive git commands need confirmation (`no-destructive-git`)
 
@@ -130,11 +130,11 @@ Agents do not write protected paths, Lanekeeper state files or Lanekeeper settin
 
 ### Only a person can grant (`human-only-approve`)
 
-`/lanekeeper:approve` works only when a person types it in the prompt. Accepting a weakened result and clearing a gate lock can also be allowed by a person in a dialog raised from the main session.
+`/lanekeeper:approve` works only when a person types it in the prompt. A grant on a protected branch, accepting a weakened result and clearing a gate lock can also be allowed by a person in a dialog raised from the main session.
 
 - Why: If an agent could create its own grant, the owner's grant would mean nothing.
 - Enforced in: `hooks/scripts/safety/approve.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `skills/approve/SKILL.md`
-- If blocked: Tell the owner which action needs a grant and ask them to type it. To accept a weakened result or clear a gate lock, the main session can also run the command alone on one line to raise a dialog. A lane reports the request to the main session.
+- If blocked: Tell the owner which action needs a grant. The main session first runs the matching command, such as `lanekeeper-grant`, alone on one line to raise a dialog. If that is not possible, ask the owner to type it. A lane reports the request to the main session.
 
 ### Blocked when the check cannot decide (`safety-fails-closed`)
 

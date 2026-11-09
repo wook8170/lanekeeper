@@ -39,4 +39,4 @@ Run `lanekeeper-work progress` whenever the user asks "where are we" and after e
 
 1. Review each lane (`/lanekeeper:review-lane`, when installed), integrate, then report: what was checked, what was not, what remains. Keep checked and unchecked apart.
 2. At the end of every wave hand off: append finished content to `docs/progress-archive/progress-<YYYY-MM>.md` (or run `lanekeeper-waves handoff archive "<summary>"`), rewrite `progress.md` as the current state only, commit both, and tell the user to run `/clear`; say that the handoff is written so the next session can continue.
-3. Do not push or merge into a protected branch. The owner grants that with `/lanekeeper:approve`.
+3. Do not push or merge into a protected branch without the owner's grant. When the owner wants it landed, the main session runs `lanekeeper-grant merge-main|push-main|commit-main [branch-or-commit]`, or for a pull request `lanekeeper-grant merge-pr <number> --repo <owner/name>`, alone on one line to raise a dialog, before asking the owner to type `/lanekeeper:approve`. A subagent cannot raise this dialog, so a lane reports the request to the main session.

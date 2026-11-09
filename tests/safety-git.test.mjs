@@ -119,14 +119,23 @@ test('main: --all / --mirror push and deleting a protected branch are blocked', 
   expect(main('git push origin :main', f.wt.feat), 'deny', 'git.branch_protected')
   expect(main('git push origin --delete release/1.0', f.wt.feat), 'deny', 'git.branch_protected')
 })
-test('main: gh pr merge into a non-protected base is allowed, into a protected base needs a grant', () => {
-  const pr = (base) => ({ pr: () => ({ base, headOid: f.sha('lanekeeper/t/int') }) })
-  expect(f.judge('gh pr merge 3', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: pr('main') }), 'deny', 'grant.missing')
-  f.grant('merge-main', f.sha('lanekeeper/t/int'))
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: pr('main') }), 'allow')
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: pr('main') }), 'deny', 'grant.used')
-  expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: { pr: () => null } }), 'deny', 'gh.unresolved')
+test('main: gh pr merge into a non-protected base is allowed, into a protected base needs a PR grant', () => {
+  const head = f.sha('lanekeeper/t/int')
+  const pr = (base) => ({ pr: () => ({ base, headOid: head, number: 3, url: 'https://github.com/o/r/pull/3' }) })
+  const line = `gh pr merge 3 --repo github.com/o/r --match-head-commit ${head} --squash`
+  git(f.repo, 'remote', 'add', 'origin', 'https://github.com/o/r.git')
+  try {
+    expect(f.judge(line, { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
+    expect(f.judge('gh pr merge 3', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'allow')
+    expect(f.judge('gh pr merge 3; true', { cwd: f.wt.feat, overrides: pr('feature/y') }), 'deny', 'gh.form')
+    expect(f.judge(line, { cwd: f.repo, overrides: pr('main') }), 'deny', 'gh.need_grant')
+    f.grant('merge-main', head)
+    expect(f.judge(line, { cwd: f.repo, overrides: pr('main') }), 'deny', 'gh.need_grant')
+    assert.equal(f.readGrant().used, false)
+    expect(f.judge('gh pr merge 3', { cwd: f.repo, overrides: { pr: () => null } }), 'deny', 'gh.unresolved')
+  } finally {
+    git(f.repo, 'remote', 'remove', 'origin')
+  }
 })
 test('main on integration/feature: switching branch is allowed', () => {
   expect(main('git checkout feature/x', f.wt.int), 'allow')
@@ -216,7 +225,7 @@ test('grant: not spent when another part of the same command is blocked', () => 
 })
 test('grant: one grant covers one action — merge then push needs two', () => {
   f.grant('merge-main', f.sha('lanekeeper/t/int'))
-  expect(main('git merge lanekeeper/t/int && git push origin main'), 'deny', 'grant.action')
+  expect(main('git merge lanekeeper/t/int && git push origin main'), 'deny', 'grant.once')
 })
 test('grant: an owner grant does not help a lane', () => {
   f.grant('merge-main', f.sha('lanekeeper/t/int'))
@@ -228,8 +237,8 @@ test('grant: an owner grant does not help a lane', () => {
 test('chain: checkout/switch to a protected branch, then merge or commit, is judged on the protected branch', () => {
   // main session on the feature worktree; the next command would run on main
   expect(main('git checkout main && git merge feature/x', f.wt.feat), 'deny', 'grant.missing')
-  expect(main('git switch main; git commit --allow-empty -m x', f.wt.feat), 'deny', 'grant.missing')
-  expect(main('git switch release/1.0 && git commit -m x', f.wt.feat), 'deny', 'grant.missing')
+  expect(main('git switch main; git commit --allow-empty -m x', f.wt.feat), 'deny', 'grant.commit_alone')
+  expect(main('git switch release/1.0 && git commit -m x', f.wt.feat), 'deny', 'grant.commit_alone')
 })
 test('chain: switching away from a protected branch lets later commands run on the new branch', () => {
   expect(main('git switch -c topic/new && git commit -m x', f.repo), 'allow')
@@ -239,4 +248,96 @@ test('chain: a switch to an unknown target (git switch -) makes later guarded gi
 })
 test('chain: restoring a file with checkout does not move the branch', () => {
   expect(main('git checkout -- a.txt && git commit -m x', f.wt.feat), 'allow')
+})
+
+// ── one grant, one change, one destination ───────────────────────────
+test('grant: chained changes under one grant are refused, whichever way they are joined', () => {
+  for (const line of ['git commit -m a && git commit -m b', 'git commit -m a; git commit -m b', 'git commit -m a || git commit -m b', 'git commit -m a\ngit commit -m b', '(git commit -m a); git commit -m b']) {
+    f.grant('commit-main', f.sha('HEAD'))
+    expect(main(line), 'deny', 'grant.once')
+    assert.equal(f.readGrant().used, false)
+  }
+  f.grant('push-main', f.sha('main'))
+  expect(main('git push origin main && git push origin main:release/1.0'), 'deny', 'grant.once')
+  expect(main('git push origin main main:release/1.0'), 'deny', 'grant.once')
+  assert.equal(f.readGrant().used, false)
+})
+test('grant: a push or merge to another protected branch than the grant is refused', () => {
+  f.grant('push-main', f.sha('main'))
+  expect(main('git push origin main:release/1.0'), 'deny', 'grant.dest')
+  assert.equal(f.readGrant().used, false)
+  expect(main('git push origin main'), 'allow')
+  f.grant('merge-main', f.sha('lanekeeper/t/int'), { dest: 'release/1.0' })
+  expect(main('git merge lanekeeper/t/int'), 'deny', 'grant.dest')
+  f.grant('merge-main', f.sha('lanekeeper/t/int'))
+  expect(main('git switch release/1.0 && git merge lanekeeper/t/int'), 'deny', 'grant.dest')
+})
+test('commit form: a plain commit passes, the forms that do not use the staged content are refused', () => {
+  f.grant('commit-main', f.sha('HEAD'))
+  expect(main('git commit -am x'), 'deny', 'grant.commit_rebuild')
+  expect(main('git commit a.txt -m x'), 'deny', 'grant.commit_paths')
+  expect(main('git commit --amend -m x'), 'deny', 'grant.commit_amend')
+  expect(main('git cherry-pick abc'), 'deny', 'grant.commit_other')
+  assert.equal(f.readGrant().used, false)
+  expect(main('git commit -m x'), 'allow')
+})
+
+// ── round 3: destinations, remotes and the shape of a grant ─────────
+test('push: a destination the command line does not show counts as --all', () => {
+  for (const c of ["git push origin 'refs/heads/*:refs/heads/*'", 'git push origin :', 'git -c push.default=matching push origin', 'git -c remote.origin.push=+refs/heads/main:refs/heads/main push origin']) expect(main(c, f.wt.feat), 'deny', 'git.push_all')
+})
+test('push: a grant holds the remote address', () => {
+  f.grant('push-main', f.sha('main'))
+  expect(main('git push upstream main'), 'deny', 'grant.remote')
+  assert.equal(f.readGrant().used, false)
+  expect(main('git push origin main'), 'allow')
+})
+test('grant: a function called twice and a push with the tags count as two', () => {
+  f.grant('push-main', f.sha('main'))
+  expect(main('f(){ git push origin main; }; f; f'), 'deny', 'grant.once')
+  expect(main('git push origin --tags main'), 'deny', 'grant.once')
+  assert.equal(f.readGrant().used, false)
+})
+test('grant: a file in a shape this code never writes is refused', () => {
+  f.grant('push-main', f.sha('main'))
+  const file = path.join(f.state, 'owner-grant.json')
+  fs.writeFileSync(file, JSON.stringify({ ...f.readGrant(), version: 2 }))
+  expect(main('git push origin main'), 'deny', 'grant.format')
+})
+test('gh api: a merge is found with the method written together', () => {
+  expect(main('gh api -XPUT repos/o/r/pulls/1/merge'), 'deny', 'gh.unresolved')
+  expect(main('gh api --method=PUT repos/o/r/pulls/1/merge'), 'deny', 'gh.unresolved')
+})
+
+test('push: heads/ in a destination is the protected branch', () => {
+  for (const c of ['git push origin HEAD:heads/main', 'git push origin main:heads/main', 'git push origin HEAD:heads/release/1.0']) expect(main(c), 'deny', 'grant.missing')
+  expect(main('git push origin feature/x:heads/main', f.wt.feat), 'deny', 'grant.missing')
+})
+test('push: a dry run and a remote-tracking destination use no grant', () => {
+  f.grant('push-main', f.sha('main'))
+  assert.notEqual(main('git push origin main --dry').decision, 'deny')
+  assert.notEqual(main('git push origin HEAD:refs/remotes/origin/main').decision, 'deny')
+  assert.equal(f.readGrant().used, false)
+})
+
+test('push: remote.<name>.push decides a refspec without :, so it is refused', () => {
+  git(f.wt.feat, 'config', 'remote.origin.push', 'refs/heads/feature/x:refs/heads/main')
+  try {
+    expect(main('git push origin feature/x', f.wt.feat), 'deny', 'git.push_all')
+    expect(main('git push -u origin feature/x', f.wt.feat), 'deny', 'git.push_all')
+    assert.notEqual(main('git push origin feature/x:feature/x', f.wt.feat).decision, 'deny')
+  } finally {
+    git(f.wt.feat, 'config', '--unset', 'remote.origin.push')
+  }
+  expect(main('git -c remote.origin.push=x push origin feature/x', f.wt.feat), 'deny', 'git.push_all')
+})
+test('push: --no-dry-run and the value of -o are not a dry run', () => {
+  expect(main('git push --dry-run --no-dry-run origin main'), 'deny', 'grant.missing')
+  expect(main('git push -o -n origin main'), 'deny', 'grant.missing')
+})
+test('push: a program that answers the push is refused for a protected branch', () => {
+  f.grant('push-main', f.sha('main'))
+  expect(main('GIT_SSH_COMMAND=/tmp/x git push origin main'), 'deny', 'grant.config')
+  expect(main('git push --receive-pack=/tmp/x origin main'), 'deny', 'grant.config')
+  assert.equal(f.readGrant().used, false)
 })

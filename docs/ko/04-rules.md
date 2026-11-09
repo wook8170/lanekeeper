@@ -89,17 +89,17 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 
 ### 3. 보호 브랜치 반영은 소유자 허가 후 (`protected-branch-owner-grant`)
 
-- 규칙: main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다. 허가는 정해진 시간 안에 한 번만 쓸 수 있고, 허가할 때 지정한 커밋에만 적용된다.
+- 규칙: main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다. 허가는 정해진 시간 안에 한 번만 쓸 수 있고, 허가할 때 지정한 커밋에만 적용된다. 병합과 push 는 지정한 목적지에만, 커밋은 허가할 때 스테이지된 내용에만 쓴다. 한 줄에 반영이 2건 이상이면 거부한다.
 - 왜: 보호 브랜치는 모든 작업의 기준이 된다. 에이전트가 직접 반영하면 검토하지 않은 변경이 기준이 된다.
-- 막혔을 때: 소유자가 프롬프트에 `/lanekeeper:approve merge-main` 처럼 직접 입력한다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 한다. 허가 시간이 지났으면 다시 입력한다.
-- 메시지 코드: `safety.git.main_merge`, `safety.git.branch_protected`, `safety.grant.*`, `safety.stamp.*`, `safety.approve.*`
-- 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`
+- 막혔을 때: 차단 메시지에 적힌 `lanekeeper-grant` 줄을 메인 세션에서 한 줄 단독으로 실행해 확인 창을 띄운다. 소유자는 창에서 허용만 누른다. 게이트 명령을 설정했다면 같은 커밋으로 게이트를 먼저 통과해야 창이 뜬다. 허가 시간이 지났으면 다시 받는다.
+- 메시지 코드: `safety.git.main_merge`, `safety.git.branch_protected`, `safety.git.config_content`, `safety.grant.*`, `safety.stamp.*`, `safety.approve.*`
+- 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `skills/approve/SKILL.md`, `hooks/scripts/safety/approve.mjs`, `bin/lanekeeper-grant`
 
 ### 4. 게이트 실행 중 병합 금지 (`gate-lock`)
 
 - 규칙: 게이트가 실행되는 동안에는 병합하지 않는다.
 - 왜: 게이트 실행 중에 코드가 바뀌면 통과 결과가 어느 커밋의 것인지 알 수 없다.
-- 막혔을 때: 게이트가 끝난 뒤 다시 시도한다. 게이트가 멈춘 채 잠금만 남았다면 소유자에게 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력해 달라고 요청한다.
+- 막혔을 때: 게이트가 끝난 뒤 다시 시도한다. 게이트가 멈춘 채 잠금만 남았다면 메인 세션에서 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행해 확인 창을 띄운다.
 - 메시지 코드: `safety.git.gate_locked`
 - 어디서 지키나: `hooks/scripts/safety/git-guard.mjs`, `bin/lanekeeper-test-report`
 
@@ -168,9 +168,9 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 
 ### 12. 허가 명령은 사람만 입력 (`human-only-approve`)
 
-- 규칙: `/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 띄운 확인 창에 사람이 답해도 된다.
+- 규칙: `/lanekeeper:approve` 는 사람이 프롬프트에 직접 입력했을 때만 동작한다. 보호 브랜치의 허가, 약화 결과 승인, 게이트 잠금 삭제는 메인 세션에서 띄운 확인 창에 사람이 답해도 된다.
 - 왜: 에이전트가 허가를 스스로 만들 수 있으면 소유자 허가 절차가 의미가 없어진다.
-- 막혔을 때: 어떤 작업에 허가가 필요한지 소유자에게 알리고, 직접 입력해 달라고 요청한다. 약화 결과 승인과 게이트 잠금 삭제는 메인 세션에서 명령을 한 줄 단독으로 실행해 창을 띄워도 된다. 레인은 요청을 메인 세션으로 올린다.
+- 막혔을 때: 어떤 작업에 허가가 필요한지 소유자에게 알린다. 메인 세션은 `lanekeeper-grant` 같은 해당 명령을 한 줄 단독으로 실행해 창을 먼저 띄우고, 그것이 안 되면 소유자에게 직접 입력해 달라고 요청한다. 레인은 요청을 메인 세션으로 올린다.
 - 메시지 코드: `safety.approve.*`, `safety.owner.*`
 - 어디서 지키나: `hooks/scripts/safety/approve.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `skills/approve/SKILL.md`
 
@@ -403,7 +403,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 
 - 규칙: 출하 검증은 단위·통합·게이트·e2e·UI 안정성·사용성 등 필수 검증이 모두 현재 커밋에서 통과한 뒤에만 시작한다. 결과가 없거나, 다른 커밋의 것이거나, 실패했으면 먼저 다시 돌려 통과시킨다. 직전 통과 결과보다 시험 수가 줄거나, 건너뜀·보류가 늘거나, 임계값이 완화된 결과는 통과로 보지 않는다. 화면이 있는 제품은 출하 판정 직전에 적대 점검을 한다. 구현과 다른 맥락의 검증자가 그 판에서 바뀐 화면을 점검한다. 검증자는 격리 스택에서 페르소나의 실제 과업을 헤드리스로 끝까지 수행하고 2x 캡처를 남긴다. 그리고 아홉 축(논리적 오류·정보 표기 정합성·사용자 맥락·흐름 맥락·초보 길 잃음·다음 할 일·오류에서 빠져나갈 길·접근성과 좁은 폭·어두운 테마·디자인 시스템 시각 대조)을 모두 본다. 「차단」·「높음」 지적이 남아 있으면 출하하지 않고, 화면을 바꾸는 지적은 모아 오너 확인을 받은 뒤 고친다. 그다음 출하 판정(verifying-production-readiness)을 한다.
 - 왜: 출하 판정은 그 커밋의 실제 시험 결과에 기대야 한다. 오래된 결과나 시험을 줄여 얻은 통과는 판정의 근거가 되지 못한다. 레인별 시험과 디자인 린트 기준선은 처음 쓰는 사람이 헷갈리는 문구, 막다른 화면, 붙은 간격·좁은 줄간격 같은 시각 위반을 걸러 내지 못한다.
-- 막혔을 때: `/lanekeeper:ship-verify` 를 실행한다. `lanekeeper-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 저장소 소유자가 프롬프트에 `/lanekeeper:approve accept-quality <종류> --reason 사유` 를 입력해 승인한다.
+- 막혔을 때: `/lanekeeper:ship-verify` 를 실행한다. `lanekeeper-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 메인 세션에서 `lanekeeper-quality accept <종류> --reason "사유"` 를 한 줄 단독으로 실행해 확인 창을 띄운다.
 - 메시지 코드: `dispatch.ship_precheck`
 - 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 

@@ -50,13 +50,15 @@ test('ttl comes from project.git.owner_grant_ttl_min', () => {
 test('refusals: unknown action, unknown ref, ambiguous integration branch, broken settings', () => {
   assert.equal(approve('deploy').decision, 'block')
   assert.equal(approve('merge-main no-such-branch').decision, 'block')
-  git(f.repo, 'branch', 'lanekeeper/u/int')
+  const lanes = path.join(f.state, 'lanes.json')
+  const saved = fs.readFileSync(lanes, 'utf8')
+  fs.writeFileSync(lanes, '{"lanes":[]}')
   try {
-    const r = approve('merge-main', { cwd: f.wt.feat })
+    const r = approve('merge-main')
     assert.equal(r.decision, 'block')
     assert.match(r.reason, /merge-main <branch>/)
   } finally {
-    git(f.repo, 'branch', '-D', 'lanekeeper/u/int')
+    fs.writeFileSync(lanes, saved)
   }
   f.projectConfig({ git: { owner_grant_ttl_min: 'soon' } })
   assert.equal(approve('merge-main').decision, 'block')
@@ -111,4 +113,31 @@ test('plugin wiring: hooks.json registers both hooks; the skill cannot be invoke
   const skill = fs.readFileSync(path.join(ROOT, 'skills', 'approve', 'SKILL.md'), 'utf8')
   assert.match(skill, /^disable-model-invocation: true$/m)
   for (const s of ['pretool.mjs', 'approve.mjs']) assert.ok(fs.statSync(path.join(ROOT, 'hooks', 'scripts', 'safety', s)).mode & 0o111, s)
+})
+
+test('--to sets the destination; without it the checked-out protected branch is used', () => {
+  approve('merge-main')
+  assert.equal(f.readGrant().dest, 'main')
+  approve('merge-main lanekeeper/t/int --to release/1.0')
+  assert.equal(f.readGrant().dest, 'release/1.0')
+  assert.equal(f.readGrant().head, f.sha('lanekeeper/t/int'))
+  approve('push-main --to=release/1.0')
+  assert.equal(f.readGrant().dest, 'release/1.0')
+  assert.equal(approve('merge-main --to feature/x').decision, 'block')
+  assert.equal(approve('commit-main --to main').decision, 'block')
+})
+test('commit-main holds what is staged, and merge and push do not', () => {
+  approve('commit-main')
+  assert.match(f.readGrant().index, /^[0-9a-f]{40}$/)
+  assert.match(approve('commit-main').hookSpecificOutput.additionalContext, /what is staged now/)
+  approve('push-main')
+  assert.equal(f.readGrant().index, undefined)
+})
+
+test('push-main holds the remote; merge and commit take none', () => {
+  approve('push-main')
+  assert.deepEqual([f.readGrant().remote, f.readGrant().remoteUrl], ['origin', 'origin'])
+  assert.equal(approve('merge-main --remote origin').decision, 'block')
+  assert.equal(approve('commit-main --remote origin').decision, 'block')
+  assert.equal(approve('push-main --remote nope').decision, 'block')
 })

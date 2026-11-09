@@ -32,5 +32,5 @@ After resolution: reserved number series (`project.numbers`) are checked for a n
 ## Do not
 
 - Do not resolve code conflicts by hand in the integration worktree.
-- Do not merge to the protected main branch. When the wave is verified, stop at "ready to merge" and wait for the owner's order (`/lanekeeper:approve`).
+- Do not merge to the protected main branch. When the wave is verified, stop at "ready to merge" and wait for the owner's order. When it comes, the main session runs `lanekeeper-grant merge-main <branch>` alone on one line to raise a dialog, before asking the owner to type `/lanekeeper:approve merge-main <branch>`. A subagent cannot raise this dialog.
 - Do not push.

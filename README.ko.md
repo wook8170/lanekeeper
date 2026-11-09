@@ -119,10 +119,10 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 | PreToolUse (Write, Edit, MultiEdit) | `mockup/mockup-first` | `project.mockup.decision_required` 가 켜져 있으면, 화면 구조를 바꾸기 전에 확정된 시안을 요구한다 |
 | PreToolUse (Bash, Grep) | `codegraph/nudge` | 재귀 `grep` 대신 `rg` 를 쓰라고 알린다 |
 | PreToolUse (codegraph MCP 도구) | `codegraph/deadpath` | 색인이 없는 경로에 같은 호출을 반복하지 않게 막는다 |
-| UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | 한 번만 쓸 수 있는 오너 허가를 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 쓴다 |
+| UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | 한 번만 쓸 수 있는 오너 허가를 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 쓴다. `merge-pr` 는 `~/.lanekeeper/owner/owner-grant.json` 에 쓰고, 이때 `gh pr view` 를 실행한다 |
 | SessionStart | `handoff/session-start`, `auto-retry/session-start`, `terse/session-start`, `codegraph/session-start`, `rules/session-start` | 맥락을 더한다. `progress.md` 요약, 대기 중인 재개, 간결 모드, codegraph 안내, 작업 규칙, 옛 `wb` 이름에 대한 1회 안내가 들어간다 |
 | SessionStart | `worktree/session-sync` | `project.worktree.hook` 이 `true` 일 때만 동작한다. 주 체크아웃의 `.claude/settings.local.json` 에 있는 WorktreeCreate·WorktreeRemove 항목을 현재 플러그인 경로로 맞추고, 설정을 끄면 그 항목을 지운다 |
-| UserPromptSubmit | `token-guard/check`, `load/check` | 사용량과 부하 평균을 읽고, 문턱에 닿으면 한 줄을 더한다 |
+| UserPromptSubmit | `token-guard/check`, `load/check`, `safety/prompt-hint` | 사용량과 부하 평균을 읽고, 문턱에 닿으면 한 줄을 더한다. `/` 없이 입력한 `approve merge-pr` 같은 메시지에는 허가가 생기지 않았다는 한 줄을 더한다 |
 | PostToolUse, PostToolUseFailure (codegraph MCP 도구) | `codegraph/record` | 성공·빈 결과·오류를 `.lanekeeper/metrics/codegraph.jsonl` 에 적는다. 색인이 없는 경로이면 대기열에 넣고, 이 머신에서 `codegraph` 색인 작업을 백그라운드로 시작한다(`project.codegraph.auto_index`, 기본 켜짐) |
 | PostToolUse | `token-guard/check` | 위와 같다 |
 | Stop | `handoff/stop-guard`, `report/artifact-check` | `progress.md` 나 보고서를 갱신할 때까지 세션 종료를 막을 수 있다 |
@@ -138,7 +138,7 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 
 플러그인이 모은 정보는 이 머신 밖으로 나가지 않는다. 기록은 모두 로컬 파일(`${CLAUDE_PLUGIN_DATA}`, `~/.lanekeeper`, `<repo>/.lanekeeper`, `<git 공용 폴더>/lanekeeper`)에 남는다. 플러그인이 직접 보내는 HTTP 요청은 아래의 로컬 확인 하나뿐이고, 인증 정보는 읽지 않는다.
 
-- Claude 가 `gh pr merge` 를 실행하면 `gh pr view` 가 실행된다. 이 명령은 사용자가 이미 로그인한 `gh` 로 GitHub 에 그 PR 의 대상 브랜치를 묻는다.
+- Claude 가 `gh pr merge` 를 실행하거나 `merge-pr` 허가를 만들 때 `gh pr view` 가 실행된다. 이 명령은 사용자가 이미 로그인한 `gh` 로 GitHub 에 그 PR 의 대상 브랜치를 묻는다.
 - 검수의 화면 확인(`lanekeeper-check lane --serve-url`)은 `localhost`·`127.0.0.0/8`·`[::1]` 에서만 페이지 하나를 읽는다.
 - 자동 재개를 켰다면, 재개 작업은 사용자가 직접 실행할 때와 같이 사용자의 Claude Code 로그인으로 `claude` 를 실행한다.
 - 보고 스킬은 Artifact 도구가 있으면 Claude 에게 그 도구로 보고서를 올리라고 지시한다. 그 페이지는 사용자의 claude.ai 계정에 올라간다.
@@ -229,22 +229,24 @@ lanekeeper-route check review --model sonnet            모델 선택 판정(차
 | merge · rebase · pull | 통합 브랜치를 받는 것만 허용 | 차단 | 허용(게이트 잠금 중 차단) | 차단. `merge-main` 허가와 게이트 표식. 자기 upstream 동기화는 허용 |
 | push | 차단 | 차단 | `git.feature_push` 값(ask·allow·deny) | 차단. `push-main` 허가와 게이트 표식 |
 | 강제 push · `--all` · `--mirror` | 차단 | 차단 | 차단 | 차단 |
-| `gh pr merge` | 차단 | 차단 | 대상이 보호 브랜치면 `merge-main` 허가 필요 | 같음 |
+| `gh pr merge` | 차단 | 차단 | 한 줄 단독이면 훅이 번호와 `--repo <호스트/소유자/이름>` 을 적은 줄로 바꿔 실행한다. 보호 브랜치로 가거나 세션 저장소 밖의 PR 이면 `merge-pr` 허가가 필요하다 | 같음 |
 | 다른 브랜치로 checkout · switch | 차단 | 차단 | 허용 | 허용 |
 | 이름 없는 stash · `reset --hard` · `clean -f` · `branch -D` | 확인 요청 | 확인 요청 | 확인 요청 | 확인 요청 |
 | 보호 브랜치 삭제·강제 이동 | 차단 | 차단 | 차단 | 차단 |
 
 명령은 `;` `&&` `||` `|` 와 서브셸, `$( )`, `sh -c`, `eval`, heredoc, `env`·`sudo`·`timeout`·`xargs` 같은 감싸기, 셸 별칭과 git 별칭, `git -C`·`cd`·`GIT_DIR` 를 풀어서 판정한다. 명령 이름이나 대상 폴더가 변수라 실행 전에 알 수 없으면 차단한다.
 
-**소유자 허가.** 보호 브랜치 반영은 저장소 소유자가 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력할 때만 허가된다. 허가는 15분(`git.owner_grant_ttl_min`) 동안 한 번, 입력 시점의 커밋에만 유효하다. 프로젝트에 게이트 명령(`gate.command`)이 있으면 같은 커밋의 게이트 통과 표식도 있어야 한다. 허가는 `UserPromptExpansion` 훅이 만든다. 이 이벤트는 사람이 슬래시 명령을 입력할 때만 발생하므로 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. 모델은 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다.
+**소유자 허가.** 보호 브랜치 반영에는 소유자 허가가 필요하다. 소유자는 프롬프트에 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 입력하거나, 메인 세션에서 `lanekeeper-grant` 가 띄운 확인 창에서 허용한다. 허가는 15분(`git.owner_grant_ttl_min`) 동안 한 번, 허가 시점의 커밋에만 유효하다. 프로젝트에 게이트 명령(`gate.command`)이 있으면 같은 커밋의 게이트 통과 표식도 있어야 한다. 슬래시 경로의 허가는 `UserPromptExpansion` 훅이 만든다. 이 이벤트는 사람이 슬래시 명령을 입력할 때만 발생하므로 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. 모델은 이 스킬을 부를 수 없고 허가 파일을 쓸 수도 없다. `merge-main` · `push-main` 허가는 목적지 브랜치에 묶인다. 목적지는 `--to <브랜치>` 로 정하고, 생략하면 지금 체크아웃한 보호 브랜치, 그것도 아니면 설정의 첫 보호 브랜치가 된다(`push-main` 은 지정한 대상이 보호 브랜치면 그 브랜치). `push-main` 허가는 원격 주소에도 묶인다. 원격은 `--remote <이름>` 으로 정하고, 생략하면 그 브랜치의 기본 원격이 된다. 주소를 직접 쓴 push 는 허가의 주소와 같을 때만 통과한다. `https://` 와 `ssh://` 로 적은 같은 서버 경로는 같은 주소로 본다. `git@host:path` 는 로그인 홈 기준 경로여서 `ssh://host/~/path` 와 같고 `https://host/path` 와는 다르게 본다. 같은 줄에 `core.hooksPath` 류 설정이나, 보호 브랜치 push 의 `core.sshCommand` · `GIT_SSH_COMMAND` · `--receive-pack` 이 있으면 거부한다. `remote.<이름>.push` 는 `:` 없는 refspec 의 목적지를 바꾼다. 그래서 줄이나 저장소에 이 설정이 있는 push 는 거부하고, `git config remote.<이름>.push` 쓰기는 확인 창으로 묻는다. `remote.<이름>.mirror` 가 참인 원격으로 가는 push 도 그 원격의 모든 ref 를 덮어쓰므로 거부한다. 이 설정의 쓰기와 `git remote add --mirror` 도 확인 창으로 묻는다. `commit-main` 허가는 허가할 때 스테이지된 내용으로 만드는 새 커밋 1개에만 유효하므로, 먼저 스테이지하고 허가를 받는다. 스테이지가 달라지거나, `git commit -a` · `git commit <경로>` · `--amend` · `cherry-pick` 처럼 다른 내용으로 커밋을 만들거나, 스테이지를 바꿀 수 있는 명령이 같은 줄에 있으면 거부한다. 한 줄에 반영이 2건 이상이거나 반복문 안에 있어도 거부한다. 함수로 두 번 호출하는 형태와 `--tags` · `--follow-tags` 를 붙인 보호 브랜치 push 도 2건으로 센다. 목적지가 `*` · `?` · 빈 값이거나 `push.default=matching` · `remote.*.push` 처럼 명령줄에서 알 수 없으면 `--all` 처럼 거부한다. `refs/` 아래에 ref 가 하나도 없는 저장소(커밋이 없는 저장소)면 주 체크아웃의 보호 브랜치에서 `commit-main` 으로 첫 커밋을 허가할 수 있다. 고아 브랜치와 연결 워크트리는 이 허가를 받을 수 없다.
+
+**PR 병합 허가.** 보호 브랜치로 가는 `gh pr merge` 가 막히면, 메인 세션의 에이전트가 `lanekeeper-grant merge-pr <번호> --repo <소유자/이름>` 을 한 줄 단독으로 실행한다. 확인 창에는 저장소 · PR 번호 · 제목 · 대상 브랜치 · 머리 커밋 · 유효 시간이 보인다. 소유자는 창에서 허용만 누르면 된다. 그러면 에이전트가 막힌 명령을 다시 실행한다. `gh pr merge [번호] [--repo 이름] [방식] [-d]` 만 있는 줄은 훅이 번호 · 저장소 · 머리 커밋을 적은 줄로 바꿔 실행한다. 창을 띄울 수 없는 모드(`auto` 등)에서는 소유자가 `/lanekeeper:approve merge-pr <번호> --repo <소유자/이름>` 을 입력한다. 이 허가는 저장소 · PR · 머리 커밋 · 대상 브랜치가 모두 같을 때만, 15분 안에 한 번 쓸 수 있다. 저장소에 속하지 않고 `~/.lanekeeper/owner/` 에 저장되므로, 세션 폴더가 다른 저장소이거나 저장소가 아니어도 동작하고 통합 브랜치 이름과도 상관없다. 허가를 쓰는 줄은 앞뒤에 환경 변수 · `cd` · 다른 명령 · 리디렉션을 붙일 수 없고, `--admin` · `--auto` 도 받지 않는다. 머리 커밋을 적게 하므로, 그사이 머리가 움직이면 GitHub 가 병합을 거부한다. 세션 폴더가 PR 저장소의 복사본이 아니면 대상 브랜치와 상관없이 이 허가가 필요하다. 그 저장소의 보호 목록을 이 폴더에서 알 수 없기 때문이다. 서브에이전트는 `gh pr merge` 도 이 창도 쓸 수 없다. `merge-main` 허가는 `git merge` 에만 쓰이고 `gh pr merge` 에는 쓰이지 않는다. 허가가 필요 없는 PR 도 번호와 전체 저장소 이름을 적어야 통과하며, 거부 메시지가 실행할 줄을 알려 준다. 병합으로 알아볼 수 없는 `gh` 줄(변수, 하위 명령 앞의 옵션, 별칭, 확장)과 `gh api` · `curl` 로 병합하거나 브랜치를 옮기는 호출은 거부한다. `/` 를 빼고 `approve merge-pr 162` 처럼 입력하면 허가는 생기지 않고, 그 사실을 에이전트에게 알리는 한 줄이 붙는다.
 
 **소유자의 다른 결정.** 에이전트가 스스로 정하면 안 되는 결정 세 가지도 같은 명령으로 받으며, 입력하는 즉시 적용된다. `/lanekeeper:approve accept-quality <종류> --reason 사유` 는 약화된 시험 결과를 승인한다. `/lanekeeper:approve retry-bypass` 는 자동 재개가 `bypassPermissions` 를 쓰게 한다. `/lanekeeper:approve clear-gate-lock` 은 오래된 게이트 잠금을 지운다. 이 명령이 쓰는 파일은 Bash 나 파일 도구로도 쓸 수 없다. 다만 다른 안전 훅과 마찬가지로 스크립트 파일 안의 명령은 검사하지 못한다.
 
-**확인 창으로 승인.** 약화 결과 승인과 게이트 잠금 삭제는 확인 창으로도 할 수 있다. 메인 세션의 에이전트가 `lanekeeper-quality accept <종류> --reason "사유"` 나 `lanekeeper-reap --gate-lock` 을 한 줄 단독으로 실행하면 창이 뜬다. 창에는 종류 · 커밋 · 약화 내용 · 사유, 또는 잠금의 나이와 프로세스가 보인다. 허용하면 실행되고, 거절하면 아무것도 바뀌지 않는다. `retry-bypass` 는 권한 검사를 끄는 승인이라 슬래시 명령으로만 받는다.
+**확인 창으로 승인.** 보호 브랜치의 허가, 약화 결과 승인, 게이트 잠금 삭제는 확인 창으로도 할 수 있다. 메인 세션의 에이전트가 `lanekeeper-grant merge-main|push-main|commit-main [브랜치나 커밋] [--to 브랜치] [--remote 원격]`, `lanekeeper-quality accept <종류> --reason "사유"`, `lanekeeper-reap --gate-lock` 중 하나를 한 줄 단독으로 실행하면 창이 뜬다. `merge-main` · `push-main` 창에는 동작 · 목적지(`push-main` 은 원격 이름과 비밀번호 · 토큰을 지운 주소 포함) · 보낼 대상 · 짧은 커밋 ID · 커밋 제목 · 유효 시간이 보이고, 게이트 명령이 있는 프로젝트에서는 같은 커밋에 게이트 표식이 있는지도 보인다. `commit-main` 창에는 현재 커밋 위에 새 커밋 1개가 생긴다는 것과 스테이지된 파일 목록이 보인다. 승인 창에는 종류 · 커밋 · 약화 내용 · 사유, 또는 잠금의 나이와 프로세스가 보인다. 허용하면 실행되고, 거절하면 아무것도 바뀌지 않는다. 창을 띄운 뒤 커밋이나 스테이지가 달라지면 허용해도 허가가 생기지 않는다. `retry-bypass` 는 권한 검사를 끄는 승인이라 슬래시 명령으로만 받는다.
 
 다음 경우에는 창을 띄우지 않고 거부하며 슬래시 명령을 안내한다.
 
-- 권한 모드가 `default` · `acceptEdits` · `auto` 가 아닐 때(`plan` · `dontAsk` · `bypassPermissions`)
+- 권한 모드가 `default` · `acceptEdits` · `auto` 가 아닐 때(`plan` · `dontAsk` · `bypassPermissions`). 보호 브랜치 허가 3종은 `auto` 도 거부한다
 - `-p` · SDK 세션일 때
 - 서브에이전트의 요청일 때. 레인 안의 요청은 메인 세션으로 올린다
 - 명령을 묶거나 파이프 · 감싸기 · 경로 · 환경 변수 접두 · 추가 옵션을 붙였을 때
@@ -519,9 +521,11 @@ lanekeeper-index metrics [--days N] # codegraph 응답 분류 집계
 
 - 훅과 명령은 모은 정보를 외부로 보내지 않는다. 예외는 위의 「실행하는 것 · 보내는 것 · 가져오는 것」에 모두 적었다. 안전 훅은 `gh pr merge` 앞에서 대상 브랜치를 알기 위해 `gh pr view` 를 실행하고, 확인하지 못하면 병합을 막는다.
 - 안전 훅은 판정하지 못하면 막고, 나머지 훅은 오류가 나도 작업을 막지 않는다. 훅마다의 동작은 SECURITY.ko.md 의 표에 있다.
-- 안전 훅은 명령 문자열을 판정한다. 스크립트 파일 안의 명령, 다른 언어(python·node)로 실행하는 git·kill 호출, Bash 로 설정 파일을 고치는 경우는 판정 범위 밖이다.
+- 이 훅은 명령의 글자를 읽어 판정하는 로컬 방어선이다. 다른 경로로 실행하면 판정이 일어나지 않으므로, 서버 쪽 브랜치 보호를 대신하지 않는다. 중요한 저장소는 서버의 브랜치 보호를 함께 설정한다.
+- 안전 훅은 명령 문자열을 판정한다. 스크립트 파일 안의 명령, 다른 언어(python·node)로 실행하는 git·kill 호출, Bash 로 설정 파일을 고치는 경우는 판정 범위 밖이다. 셸 낱말(`do` · `then` · `coproc` 등)과 정해진 감싸기 명령(`find -exec` · `flock` · `setsid` · `watch` 등) 뒤의 명령은 판정하고, `parallel` 과 내용을 읽을 수 없는 `cat a | sh` 는 거부한다. 목록에 없는 감싸기 명령 안의 명령은 판정하지 못한다.
+- 저장소에 이미 있는 `pre-commit` 훅이 커밋 중에 스테이지를 바꾸면 `commit-main` 허가와 다른 내용이 커밋된다.
 - 오너 허가 파일은 같은 머신의 다른 프로세스가 직접 쓰는 경우까지 막지는 못한다. 실수를 줄이기 위한 장치다.
-- 소유자 결정의 확인 창은 허용한 쪽이 사람인지 증명하지 못한다. 거절된 창은 이벤트가 없어 기록되지 않는다. 에이전트가 하위 대화형 세션을 띄워 그 창에 답하는 길과, 훅이 알아보지 못하게 표 파일을 위조하는 길은 막지 못한다. 조직 관리 설정과 `--allowedTools` 의 허용 규칙은 훅이 볼 수 없다. 대화형 `bypassPermissions` 와 Remote Control 의 동작은 확인하지 못했다.
+- 소유자 결정의 확인 창은 허용한 쪽이 사람인지 증명하지 못한다. 이 한계는 `main` 에 반영하는 허가에도 적용된다. 거절된 창은 이벤트가 없어 기록되지 않는다. 에이전트가 하위 대화형 세션을 띄워 그 창에 답하는 길과, 훅이 알아보지 못하게 표 파일을 위조하는 길은 막지 못한다. 조직 관리 설정과 `--allowedTools` 의 허용 규칙은 훅이 볼 수 없다. 대화형 `bypassPermissions` 와 Remote Control 의 동작은 확인하지 못했다.
 - 셸로 실행하는 명령은 사용자나 프로젝트 설정이 적은 것뿐이다(`lanekeeper-slot` 으로 감싼 명령, `review.guards`, `worktree.setup`, 게이트 단계). 다른 사람의 저장소를 열 때는 `.lanekeeper/` 의 설정 명령을 먼저 확인한다.
 - 토큰 가드는 `~/.claude.json` 에서 공식 사용량 항목(`cachedUsageUtilization`)과 계정 ID 만 읽고, `~/.claude/projects` 의 대화 기록에서 토큰 사용량 필드와 사용 한도 거절 기록을 읽는다. 공식 사용량도 예산도 없으면 훅은 대화 기록을 읽지 않는다. 대화 본문과 인증 정보는 읽거나 저장하지 않는다.
 

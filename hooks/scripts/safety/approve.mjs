@@ -1,21 +1,22 @@
 #!/usr/bin/env node
 // UserPromptExpansion hook for /lanekeeper:approve.
 //
-// UserPromptExpansion fires only when a person types a slash command, so it is
-// the one place an owner grant can be created. The model cannot reach it: the
-// skill sets disable-model-invocation, and the PreToolUse guard denies the
-// Skill tool for lanekeeper:approve. (UserPromptSubmit is not used: it also fires for
-// subagent reports and messages from other sessions.)
+// UserPromptExpansion fires only when a person types a slash command. The model cannot reach it: the
+// skill sets disable-model-invocation, and the PreToolUse guard denies the Skill tool for
+// lanekeeper:approve. (UserPromptSubmit is not used: it also fires for subagent reports and messages
+// from other sessions.) The other way to a grant is the dialog owner-dialog.mjs raises for
+// lanekeeper-grant. Both routes share resolveTarget and recordGrant below.
 //
-//   /lanekeeper:approve merge-main [ref]   allow one merge of <ref> into a protected branch
-//   /lanekeeper:approve push-main  [ref]   allow one push of <ref> to a protected branch
-//   /lanekeeper:approve commit-main [ref]  allow one commit on a protected branch at <ref>
+//   /lanekeeper:approve merge-main [ref] [--to <branch>]  allow one merge of <ref> into that protected branch
+//   /lanekeeper:approve push-main  [ref] [--to <branch>] [--remote <name>]  allow one push of <ref> to that branch of that remote
+//   /lanekeeper:approve commit-main [ref]  allow one commit of what is staged now, on a protected branch at <ref>
+//   /lanekeeper:approve merge-pr [pr] [--repo <owner/name>]  allow one `gh pr merge` of that PR, at its head now, from any folder
 //   /lanekeeper:approve status             show the current grant
 //   /lanekeeper:approve revoke             delete the current grant
 //
 // Owner decisions that take effect at once, with no grant left behind (an active
 // merge, push or commit grant stays as it is). accept-quality and clear-gate-lock can also be
-// confirmed in a dialog (owner-dialog.mjs); retry-bypass cannot:
+// confirmed in a dialog (owner-dialog.mjs). retry-bypass cannot, because it turns permission checks off:
 //   /lanekeeper:approve accept-quality <kind> --reason <why>   accept a weakened result of <kind>
 //   /lanekeeper:approve retry-bypass       let the automatic resume use bypassPermissions
 //   /lanekeeper:approve clear-gate-lock    remove a gate.lock older than machine.slots.stale_after_min
@@ -23,14 +24,15 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { resolveConfig, projectRoot, stateDir, expandHome } from '../../../lib/config.mjs'
+import { resolveConfig, projectRoot, stateDir, expandHome, lanekeeperHome } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import * as OD from '../../../lib/owner-decisions.mjs'
 import * as Q from '../../../lib/quality.mjs'
 import { setPersonal } from '../../../lib/runtime.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
 import { matchAny, readJsonSafe } from './common.mjs'
-import { ACTIONS, OWNER_ACTIONS, grantPath, writeGrant } from './grant.mjs'
+import { realGit, realPr } from './context.mjs'
+import { ACTIONS, OWNER_ACTIONS, cleanRemoteUrl, grantNeeded, grantPath, isUnborn, ownerDir, prKey, prMergeLine, repoOfKey, shortHead, unbornHead, writeGrant } from './grant.mjs'
 
 // Grant times are stored in UTC; people read them in the machine's local time: 2026-10-17 22:53 (UTC+09:00).
 export function localTime(iso) {
@@ -44,13 +46,16 @@ export function localTime(iso) {
 
 function git(args, cwd) {
   try {
-    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    // This also runs inside the PreToolUse judgement, which has to answer quickly.
+    return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 4000 }).trim()
   } catch {
     return null
   }
 }
 
 const sha = (cwd, ref) => git(['rev-parse', '-q', '--verify', `${ref}^{commit}`], cwd)
+
+const isProtected = (branch, gitCfg) => matchAny(branch, gitCfg.protected_branches || [], { wide: true })
 
 // Which commit the grant is for when no ref is given.
 export function defaultRef(action, cwd, gitCfg) {
@@ -61,13 +66,127 @@ export function defaultRef(action, cwd, gitCfg) {
     const prot = (gitCfg.protected_branches || []).filter((b) => !/[*?]/.test(b)).find((b) => sha(cwd, b))
     return prot || null
   }
-  // merge-main: the integration branch
-  const pattern = gitCfg.integration_branch_pattern || 'lanekeeper/*/int'
+  // merge-main: what is checked out, unless that is the branch merged into. Then the integration branch
+  // of the lane ledger, and then the one branch that holds work not in here. No name pattern is needed.
   const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
-  if (cur && matchAny(cur, [pattern])) return cur
-  const all = (git(['for-each-ref', '--format=%(refname:short)', 'refs/heads'], cwd) || '').split('\n').filter(Boolean)
-  const ints = all.filter((b) => matchAny(b, [pattern]))
-  return ints.length === 1 ? ints[0] : null
+  if (cur && !isProtected(cur, gitCfg)) return cur
+  const integration = ledgerIntegration(cwd)
+  if (integration && sha(cwd, integration)) return integration
+  const waiting = unmergedBranches(cwd, gitCfg)
+  return waiting.length === 1 ? waiting[0] : null
+}
+
+function ledgerIntegration(cwd) {
+  const common = git(['rev-parse', '--git-common-dir'], cwd)
+  const ledger = common ? readJsonSafe(path.join(path.resolve(cwd, common), 'lanekeeper', 'lanes.json')) : null
+  const named = new Set([ledger?.integration, ...(Array.isArray(ledger?.lanes) ? ledger.lanes.map((l) => l?.integration) : [])].filter((b) => typeof b === 'string' && b))
+  return named.size === 1 ? [...named][0] : null
+}
+
+// Branches with commits HEAD does not have, newest first.
+function unmergedBranches(cwd, gitCfg) {
+  const out = git(['for-each-ref', '--no-merged=HEAD', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads'], cwd) || ''
+  return out.split('\n').filter((b) => b && !isProtected(b, gitCfg))
+}
+
+// The first commit of a repository: commit-main on a protected branch, with no commit anywhere yet.
+function firstCommitHead(action, ref, cwd, gitCfg) {
+  if (action !== 'commit-main') return null
+  const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
+  if (!cur || (ref !== 'HEAD' && ref !== cur) || !matchAny(cur, gitCfg.protected_branches || [], { wide: true })) return null
+  return realGit.unborn({ cwd, globalOpts: [], env: {} }) ? unbornHead(cur) : null
+}
+
+// Which protected branch a merge or push lands on when --to is not given.
+function defaultDest(action, ref, cwd, gitCfg) {
+  const named = ref.replace(/^refs\/heads\//, '')
+  if (action === 'push-main' && isProtected(named, gitCfg)) return named
+  const cur = git(['symbolic-ref', '-q', '--short', 'HEAD'], cwd)
+  if (cur && isProtected(cur, gitCfg)) return cur
+  return (gitCfg.protected_branches || []).filter((b) => !/[*?]/.test(b)).find((b) => sha(cwd, b)) || null
+}
+
+// The shared git folder of the repository a folder belongs to, or null.
+function repositoryOf(dir) {
+  const common = git(['rev-parse', '--git-common-dir'], dir)
+  try {
+    return common ? fs.realpathSync(path.resolve(dir, common)) : null
+  } catch {
+    return null
+  }
+}
+
+// `[ref] [--to <branch>] [--remote <name>] [--repo <owner/name>]` -> { ref, to, remote, repo }
+export function parseGrantArgs(words) {
+  const out = {}
+  for (let i = 0; i < words.length; i++) {
+    if (words[i] === '--to') out.to = words[++i] ?? ''
+    else if (words[i].startsWith('--to=')) out.to = words[i].slice(5)
+    else if (words[i] === '--remote') out.remote = words[++i] ?? ''
+    else if (words[i].startsWith('--remote=')) out.remote = words[i].slice(9)
+    else if (words[i] === '--repo') out.repo = words[++i] ?? ''
+    else if (words[i].startsWith('--repo=')) out.repo = words[i].slice(7)
+    else out.ref ??= words[i]
+  }
+  return out
+}
+
+// What a grant would be for -> { ref, head, dest, remote, remoteUrl | index }, or { why, vars } when it
+// cannot be given. A project folder inside the repository is fine; another repository is not.
+export function resolveTarget(action, ref, cwd, gitCfg, { to, remote, root } = {}) {
+  const here = root ? repositoryOf(cwd) : null
+  if (here && repositoryOf(root) !== here) return { why: 'other_root', vars: { top: here, root } }
+  const useRef = ref || defaultRef(action, cwd, gitCfg)
+  if (!useRef) return { why: 'need_ref', vars: { action, candidates: unmergedBranches(cwd, gitCfg).slice(0, 5).join(', ') || '-' } }
+  const head = sha(cwd, useRef) || firstCommitHead(action, useRef, cwd, gitCfg)
+  if (!head) return { why: 'bad_ref', vars: { ref: useRef } }
+  if (remote !== undefined && action !== 'push-main') return { why: 'bad_remote', vars: { remote: cleanRemoteUrl(remote) } }
+  if (action === 'commit-main') {
+    if (to !== undefined) return { why: 'bad_dest', vars: { dest: to } }
+    const index = realGit.writeTree({ cwd, globalOpts: [], env: {} })
+    return index ? { ref: useRef, head, index } : { why: 'bad_index', vars: {} }
+  }
+  const dest = to === undefined ? defaultDest(action, useRef, cwd, gitCfg) : to.replace(/^refs\/heads\//, '')
+  if (!dest) return { why: 'need_dest', vars: { action } }
+  if (!isProtected(dest, gitCfg)) return { why: 'bad_dest', vars: { dest } }
+  if (action === 'merge-main') return { ref: useRef, head, dest }
+  const where = { cwd, globalOpts: [], env: {} }
+  if (remote === '') return { why: 'need_remote', vars: { action } }
+  // a name other than the default has to exist; an address is taken as written
+  const fallback = realGit.defaultRemote(where, dest)
+  if (remote !== undefined && remote !== fallback && !/[:/]/.test(remote) && !realGit.isRemote(where, remote)) return { why: 'bad_remote', vars: { remote } }
+  const named = remote ?? fallback
+  const remoteUrl = realGit.pushAddress(where, named)
+  return remoteUrl ? { ref: useRef, head, dest, remote: cleanRemoteUrl(named), remoteUrl } : { why: 'bad_remote', vars: { remote: cleanRemoteUrl(named) } }
+}
+
+// What a merge-pr grant would be for -> { ref, head, dest, number, repo, title }, or { why, vars }.
+// The session's folder plays no part unless the PR is named by a number alone, as for gh itself.
+export function resolvePrTarget(selector, cwd, gitCfg, { repo, lookup = realPr } = {}) {
+  const unresolved = { why: 'pr_unresolved', vars: { pr: selector ?? '-', repo: repo ?? '-' } }
+  if (String(selector ?? '').startsWith('-') || String(repo ?? '').startsWith('-') || repo === '') return unresolved
+  const pr = lookup({ cwd, globalOpts: [], env: {} }, { selector, repo })
+  const key = prKey(pr)
+  if (!key || !pr.base || !pr.headOid) return unresolved
+  const repoName = repoOfKey(key)
+  if (!grantNeeded(pr.base, repoName, gitCfg.protected_branches, realGit.remoteAddresses({ cwd, globalOpts: [], env: {} }))) return { why: 'pr_not_protected', vars: { pr: key, dest: pr.base } }
+  return { ref: key, head: pr.headOid, dest: pr.base, number: pr.number, repo: repoName, title: pr.title }
+}
+
+// Writes the grant and its line in the decision log, and returns the message for the person.
+export function recordGrant({ sd, action, target, resolved, t, now, session, via }) {
+  const gitCfg = resolved.config.project?.git || {}
+  const ttl = gitCfg.owner_grant_ttl_min || 15
+  const { ref, head, dest, remote, remoteUrl, index, number, repo } = target
+  const g = writeGrant(sd, { action, ref, head, dest, remote, remoteUrl, index, ttlMin: ttl, now, session, via })
+  OD.logDecision(sd, { action, via, ref, head, dest, remote, remoteUrl, index, session }, new Date(now))
+  const vars = { action, ref, head: shortHead(head), dest, remote, url: remoteUrl, ttl, expires: localTime(g.expires) }
+  const bound = t(remote ? 'approve.bound_remote' : dest ? 'approve.bound_dest' : 'approve.bound_index', vars)
+  if (isUnborn(head)) return `${t('approve.granted_first', vars)} ${bound}`
+  const gateCmd = resolved.config.project?.gate?.command
+  const stampNote = gateCmd && ['merge-main', 'push-main'].includes(action) ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
+  const mergeNote = action === 'merge-pr' ? t('approve.merge_line', { line: prMergeLine({ number, repo, head }) }) : via === 'dialog' ? t('approve.run_again') : ''
+  return `${t('approve.granted', vars)} ${bound}` + (stampNote ? ` ${stampNote}` : '') + (mergeNote ? ` ${mergeNote}` : '')
 }
 
 // `<kind> --reason <why>`, the reason running to the end and optionally quoted.
@@ -107,7 +226,7 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
   if (input.command_name !== 'lanekeeper:approve') return null
   if (resolved.errors.length) return block('approve.config_broken', { file: resolved.errors[0].file, key: resolved.errors[0].path })
   const rawArgs = String(input.command_args || '').trim()
-  const [action = '', ref] = rawArgs.split(/\s+/)
+  const [action = '', ...grantWords] = rawArgs.split(/\s+/)
   if (action === 'retry-bypass') {
     setPersonal(env, 'auto_retry.permission_mode', 'bypassPermissions')
     setPersonal(env, 'auto_retry.bypass_ack', true)
@@ -115,33 +234,36 @@ export function handleApprove(input, env = process.env, now = Date.now()) {
     return context(t('approve.retry_bypass'))
   }
   const sd = stateDir(root)
+  const prDir = ownerDir(lanekeeperHome(env))
+  const files = [...(sd ? [grantPath(sd)] : []), grantPath(prDir)]
+  if (action === 'status') {
+    const lines = files.map((file) => readJsonSafe(file)).filter(Boolean).map((g) => {
+      const state = g.used ? t('approve.state.used') : now >= Date.parse(g.expires) ? t('approve.state.expired') : t('approve.state.active')
+      return t('approve.status', { action: g.action, ref: g.ref, head: shortHead(g.head), expires: localTime(g.expires), state })
+    })
+    return context(lines.join('\n') || t('approve.none'))
+  }
+  if (action === 'revoke') {
+    for (const file of files) fs.rmSync(file, { force: true })
+    return context(t('approve.revoked'))
+  }
+  if (action === 'merge-pr') {
+    const { ref, to, remote, repo } = parseGrantArgs(grantWords)
+    if (to !== undefined || remote !== undefined) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
+    const target = resolvePrTarget(ref, cwd, resolved.config.project?.git || {}, { repo })
+    if (target.why) return block(`approve.${target.why}`, target.vars)
+    return context(recordGrant({ sd: prDir, action, target, resolved, t, now, session: input.session_id, via: 'slash' }))
+  }
   if (!sd) return block('approve.not_git', {})
   if (action === 'accept-quality') return acceptQuality(rawArgs.slice(action.length), root, sd, resolved, t, block, context)
   if (action === 'clear-gate-lock') return clearGateLock(sd, resolved, env, now, t, block, context)
-  const file = grantPath(sd)
-
-  if (action === 'status') {
-    const g = readJsonSafe(file)
-    if (!g) return context(t('approve.none'))
-    const state = g.used ? t('approve.state.used') : now >= Date.parse(g.expires) ? t('approve.state.expired') : t('approve.state.active')
-    return context(t('approve.status', { action: g.action, ref: g.ref, head: String(g.head).slice(0, 9), expires: localTime(g.expires), state }))
-  }
-  if (action === 'revoke') {
-    fs.rmSync(file, { force: true })
-    return context(t('approve.revoked'))
-  }
   if (!ACTIONS.includes(action)) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
 
-  const gitCfg = resolved.config.project?.git || {}
-  const useRef = ref || defaultRef(action, cwd, gitCfg)
-  if (!useRef) return block('approve.need_ref', { action })
-  const head = sha(cwd, useRef)
-  if (!head) return block('approve.bad_ref', { ref: useRef })
-  const ttl = gitCfg.owner_grant_ttl_min || 15
-  const g = writeGrant(sd, { action, ref: useRef, head, ttlMin: ttl, now, session: input.session_id })
-  const gateCmd = resolved.config.project?.gate?.command
-  const stampNote = gateCmd && action !== 'commit-main' ? t('approve.stamp_needed', { stamp: path.join(sd, `${gitCfg.gate_stamp || 'lanekeeper-gate-pass'}.json`) }) : ''
-  return context(t('approve.granted', { action, ref: useRef, head: head.slice(0, 9), ttl, expires: localTime(g.expires) }) + (stampNote ? ` ${stampNote}` : ''))
+  const { ref, to, remote, repo } = parseGrantArgs(grantWords)
+  if (repo !== undefined) return block('approve.usage', { actions: ACTIONS.join(' | '), owner: OWNER_ACTIONS.join(' | ') })
+  const target = resolveTarget(action, ref, cwd, resolved.config.project?.git || {}, { to, remote, root })
+  if (target.why) return block(`approve.${target.why}`, target.vars)
+  return context(recordGrant({ sd, action, target, resolved, t, now, session: input.session_id, via: 'slash' }))
 }
 
 if (process.argv[1] && fs.realpathSync(path.resolve(process.argv[1])) === fs.realpathSync(fileURLToPath(import.meta.url))) {

@@ -36,7 +36,12 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | `레인은 자기 레인 브랜치(…)에만 커밋할 수 있습니다` | 레인이 다른 브랜치에서 커밋하려 했다 | 자기 레인 워크트리로 가서 커밋한다 |
 | `레인은 push 할 수 없습니다` | 레인이 push 하려 했다 | 커밋만 하고 보고한다. push 는 메인 세션이 정한다 |
 | `강제 push(--force, --force-with-lease, +refspec)는 누구에게도 허용하지 않습니다` | 강제 push | 원격을 받아 일반 push 로 올린다. 이력을 고쳐야 하면 소유자에게 요청한다 |
-| `보호 브랜치 … 에 대한 이 작업(…)은 소유자 허가가 필요한데 허가가 없습니다` | 보호 브랜치 병합·push·커밋 | 소유자가 `/lanekeeper:approve merge-main`(또는 `push-main`, `commit-main`)을 직접 입력한다. push 를 막았을 때 메시지의 브랜치 이름은 대상이 아니라 지금 체크아웃한 브랜치로 나온다 |
+| `보호 브랜치 … 에 대한 이 작업(…)은 소유자 허가가 필요한데 허가가 없습니다` | 보호 브랜치 병합·push·커밋 | 메시지에 적힌 폴더에서 메시지에 적힌 `lanekeeper-grant` 줄을 한 줄 단독으로 실행해 확인 창을 띄운다. 오너가 허용을 누르면 막힌 명령을 다시 실행한다. push 를 막았을 때 메시지의 브랜치 이름은 대상이 아니라 지금 체크아웃한 브랜치로 나온다 |
+| `… 의 PR #… 를 … 에 병합하려면 이 PR 의 소유자 허가가 필요합니다` | 보호 브랜치나 세션 저장소 밖 PR 로 가는 `gh pr merge` | 메인 세션에서 메시지에 적힌 `lanekeeper-grant merge-pr <번호> --repo <호스트/소유자/이름>` 으로 확인 창을 띄운다. 오너가 허용을 누르면 막힌 명령을 다시 실행한다. 창을 띄울 수 없는 모드면 소유자가 `/lanekeeper:approve merge-pr <번호> --repo <호스트/소유자/이름>` 을 입력한다 |
+| `PR 병합을 이 형태로 적지 않아 막았습니다` | 병합 줄 앞뒤에 다른 것을 붙였거나, 정해진 형태 밖의 옵션을 적은 병합 | 메시지에 적힌 줄을 그대로 실행한다 |
+| `… 를 쓰는 이 명령은 소유자 허가 폴더까지 닿을 수 있습니다` | 끝에 슬래시가 있는 원본, 글로브 · 변수로 적은 원본을 `~` 같은 상위 폴더로 복사했다 | 파일 이름을 하나씩 적거나 대상을 홈 아래의 다른 폴더로 적는다. 오너가 할 일은 없다 |
+| `… 대상 브랜치가 하나로 정해지지 않습니다` | 병합되지 않은 브랜치가 여럿인데 `lanekeeper-grant merge-main` 에 대상을 적지 않았다 | 메시지의 후보에서 골라 `lanekeeper-grant merge-main <브랜치>` 를 실행한다 |
+| `이 gh 명령이 병합이나 보호 브랜치 변경인지 판정할 수 없어 막았습니다` | 변수를 쓴 병합 · `gh api`, 하위 명령 앞의 옵션, 별칭 · 확장, 브랜치를 옮기는 `gh api` · `curl` | 값을 글자로 적는다. 병합은 `gh pr merge` 로 하고, 별칭은 원래 명령으로 적는다 |
 | `커밋 … 에 대한 게이트 통과 표식이 없습니다` | `project.gate.command` 가 설정된 프로젝트에서 반영할 커밋으로 게이트를 통과시킨 적이 없다 | 그 커밋을 체크아웃한 폴더(보통 통합 브랜치)에서 `lanekeeper-test-report gate-pass` 나 `lanekeeper-test-report run` 을 끝까지 통과시킨다. 커밋하지 않은 변경이 있으면 표식을 남기지 않는다 |
 | `게이트 통과 표식이 다른 커밋(…)의 것입니다` | 표식을 남긴 뒤 결과 파일 말고 다른 변경이 커밋됐다 | 지금 커밋에서 게이트를 다시 돌린다 |
 | `검증 게이트가 실행 중입니다` | `lanekeeper-test-report run` 이 게이트 잠금을 잡고 있다 | 끝난 뒤 다시 실행한다. 비정상 종료로 잠금이 남았으면, 잠금이 `machine.slots.stale_after_min` 보다 오래된 뒤 소유자가 프롬프트에 `/lanekeeper:approve clear-gate-lock` 을 입력하거나, 메인 세션에서 `lanekeeper-reap --gate-lock` 이 띄운 창에서 허용한다 |
@@ -54,7 +59,13 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | 보호 포트를 쓰는 프로세스 종료 차단 | `kill <PID>` 대상이 `machine.ports.protected` 포트를 쓴다 | 소유자에게 요청한다 |
 | `` `~/` 를 통째로 지우면 홈·시스템·프로젝트 전체가 사라집니다`` | 홈·루트·프로젝트 루트·`.git` 삭제 | 지울 하위 폴더를 정확히 지정한다 |
 | `창이 뜨는 브라우저 실행(…)은 새 창을 띄워, 사용 중인 화면의 포커스를 그 창으로 옮깁니다` · `… 는 브라우저 창을 엽니다` | 헤드리스가 아닌 브라우저, `open` | `--headless=new` 를 붙이거나 Playwright 기본(헤드리스)으로 실행하고 결과 파일을 공유한다 |
-| `… 는 Lanekeeper 상태 파일(소유자 허가·게이트 표식·레인 대장)입니다` | Claude 가 Lanekeeper 상태 파일을 쓰려 했다 | 허가는 `/lanekeeper:approve`, 원장은 `lanekeeper-waves` 로만 바꾼다 |
+| `한 줄에 보호 브랜치 반영이 여러 건 있거나 반복문 안에 있습니다` | 커밋 · push · 병합을 한 줄에 묶었다 | 한 번에 하나씩 실행하고, 건마다 허가를 받는다 |
+| `이 허가의 주소(…)와 지금 push 하려는 주소(…)가 다릅니다` | 허가와 다른 원격으로 push 했다 | 주소를 확인하고 `--remote <원격>` 으로 허가를 다시 받는다 |
+| `실행 전에 무엇을 하는지 판정할 수 없습니다` | `cat a \| sh`, `sh < 파일`, `parallel` 처럼 안의 명령을 읽을 수 없다 | 실행할 명령을 글자 그대로 적는다 |
+| `… 는 git 훅이나 git 설정, 또는 이를 채우는 경로입니다` | 읽기만 하는 것으로 정해 둔 명령 밖에서 `.git/hooks/*` · `.git/config` 를 적었거나, `git init --template` · `.git/` 대상 복사를 하려 했다 | 무엇을 쓰는지 확인한 뒤 확인 창에서 답한다 |
+| `허가한 뒤 스테이지 내용이 달라졌습니다` | `commit-main` 허가를 받은 뒤 스테이지를 바꾸었다 | 스테이지를 끝낸 뒤 허가를 다시 받는다 |
+| `이 허가의 목적지(…)와 지금 반영하려는 브랜치(…)가 다릅니다` | 허가와 다른 보호 브랜치로 병합·push 했다 | 목적지를 확인하고 `--to <브랜치>` 로 허가를 다시 받는다 |
+| `… 는 Lanekeeper 상태 파일(소유자 허가·게이트 표식·레인 대장)입니다` | Claude 가 Lanekeeper 상태 파일을 쓰려 했다 | 허가는 `/lanekeeper:approve` 나 `lanekeeper-grant` 의 확인 창으로, 원장은 `lanekeeper-waves` 로만 바꾼다 |
 | `… 는 보호 경로(…)입니다` | `project.protected_paths` 에 쓰기 | 소유자에게 요청한다 |
 | `Lanekeeper 설정에 오류가 있어 안전 판정을 할 수 없습니다` | 설정 파일 형식 오류 | 메시지의 파일과 키를 고치고 `lanekeeper-config validate` 로 확인한다. 고칠 때까지 git 반영·프로세스 종료·삭제·브라우저 실행이 막힌다 |
 | 명령 대상을 실행 전에 알 수 없어 막음 | 명령 이름이나 대상 폴더가 변수다 | 변수를 풀어 실제 값으로 적는다 |
@@ -116,7 +127,7 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 `~/.lanekeeper/routing.json` 의 `denied` 에 모델 이름을 넣는다. 그 모델은 대체 순서에서 빠진다.
 
 **`/lanekeeper:approve` 를 Claude 에게 시킬 수 있나?**
-없다. 이 스킬은 사람이 프롬프트에 직접 입력할 때만 허가를 만든다. 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. `accept-quality`·`retry-bypass`·`clear-gate-lock` 도 같다. 다만 메인 세션의 에이전트는 `lanekeeper-quality accept` 나 `lanekeeper-reap --gate-lock` 으로 확인 창을 띄울 수 있고, 그 창에는 사람이 답한다.
+없다. 이 스킬은 사람이 프롬프트에 직접 입력할 때만 허가를 만든다. 서브에이전트 보고나 다른 세션의 메시지로는 허가가 생기지 않는다. `accept-quality`·`retry-bypass`·`clear-gate-lock` 도 같다. 다만 메인 세션의 에이전트는 `lanekeeper-grant`, `lanekeeper-quality accept`, `lanekeeper-reap --gate-lock` 으로 확인 창을 띄울 수 있고, 그 창에는 사람이 답한다.
 
 **codegraph 가 없어도 되나?**
 된다. 관련 훅과 명령은 아무것도 하지 않는다. 설치하면 새 워크트리마다 색인 작업을 대기열에 넣어 만든다.
@@ -144,5 +155,5 @@ Claude Code 안에서는 `/lanekeeper:explain` 과 `/lanekeeper:doctor` 가 같�
 | 항목 | 영향 | 지금 할 수 있는 것 |
 |---|---|---|
 | UI 안정성 점검과 용어 검사 | 이 판에 포함되지 않았다. 설정 키(`project.ui_stability.*`, `project.glossary.terms_scan`·`copy_globs`)는 예약 상태다 | 이후 판에서 추가된다 |
-| 소유자 결정의 확인 창 | 허용한 쪽이 사람인지 코드로 증명하지 못한다. 거절은 기록되지 않는다. 에이전트가 하위 대화형 세션을 띄워 창에 답하는 길과, 훅이 알아보지 못하게 표 파일을 위조하는 길은 막지 못한다. 대화형 `bypassPermissions` 와 Remote Control 의 동작은 확인하지 못했다 | `/lanekeeper:approve` 를 쓴다. 조직 관리 설정과 `--allowedTools` 의 허용 규칙은 훅이 볼 수 없으므로 이 명령을 넣지 않는다 |
-| 안전 훅의 판정 범위 | 스크립트 파일 안의 명령, python·node 로 실행하는 git·kill 호출은 판정하지 않는다 | 위험한 작업을 스크립트로 감싸지 않는다 |
+| 소유자 결정의 확인 창 | 보호 브랜치 허가 창은 `auto` 에서 띄우지 않는다. 허용한 쪽이 사람인지 코드로 증명하지 못한다. 이 한계는 `main` 에 반영하는 허가에도 적용된다. 거절은 기록되지 않는다. 에이전트가 하위 대화형 세션을 띄워 창에 답하는 길과, 훅이 알아보지 못하게 표 파일을 위조하는 길은 막지 못한다. 대화형 `bypassPermissions` 와 Remote Control 의 동작은 확인하지 못했다 | `/lanekeeper:approve` 를 쓴다. 조직 관리 설정과 `--allowedTools` 의 허용 규칙은 훅이 볼 수 없으므로 이 명령을 넣지 않는다 |
+| 안전 훅의 판정 범위 | 스크립트 파일 안의 명령, python·node 로 실행하는 git·kill 호출, 목록에 없는 감싸기 명령 안의 명령은 판정하지 않는다. 저장소에 이미 있는 `pre-commit` 훅이 스테이지를 바꾸는 경우도 막지 못한다 | 위험한 작업을 스크립트로 감싸지 않는다 |
