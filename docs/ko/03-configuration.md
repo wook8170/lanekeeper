@@ -211,6 +211,10 @@ lanekeeper-config validate
 | `project.quality.ship.enforce` | `"deny"` | 관문 훅의 동작. `deny`(막음) · `warn`(알림만) · `off` | `"warn"` |
 | `project.quality.ship.agents` | `["readiness-auditor"]` | 관문을 거쳐야 하는 서브에이전트 종류(`플러그인:이름` 의 이름 부분도 맞춤) | 기본값 유지 |
 | `project.quality.ship.skills` | `["verifying-production-readiness"]` | 관문을 거쳐야 하는 스킬. 서브에이전트 지시문에 이 이름이 있어도 관문을 거친다 | 기본값 유지 |
+| `project.release.security_check` | `""` | 출하 전 보안 점검 관문 명령. 정하면 출하 검증 시작 · 보호 브랜치 반영 · 릴리스 태그 push 전에 그 커밋의 보안 관문 표식이 있어야 한다. 표식은 `lanekeeper-test-report security-pass` 가 남긴다. 비어 있으면 출하 검증 때 「보안 관문 미설정」 경고만 낸다 | `"pnpm security:release-check"` |
+| `project.release.security_required` | `false` | `true` 면 명령이 비어 있을 때도 막는다 | `true` |
+| `project.release.security_stamp` | `"lanekeeper-security-pass"` | 보안 관문 통과 표식 파일 이름(`<git 공용 폴더>/lanekeeper/<이름>.json`) | 기본값 유지 |
+| `project.release.tag_patterns` | `["v*"]` | 릴리스 태그로 보는 태그 이름. 이 태그를 push 하면 태그 커밋의 보안 관문 표식을 본다 | `["v*","studio-v*"]` |
 
 `quality.suites` 의 각 항목:
 

@@ -390,11 +390,14 @@ lanekeeper-test-report init                  .lanekeeper/verify.config.json 생�
 lanekeeper-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
 lanekeeper-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
 lanekeeper-test-report gate-pass             project.gate.command 실행, 통과하면 게이트 통과 표식
+lanekeeper-test-report security-pass [--force]  project.release.security_check 실행, 통과하면 보안 관문 표식(이미 통과한 커밋은 다시 돌리지 않음)
 lanekeeper-test-report latest | summary [--json]
 lanekeeper-check test-results [--json] [--require-pass]
 ```
 
 `lanekeeper-test-report run`·`gate` 는 실행하는 동안 `<git 공용 폴더>/lanekeeper/gate.lock` 을 잡아 둔다. 그동안 병합은 기다리고, 다른 게이트 실행은 종료 코드 3 으로 멈춘다. 실행이 끝나면 잠금을 지운다. `run`(일부만 고르는 `--only`·`--skip` 없이)이나 `gate-pass` 가 통과하고 커밋하지 않은 변경이 없으면 `<git 공용 폴더>/lanekeeper/<git.gate_stamp>.json` 에 게이트 통과 표식(커밋 HEAD·시각·명령)을 남긴다. 보호 브랜치 반영 판정은 이 표식을 읽고, 표식 뒤에 결과 폴더(`paths.test_results`) 안의 파일만 바뀐 커밋은 같은 커밋으로 본다. `lanekeeper-check test-results` 의 HEAD 비교도 같은 규칙을 따른다.
+
+출하 전 보안 점검 관문은 `project.release.security_check` 로 정한다(P3vot 예: `pnpm security:release-check`, 설정 예 [`examples/p3vot-config.json`](examples/p3vot-config.json)). `lanekeeper-test-report security-pass` 가 통과하면 `<git 공용 폴더>/lanekeeper/<release.security_stamp>.json` 에 표식을 남긴다. 출하 검증 시작 · 보호 브랜치 병합과 push · `release.tag_patterns` 에 맞는 태그 push 는 그 커밋에 이 표식이 있어야 한다. 표식이 있는 커밋은 다시 묻지 않는다. 명령이 비어 있으면 출하 검증 때 「보안 관문 미설정」 경고만 내고, `release.security_required` 가 `true` 면 막는다.
 
 단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `lanekeeper-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
 

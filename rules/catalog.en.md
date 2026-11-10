@@ -326,6 +326,14 @@ Ship verification starts only after every required verification (unit, integrati
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 - If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it by typing `/lanekeeper:approve accept-quality <kind> --reason why` in the prompt.
 
+### Release security gate passes before shipping (`release-security-gate`)
+
+In a project whose `release.security_check` names a security check command, ship verification starts only when that commit has a passed gate stamp. The same applies to merges and pushes to protected branches and to release tag pushes. A missing stamp, or one from another commit or another command, blocks. An empty command also blocks when `release.security_required` is on. With a security gate, `git push --tags` is refused and tags are pushed by name.
+
+- Why: The security check ran only when someone remembered to run it, so versions reached the ship stage without it. Tying a pass stamp to the shipped commit means the check cannot be skipped.
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
+- If blocked: In a working folder that has the commit to ship checked out, run `lanekeeper-test-report security-pass` until the gate passes. If it fails, fix what the security check reports and run it again. If the command is empty, fill `release.security_check` in `.lanekeeper/config.json`.
+
 ### Reserve numbers first (`number-reservation`)
 
 Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.

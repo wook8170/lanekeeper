@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Added
+- 출하 전 보안 점검 관문(`project.release`). `release.security_check` 에 프로젝트의 보안 점검 명령을 적으면(P3vot 예: `pnpm security:release-check`) 출하 검증 시작 · 보호 브랜치 병합과 push · 릴리스 태그(`release.tag_patterns`, 기본 `v*`) push 전에 그 커밋의 보안 관문 표식을 본다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막고, 실행할 명령을 알린다. 허가 확인 창도 표식이 없으면 띄우지 않는다
+- `lanekeeper-test-report security-pass [--force]`: 보안 점검 명령을 깨끗한 HEAD 에서 실행하고, 통과하면 `<git 공용 폴더>/lanekeeper/<release.security_stamp>.json` 표식을 남긴다. 이미 통과한 커밋은 다시 돌리지 않는다
+- 명령이 비어 있으면 출하 검증 때 「보안 관문 미설정」 경고만 낸다. `release.security_required: true` 면 막는다. 보안 관문이 있는 프로젝트에서 `git push --tags` 는 태그를 이름으로 push 하라고 안내하며 거부한다
+- 설정 예 `examples/p3vot-config.json`, 시험 `tests/release-security.test.mjs`
+- 규칙 `release-security-gate`(규칙 53개)
+
+### Changed
+- 출하 검증 관문 훅은 `quality.ship.requires` 가 비어 있어도 출하 검증 호출에서 보안 관문을 본다. 그래서 보안 관문을 정하지 않은 프로젝트에는 「보안 관문 미설정」 경고가 붙는다
+
 ## [0.2.4] - 2026-11-10
 
 ### Added

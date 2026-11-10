@@ -357,11 +357,14 @@ lanekeeper-test-report init                  create .lanekeeper/verify.config.js
 lanekeeper-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
 lanekeeper-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
 lanekeeper-test-report gate-pass             run project.gate.command; a pass writes the gate pass stamp
+lanekeeper-test-report security-pass [--force]  run project.release.security_check; a pass writes the security stamp (not run again on a commit that passed)
 lanekeeper-test-report latest | summary [--json]
 lanekeeper-check test-results [--json] [--require-pass]
 ```
 
 `lanekeeper-test-report run` and `gate` hold `<git common dir>/lanekeeper/gate.lock` while they run. Merges wait meanwhile, and a second gate run stops with exit code 3. The lock is removed when the run ends. When `run` (without `--only` or `--skip`, which pick a part) or `gate-pass` passes with no uncommitted changes, it writes the gate pass stamp (HEAD commit, time, command) to `<git common dir>/lanekeeper/<git.gate_stamp>.json`. The protected-branch check reads that stamp, and treats commits after it that change only files in the results folder (`paths.test_results`) as the same commit. The HEAD comparison in `lanekeeper-check test-results` follows the same rule.
+
+The security gate to pass before shipping is set in `project.release.security_check` (P3vot: `pnpm security:release-check`, see [`examples/p3vot-config.json`](examples/p3vot-config.json)). When `lanekeeper-test-report security-pass` passes, it writes a stamp to `<git common dir>/lanekeeper/<release.security_stamp>.json`. Ship verification, merges and pushes onto a protected branch, and pushes of a tag matching `release.tag_patterns` need that stamp on the commit. A commit that has it is not asked again. With no command, ship verification only warns that the gate is not configured; `release.security_required: true` blocks instead.
 
 Each stage names an `adapter` (vitest, jest, playwright, pytest), a `kind` (unit, integration, e2e, uistab), a `cmd` (`{file}` is where the structured output goes) and a `slot` (`heavy`, `heavy,browser`, `none`). Heavy stages run inside `lanekeeper-slot`. A run that only left logs is read with `build --input adapter:kind:name=log=<log>`.
 

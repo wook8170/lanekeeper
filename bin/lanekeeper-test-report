@@ -7,6 +7,8 @@
 //                                              gate -> every stage -> workbook, no bail
 //   lanekeeper-test-report gate [--no-bail] [--skip a]  gate steps one by one into gate.json
 //   lanekeeper-test-report gate-pass                   run project.gate.command; on a pass write the gate pass stamp
+//   lanekeeper-test-report security-pass [--force]     run project.release.security_check; on a pass write the release
+//                                              security stamp (skipped when this commit already passed)
 //   lanekeeper-test-report build [core options]        workbook from results (default: newest folder under test_runs_raw)
 //   lanekeeper-test-report latest                      path of the newest workbook
 //   lanekeeper-test-report summary [--json]            counts of the newest workbook (for /lanekeeper:report)
@@ -28,8 +30,9 @@ const { load, parseOptions } = await imp('cli.mjs')
 const { stateDir } = await imp('config.mjs')
 const { translator } = await imp('i18n.mjs')
 const R = await imp('testresults.mjs')
+const REL = await imp('release.mjs')
 
-const BOOLEANS = ['json', 'require', 'no-slot', 'no-bail']
+const BOOLEANS = ['json', 'require', 'no-slot', 'no-bail', 'force']
 const argv = process.argv.slice(2)
 const args = parseOptions(argv, BOOLEANS)
 const { root, resolved } = load(args)
@@ -147,6 +150,35 @@ const COMMANDS = {
     if (code !== 0) warn(t('tr.stamp.failed', { code }))
     stampAfter(before, command, code)
     process.exit(code)
+  },
+  // Release security gate. Same trust as gate-pass: the command comes from the project config.
+  'security-pass'() {
+    const st = REL.securityState(root, resolved.config)
+    if (st.state === 'unconfigured' || st.state === 'unset') {
+      warn(t('tr.security.unset'))
+      process.exit(2)
+    }
+    if (st.state === 'ok' && !args.force) {
+      print(t('tr.security.already', { head: st.head.slice(0, 9), file: st.file }))
+      process.exit(0)
+    }
+    const before = R.headState(root)
+    print(t('tr.security.running', { command: st.command }))
+    const r = spawnSync('sh', ['-c', st.command], { cwd: root, stdio: 'inherit' })
+    const code = r.status ?? 1
+    if (code !== 0) {
+      warn(t('tr.security.failed', { code }))
+      process.exit(code)
+    }
+    const after = R.headState(root)
+    if (!before.head || !before.clean || !after.clean || after.head !== before.head) {
+      warn(t('tr.security.not_clean'))
+      process.exit(1)
+    }
+    const file = R.securityStampFile(stateDir(root), resolved.config)
+    R.writeGateStamp(file, { head: before.head, command: st.command })
+    print(t('tr.security.written', { head: before.head.slice(0, 9), file }))
+    process.exit(0)
   },
   build() {
     if (!ready()) return finish(0, true)

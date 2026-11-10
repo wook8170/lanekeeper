@@ -1,6 +1,6 @@
 # 규칙 안내
 
-Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서는 규칙마다 무엇을 막는지, 왜 막는지, 걸렸을 때 어떻게 고치는지를 적었다.
+Lanekeeper 는 아래 규칙 53개를 훅과 명령으로 지킨다. 이 문서는 규칙마다 무엇을 막는지, 왜 막는지, 걸렸을 때 어떻게 고치는지를 적었다.
 
 훅의 판정은 세 가지다. 차단은 명령을 실행하지 않는다. 확인 요청은 사용자에게 진행 여부를 묻는다. 안내는 명령을 실행하고 다음에 할 일을 알려 준다.
 
@@ -53,19 +53,20 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 | 37 | 시험 결과는 엑셀로 저장 | `test-results-workbook` | 품질과 문서 |
 | 38 | 설계는 적대 검증 「높음 0건」 뒤에 구현 | `design-adversarial-review` | 품질과 문서 |
 | 39 | 출하 검증 전에 선행 검증 통과 | `ship-precheck` | 품질과 문서 |
-| 40 | 번호는 먼저 예약 | `number-reservation` | 품질과 문서 |
-| 41 | 끝난 작업 폴더 정리 | `worktree-cleanup` | 품질과 문서 |
-| 42 | 소유자 결정은 문서로 | `owner-decisions-recorded` | 품질과 문서 |
-| 43 | 파일 종류별 문체 | `style-per-file` | 품질과 문서 |
-| 44 | 화면 구조 변경은 시안 먼저 | `mockup-first` | 품질과 문서 |
-| 45 | 끝난 작업은 아티팩트로 보고 | `report-artifact` | 품질과 문서 |
-| 46 | 코드 흐름은 코드 색인으로 확인 | `codegraph-first` | 품질과 문서 |
-| 47 | 색인 없는 경로는 다시 조회하지 않음 | `codegraph-index-first` | 품질과 문서 |
-| 48 | 텍스트 검색은 rg | `rg-search` | 품질과 문서 |
-| 49 | 임시방편 대신 근본 원인 수정 | `root-cause-fix` | 품질과 문서 |
-| 50 | 제품 화면에 이모지 금지 | `no-emoji-ui` | 품질과 문서 |
-| 51 | 색인 도구가 없으면 알리고 동의 후 설치 | `codegraph-install` | 품질과 문서 |
-| 52 | 화면 낱말은 용어 사전대로 | `glossary-terms` | 추가 예정 |
+| 40 | 출하 전에 릴리스 보안 관문 통과 | `release-security-gate` | 품질과 문서 |
+| 41 | 번호는 먼저 예약 | `number-reservation` | 품질과 문서 |
+| 42 | 끝난 작업 폴더 정리 | `worktree-cleanup` | 품질과 문서 |
+| 43 | 소유자 결정은 문서로 | `owner-decisions-recorded` | 품질과 문서 |
+| 44 | 파일 종류별 문체 | `style-per-file` | 품질과 문서 |
+| 45 | 화면 구조 변경은 시안 먼저 | `mockup-first` | 품질과 문서 |
+| 46 | 끝난 작업은 아티팩트로 보고 | `report-artifact` | 품질과 문서 |
+| 47 | 코드 흐름은 코드 색인으로 확인 | `codegraph-first` | 품질과 문서 |
+| 48 | 색인 없는 경로는 다시 조회하지 않음 | `codegraph-index-first` | 품질과 문서 |
+| 49 | 텍스트 검색은 rg | `rg-search` | 품질과 문서 |
+| 50 | 임시방편 대신 근본 원인 수정 | `root-cause-fix` | 품질과 문서 |
+| 51 | 제품 화면에 이모지 금지 | `no-emoji-ui` | 품질과 문서 |
+| 52 | 색인 도구가 없으면 알리고 동의 후 설치 | `codegraph-install` | 품질과 문서 |
+| 53 | 화면 낱말은 용어 사전대로 | `glossary-terms` | 추가 예정 |
 
 ## git 과 브랜치
 
@@ -407,7 +408,15 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 메시지 코드: `dispatch.ship_precheck`
 - 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
-### 40. 번호는 먼저 예약 (`number-reservation`)
+### 40. 출하 전에 릴리스 보안 관문 통과 (`release-security-gate`)
+
+- 규칙: `release.security_check` 에 보안 점검 명령을 적은 프로젝트는 그 커밋에서 관문을 통과한 표식이 있어야 출하 검증을 시작한다. 보호 브랜치 병합과 push, 릴리스 태그 push 도 같다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막는다. `release.security_required` 가 켜져 있는데 명령이 비어 있어도 막는다. 보안 관문이 있으면 `git push --tags` 는 거부하고 태그를 이름으로 push 하게 한다.
+- 왜: 보안 점검은 사람이 기억해서 돌려야만 실행됐다. 그래서 점검을 거치지 않은 버전이 출하 단계까지 갔다. 출하하는 커밋에 통과 표식을 묶어야 점검을 건너뛸 수 없다.
+- 막혔을 때: 출하할 커밋을 체크아웃한 작업 폴더에서 `lanekeeper-test-report security-pass` 를 실행해 관문을 통과시킨다. 실패하면 보안 점검의 미달 사유를 고친 뒤 다시 돌린다. 명령이 비어 있으면 `.lanekeeper/config.json` 의 `release.security_check` 를 채운다.
+- 메시지 코드: `safety.security.*`
+- 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
+
+### 41. 번호는 먼저 예약 (`number-reservation`)
 
 - 규칙: 번호가 붙는 파일(데이터베이스 변경 스크립트, 결정 기록 등)은 번호를 먼저 예약한 뒤 만든다.
 - 왜: 병렬 레인이 같은 번호를 쓰면 병합 때 충돌하고 번호를 다시 매겨야 한다.
@@ -415,14 +424,14 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `project.numbers`
 - 어디서 지키나: `bin/lanekeeper-number`, `lib/numbers.mjs`
 
-### 41. 끝난 작업 폴더 정리 (`worktree-cleanup`)
+### 42. 끝난 작업 폴더 정리 (`worktree-cleanup`)
 
 - 규칙: 끝난 레인의 작업 폴더(워크트리)는 대상 브랜치에 병합한 뒤 지운다. 지우기 전에 그 폴더에서 시작한 프로세스를 PID 로 먼저 종료한다.
 - 왜: 남은 작업 폴더의 프로세스가 계속 CPU 를 쓴다. 남은 폴더에서 작업이 이어지면 인계 기록도 두 갈래로 나뉜다.
 - 막혔을 때: `lanekeeper-reap` 으로 정리할 대상을 확인하고 `lanekeeper-worktree remove <레인>` 으로 지운다.
 - 어디서 지키나: `bin/lanekeeper-worktree`, `bin/lanekeeper-reap`, `skills/resume/SKILL.md`
 
-### 42. 소유자 결정은 문서로 (`owner-decisions-recorded`)
+### 43. 소유자 결정은 문서로 (`owner-decisions-recorded`)
 
 - 규칙: 소유자가 정한 사항은 결정 기록(`docs/decisions/`)으로 남긴다.
 - 왜: 대화로만 정한 사항은 다음 세션이 알 수 없어 같은 질문을 다시 하게 된다.
@@ -430,7 +439,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `project.paths.decisions`
 - 어디서 지키나: `skills/decide/SKILL.md`, `bin/lanekeeper-decide`
 
-### 43. 파일 종류별 문체 (`style-per-file`)
+### 44. 파일 종류별 문체 (`style-per-file`)
 
 - 규칙: 문서와 화면 문구는 파일 종류마다 정한 문체(`style.map`)로 쓴다. 보고서체 문서에는 작성 흔적, 과장·비유, 근거 없는 판단, 개발자 용어를 남기지 않고 마지막 점검 세 질문으로 확인한다.
 - 왜: 화면 문구와 보고서의 문체를 구분하지 않으면 같은 제품 안에서 문구의 인상이 제각각이 된다.
@@ -438,7 +447,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `project.style.map`
 - 어디서 지키나: `skills/writing-style/SKILL.md`, `bin/lanekeeper-style`, `templates/briefs/ko/docs.md`
 
-### 44. 화면 구조 변경은 시안 먼저 (`mockup-first`)
+### 45. 화면 구조 변경은 시안 먼저 (`mockup-first`)
 
 - 규칙: 화면 구조를 바꾸는 작업은 구현 전에 시안을 보여 주고 결정을 받는다.
 - 왜: 구현한 뒤에 구조가 반려되면 작업을 처음부터 다시 해야 한다.
@@ -447,7 +456,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `project.mockup`
 - 어디서 지키나: `hooks/scripts/mockup/mockup-first.mjs`, `bin/lanekeeper-decide`
 
-### 45. 끝난 작업은 아티팩트로 보고 (`report-artifact`)
+### 46. 끝난 작업은 아티팩트로 보고 (`report-artifact`)
 
 - 규칙: `/lanekeeper:report` 로 보고할 때는 결과를 아티팩트로 올린다. 시험 결과 엑셀을 쓰는 프로젝트는 최신 결과 파일도 확인한다.
 - 왜: 말로만 한 보고는 다른 곳에서 확인할 수 없고, 캡처나 수치 같은 근거도 남지 않는다.
@@ -456,7 +465,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `personal.report.artifact_check`
 - 어디서 지키나: `hooks/scripts/report/artifact-check.mjs`, `bin/lanekeeper-art`, `skills/report/SKILL.md`
 
-### 46. 코드 흐름은 코드 색인으로 확인 (`codegraph-first`)
+### 47. 코드 흐름은 코드 색인으로 확인 (`codegraph-first`)
 
 - 규칙: 흐름, 호출하는 곳, 변경 영향은 코드 색인(codegraph)으로 확인한다. 정확한 줄 번호와 문자열은 텍스트 검색으로 확인한다.
 - 왜: 호출하는 곳을 텍스트 검색으로 하나씩 따라가면 검색 횟수가 늘어난다. 색인에는 줄 번호와 일부 호출 관계가 없으므로 텍스트 검색은 막지 않는다.
@@ -464,7 +473,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `project.codegraph.nudge`
 - 어디서 지키나: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`
 
-### 47. 색인 없는 경로는 다시 조회하지 않음 (`codegraph-index-first`)
+### 48. 색인 없는 경로는 다시 조회하지 않음 (`codegraph-index-first`)
 
 - 규칙: 색인이 없는 경로로 codegraph 를 다시 호출하지 않는다. 새 작업 폴더는 만들 때 색인 대기열에 넣는다.
 - 왜: 색인 도구 오류는 대부분 새로 만든 작업 폴더에 색인이 없어서 생겼다. 같은 경로로 다시 호출해도 비용만 늘었다.
@@ -473,7 +482,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `project.codegraph.auto_index`
 - 어디서 지키나: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/lanekeeper-index`
 
-### 48. 텍스트 검색은 rg (`rg-search`)
+### 49. 텍스트 검색은 rg (`rg-search`)
 
 - 규칙: 재귀 텍스트 검색은 `grep -r` 대신 `rg` 로 한다. 한글 주석이 많은 소스는 `rg -a` 로 찾는다. 막지는 않고 안내만 한다.
 - 왜: `grep -r` 은 node_modules 와 빌드 결과까지 훑어 느리고 결과가 섞인다. 한글 소스는 grep 이 바이너리로 오인해 결과를 빠뜨린다.
@@ -481,7 +490,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `personal.search.rg_hint`
 - 어디서 지키나: `hooks/scripts/codegraph/nudge.mjs`, `lib/search.mjs`
 
-### 49. 임시방편 대신 근본 원인 수정 (`root-cause-fix`)
+### 50. 임시방편 대신 근본 원인 수정 (`root-cause-fix`)
 
 - 규칙: 임시방편이나 우회로 증상만 가리지 않고 근본 원인을 고친다. 지금 고칠 수 없으면 그 사실과 이유를 보고한다.
 - 왜: 우회로 막은 결함은 다른 조건에서 다시 나타나고, 그때는 원래 원인을 찾기가 더 어렵다.
@@ -489,7 +498,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `personal.session_rules.conduct`
 - 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 50. 제품 화면에 이모지 금지 (`no-emoji-ui`)
+### 51. 제품 화면에 이모지 금지 (`no-emoji-ui`)
 
 - 규칙: 제품 화면에는 이모지를 쓰지 않는다. 아이콘이 필요하면 아이콘 리소스(SVG 등)를 쓴다.
 - 왜: 이모지는 운영체제와 글꼴마다 모양과 크기가 달라 같은 화면이 기기마다 다르게 보인다.
@@ -497,7 +506,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 - 관련 설정: `personal.session_rules.conduct`
 - 어디서 지키나: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 51. 색인 도구가 없으면 알리고 동의 후 설치 (`codegraph-install`)
+### 52. 색인 도구가 없으면 알리고 동의 후 설치 (`codegraph-install`)
 
 - 규칙: codegraph 가 설치되어 있지 않으면 에이전트가 직접 설치하지 않는다. 사용자에게 설치 명령을 한 번 알리고, 사용자가 동의하면 설치·초기화한다. 워크트리에서 질의할 때는 `projectPath` 에 그 워크트리 경로를 넘긴다.
 - 왜: 색인 없이 텍스트 검색만으로 호출 흐름을 따라가면 검색 횟수가 크게 늘어난다. `projectPath` 를 빼면 워크트리 질의에서 빈 결과가 나온다.
@@ -509,7 +518,7 @@ Lanekeeper 는 아래 규칙 52개를 훅과 명령으로 지킨다. 이 문서�
 
 카탈로그에 있지만 아직 지키는 장치가 없는 규칙이다.
 
-### 52. 화면 낱말은 용어 사전대로 (`glossary-terms`)
+### 53. 화면 낱말은 용어 사전대로 (`glossary-terms`)
 
 - 규칙: 화면 문구의 낱말은 프로젝트 용어 사전을 따른다.
 - 왜: 같은 개념을 화면마다 다른 말로 부르면 사용자가 헷갈린다.

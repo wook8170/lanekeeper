@@ -326,6 +326,14 @@ main 같은 보호 브랜치에 반영하려면 소유자 허가가 필요하다
 - 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 - 막혔을 때: `/lanekeeper:ship-verify` 를 실행한다. `lanekeeper-quality precheck --run` 이 빠졌거나 낡았거나 실패한 검증을 돌린다. 실패는 원인을 고친 뒤 다시 돌린다. 약화가 의도한 변경이면 메인 세션에서 `lanekeeper-quality accept <종류> --reason "사유"` 를 한 줄 단독으로 실행해 확인 창을 띄운다.
 
+### 출하 전에 릴리스 보안 관문 통과 (`release-security-gate`)
+
+`release.security_check` 에 보안 점검 명령을 적은 프로젝트는 그 커밋에서 관문을 통과한 표식이 있어야 출하 검증을 시작한다. 보호 브랜치 병합과 push, 릴리스 태그 push 도 같다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막는다. `release.security_required` 가 켜져 있는데 명령이 비어 있어도 막는다. 보안 관문이 있으면 `git push --tags` 는 거부하고 태그를 이름으로 push 하게 한다.
+
+- 왜: 보안 점검은 사람이 기억해서 돌려야만 실행됐다. 그래서 점검을 거치지 않은 버전이 출하 단계까지 갔다. 출하하는 커밋에 통과 표식을 묶어야 점검을 건너뛸 수 없다.
+- 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
+- 막혔을 때: 출하할 커밋을 체크아웃한 작업 폴더에서 `lanekeeper-test-report security-pass` 를 실행해 관문을 통과시킨다. 실패하면 보안 점검의 미달 사유를 고친 뒤 다시 돌린다. 명령이 비어 있으면 `.lanekeeper/config.json` 의 `release.security_check` 를 채운다.
+
 ### 번호는 먼저 예약 (`number-reservation`)
 
 번호가 붙는 파일(데이터베이스 변경 스크립트, 결정 기록 등)은 번호를 먼저 예약한 뒤 만든다.

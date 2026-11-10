@@ -1335,5 +1335,22 @@
   "safety.owner.bad_remote.why": "`{remote}` 는 이 허가의 원격으로 쓸 수 없습니다.",
   "safety.owner.bad_remote.fix": "원격은 `push-main` 에만 있고, 설정된 원격 이름이나 주소여야 합니다.",
   "doctor.ownerAllowRule": "소유자 결정의 권한 규칙",
-  "doctor.ownerAllowRule.detail": "{file} 의 `{rule}` 규칙이 `lanekeeper-grant`, `lanekeeper-reap --gate-lock`, `lanekeeper-quality accept` 중 하나를 덮어, 훅이 창을 띄우지 않고 거부합니다. 규칙을 지우거나 `/lanekeeper:approve` 를 쓰세요"
+  "doctor.ownerAllowRule.detail": "{file} 의 `{rule}` 규칙이 `lanekeeper-grant`, `lanekeeper-reap --gate-lock`, `lanekeeper-quality accept` 중 하나를 덮어, 훅이 창을 띄우지 않고 거부합니다. 규칙을 지우거나 `/lanekeeper:approve` 를 쓰세요",
+  "safety.security.missing.why": "커밋 {head} 에 대한 릴리스 보안 관문 통과 표식이 없습니다.",
+  "safety.security.missing.fix": "출하할 커밋을 체크아웃한 작업 폴더에서 `lanekeeper-test-report security-pass`(`{command}` 실행)를 통과시키면 표식이 생깁니다. 이미 통과한 커밋은 다시 돌리지 않습니다. 그 뒤 다시 실행하세요.",
+  "safety.security.head.why": "릴리스 보안 관문 표식이 다른 커밋({stamped})의 것입니다(필요: {head}).",
+  "safety.security.head.fix": "표식 뒤에 결과 파일 말고 다른 변경이 들어갔습니다. 이 커밋에서 `lanekeeper-test-report security-pass` 를 다시 돌리십시오.",
+  "safety.security.command.why": "릴리스 보안 관문 표식을 남긴 명령이 지금 설정(`{command}`)과 다릅니다.",
+  "safety.security.command.fix": "이 커밋에서 `lanekeeper-test-report security-pass` 를 다시 돌리십시오.",
+  "safety.security.unset.why": "이 프로젝트는 릴리스 보안 관문을 필수로 켰는데(`release.security_required`) 관문 명령이 비어 있습니다.",
+  "safety.security.unset.fix": "`.lanekeeper/config.json` 의 `release.security_check` 에 그 프로젝트의 보안 점검 관문 명령을 적으십시오(예: `pnpm security:release-check`).",
+  "safety.security.tags_all.why": "릴리스 보안 관문이 있는 프로젝트에서 `git push --tags` 는 어느 커밋을 출하하는지 정할 수 없습니다.",
+  "safety.security.tags_all.fix": "릴리스 태그는 이름으로 push 하십시오(`git push <원격> tag <태그>`). 태그가 가리키는 커밋에 보안 관문 표식이 있어야 합니다.",
+  "dispatch.ship_security.unset": "보안 관문 미설정: 출하 전에 확인할 보안 점검 명령이 없습니다. `.lanekeeper/config.json` 의 `release.security_check` 에 적으면 출하 검증 · 보호 브랜치 반영 · 릴리스 태그 push 전에 확인합니다",
+  "tr.security.unset": "release.security_check 가 비어 있습니다. `.lanekeeper/config.json` 의 `release.security_check` 에 보안 점검 관문 명령을 적으십시오.",
+  "tr.security.already": "커밋 {head} 은 이미 릴리스 보안 관문을 통과했습니다({file}). 다시 돌리지 않습니다(다시 돌리려면 --force).",
+  "tr.security.running": "릴리스 보안 관문 실행: {command}",
+  "tr.security.failed": "릴리스 보안 관문이 실패했습니다(종료 코드 {code}). 표식을 남기지 않았습니다. 보고된 항목을 고친 뒤 다시 돌리십시오.",
+  "tr.security.not_clean": "릴리스 보안 관문은 통과했지만 표식을 남기지 않았습니다. 커밋하지 않은 변경이 있거나 실행 중에 커밋이 바뀌었기 때문입니다. 커밋한 뒤 다시 돌리십시오.",
+  "tr.security.written": "릴리스 보안 관문 통과 표식을 남겼습니다: 커밋 {head} · {file}"
 }

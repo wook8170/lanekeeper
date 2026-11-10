@@ -1,6 +1,6 @@
 # Rules
 
-Lanekeeper keeps the 52 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
+Lanekeeper keeps the 53 rules below with hooks and commands. For each rule this page says what it blocks, why, and how to fix the work when it blocks you.
 
 A hook gives one of three verdicts. Block: the command does not run. Ask: the user is asked whether to go on. Note: the command runs and the hook says what to do next.
 
@@ -53,19 +53,20 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 37 | Test results saved as a workbook | `test-results-workbook` | Quality and documents |
 | 38 | Design review reaches high 0 before implementation | `design-adversarial-review` | Quality and documents |
 | 39 | Required checks pass before ship verification | `ship-precheck` | Quality and documents |
-| 40 | Reserve numbers first | `number-reservation` | Quality and documents |
-| 41 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
-| 42 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
-| 43 | Writing style per file kind | `style-per-file` | Quality and documents |
-| 44 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
-| 45 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
-| 46 | Code flow through the code index | `codegraph-first` | Quality and documents |
-| 47 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
-| 48 | Text search with rg | `rg-search` | Quality and documents |
-| 49 | Fix the root cause, not the symptom | `root-cause-fix` | Quality and documents |
-| 50 | No emoji in the product UI | `no-emoji-ui` | Quality and documents |
-| 51 | Offer codegraph when missing; install on consent | `codegraph-install` | Quality and documents |
-| 52 | Screen words follow the glossary | `glossary-terms` | Planned |
+| 40 | Release security gate passes before shipping | `release-security-gate` | Quality and documents |
+| 41 | Reserve numbers first | `number-reservation` | Quality and documents |
+| 42 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
+| 43 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
+| 44 | Writing style per file kind | `style-per-file` | Quality and documents |
+| 45 | Mockup before a screen structure change | `mockup-first` | Quality and documents |
+| 46 | Finished work is reported as an artifact | `report-artifact` | Quality and documents |
+| 47 | Code flow through the code index | `codegraph-first` | Quality and documents |
+| 48 | No repeat calls on paths without an index | `codegraph-index-first` | Quality and documents |
+| 49 | Text search with rg | `rg-search` | Quality and documents |
+| 50 | Fix the root cause, not the symptom | `root-cause-fix` | Quality and documents |
+| 51 | No emoji in the product UI | `no-emoji-ui` | Quality and documents |
+| 52 | Offer codegraph when missing; install on consent | `codegraph-install` | Quality and documents |
+| 53 | Screen words follow the glossary | `glossary-terms` | Planned |
 
 ## Git and branches
 
@@ -407,7 +408,15 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Message codes: `dispatch.ship_precheck`
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
-### 40. Reserve numbers first (`number-reservation`)
+### 40. Release security gate passes before shipping (`release-security-gate`)
+
+- Rule: In a project whose `release.security_check` names a security check command, ship verification starts only when that commit has a passed gate stamp. The same applies to merges and pushes to protected branches and to release tag pushes. A missing stamp, or one from another commit or another command, blocks. An empty command also blocks when `release.security_required` is on. With a security gate, `git push --tags` is refused and tags are pushed by name.
+- Why: The security check ran only when someone remembered to run it, so versions reached the ship stage without it. Tying a pass stamp to the shipped commit means the check cannot be skipped.
+- If blocked: In a working folder that has the commit to ship checked out, run `lanekeeper-test-report security-pass` until the gate passes. If it fails, fix what the security check reports and run it again. If the command is empty, fill `release.security_check` in `.lanekeeper/config.json`.
+- Message codes: `safety.security.*`
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
+
+### 41. Reserve numbers first (`number-reservation`)
 
 - Rule: Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.
 - Why: If parallel lanes use the same number, the merge conflicts and the numbers must be reassigned.
@@ -415,14 +424,14 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.numbers`
 - Enforced in: `bin/lanekeeper-number`, `lib/numbers.mjs`
 
-### 41. Remove finished lane worktrees (`worktree-cleanup`)
+### 42. Remove finished lane worktrees (`worktree-cleanup`)
 
 - Rule: A finished lane worktree is merged into its target branch and then removed. Before removal, the processes started in it are stopped by PID.
 - Why: Processes left in an old worktree keep using the CPU. If work continues in a leftover folder, the handoff record splits in two.
 - If blocked: See what to clean up with `lanekeeper-reap` and remove the worktree with `lanekeeper-worktree remove <lane>`.
 - Enforced in: `bin/lanekeeper-worktree`, `bin/lanekeeper-reap`, `skills/resume/SKILL.md`
 
-### 42. Owner decisions are written down (`owner-decisions-recorded`)
+### 43. Owner decisions are written down (`owner-decisions-recorded`)
 
 - Rule: What the owner decides is kept as a decision record (`docs/decisions/`).
 - Why: A decision made only in conversation is unknown to the next session, so the same question is asked again.
@@ -430,7 +439,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.paths.decisions`
 - Enforced in: `skills/decide/SKILL.md`, `bin/lanekeeper-decide`
 
-### 43. Writing style per file kind (`style-per-file`)
+### 44. Writing style per file kind (`style-per-file`)
 
 - Rule: Documents and screen text use the style set for each file kind (`style.map`). Report-style documents keep no trace of the writing, no hype or metaphors, no unsupported judgments and no developer slang, and pass the three final-check questions.
 - Why: Without separate styles for screen text and reports, the text in one product reads inconsistently.
@@ -438,7 +447,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.style.map`
 - Enforced in: `skills/writing-style/SKILL.md`, `bin/lanekeeper-style`, `templates/briefs/ko/docs.md`
 
-### 44. Mockup before a screen structure change (`mockup-first`)
+### 45. Mockup before a screen structure change (`mockup-first`)
 
 - Rule: A change to the structure of a screen shows a mockup and gets a decision before it is implemented.
 - Why: If the structure is rejected after implementation, the work starts over.
@@ -447,7 +456,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.mockup`
 - Enforced in: `hooks/scripts/mockup/mockup-first.mjs`, `bin/lanekeeper-decide`
 
-### 45. Finished work is reported as an artifact (`report-artifact`)
+### 46. Finished work is reported as an artifact (`report-artifact`)
 
 - Rule: A report made with `/lanekeeper:report` publishes its result as an artifact. A project that keeps test result workbooks also has its newest workbook checked.
 - Why: A report given only in words cannot be checked from elsewhere, and its evidence such as captures and figures is not kept.
@@ -456,7 +465,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.report.artifact_check`
 - Enforced in: `hooks/scripts/report/artifact-check.mjs`, `bin/lanekeeper-art`, `skills/report/SKILL.md`
 
-### 46. Code flow through the code index (`codegraph-first`)
+### 47. Code flow through the code index (`codegraph-first`)
 
 - Rule: Flow, callers and the impact of a change are checked with the code index (codegraph). Exact line numbers and strings are checked with text search.
 - Why: Following callers one text search at a time multiplies the searches. The index lacks line numbers and some call links, so text search is never blocked.
@@ -464,7 +473,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.codegraph.nudge`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `hooks/scripts/codegraph/session-start.mjs`
 
-### 47. No repeat calls on paths without an index (`codegraph-index-first`)
+### 48. No repeat calls on paths without an index (`codegraph-index-first`)
 
 - Rule: codegraph is not called again for a path that has no index. Every new worktree is queued for indexing when it is created.
 - Why: Most index tool errors came from new worktrees that had no index yet. Calling the same path again only added cost.
@@ -473,7 +482,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `project.codegraph.auto_index`
 - Enforced in: `hooks/scripts/codegraph/deadpath.mjs`, `hooks/scripts/codegraph/record.mjs`, `bin/lanekeeper-index`
 
-### 48. Text search with rg (`rg-search`)
+### 49. Text search with rg (`rg-search`)
 
 - Rule: Recursive text search uses `rg` instead of `grep -r`. Sources with many Korean comments are searched with `rg -a`. Nothing is blocked; a note is added.
 - Why: `grep -r` walks node_modules and build output too, so it is slow and the results are mixed. grep takes Korean sources for binary files and leaves out matches.
@@ -481,7 +490,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.search.rg_hint`
 - Enforced in: `hooks/scripts/codegraph/nudge.mjs`, `lib/search.mjs`
 
-### 49. Fix the root cause, not the symptom (`root-cause-fix`)
+### 50. Fix the root cause, not the symptom (`root-cause-fix`)
 
 - Rule: A symptom is not hidden with a stopgap or a workaround; the root cause is fixed. When it cannot be fixed now, the report says so and why.
 - Why: A defect patched over comes back under other conditions, and by then the original cause is harder to find.
@@ -489,7 +498,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.session_rules.conduct`
 - Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 50. No emoji in the product UI (`no-emoji-ui`)
+### 51. No emoji in the product UI (`no-emoji-ui`)
 
 - Rule: The product UI uses no emoji. Where an icon is needed, an icon resource (SVG and the like) is used.
 - Why: Emoji look and size differently on each operating system and font, so the same screen looks different on each device.
@@ -497,7 +506,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Related settings: `personal.session_rules.conduct`
 - Enforced in: `hooks/scripts/rules/session-start.mjs`, `rules/conduct.ko.md`
 
-### 51. Offer codegraph when missing; install on consent (`codegraph-install`)
+### 52. Offer codegraph when missing; install on consent (`codegraph-install`)
 
 - Rule: When codegraph is not installed, the agent does not install it on its own. It shows the user the install command once and installs and initialises it only when the user agrees. Queries in a worktree pass that worktree's path as `projectPath`.
 - Why: Following call flow with text search alone multiplies the searches. Without `projectPath` a worktree query returns an empty result.
@@ -509,7 +518,7 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 
 Rules in the catalog with nothing that enforces them yet.
 
-### 52. Screen words follow the glossary (`glossary-terms`)
+### 53. Screen words follow the glossary (`glossary-terms`)
 
 - Rule: Words in screen text follow the project glossary.
 - Why: Calling one thing by different names on different screens confuses users.

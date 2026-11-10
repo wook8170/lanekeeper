@@ -211,6 +211,10 @@ Placeholders are `{lane}`, `{date}`, `{slug}`, `{name}`, `{HHMM}`, `{stamp}` and
 | `project.quality.ship.enforce` | `"deny"` | What the gate hook does: `deny` (block) · `warn` (note only) · `off` | `"warn"` |
 | `project.quality.ship.agents` | `["readiness-auditor"]` | Subagent types that need the precheck (the name part of `plugin:name` also matches) | keep the default |
 | `project.quality.ship.skills` | `["verifying-production-readiness"]` | Skills that need the precheck. A subagent prompt that names one also needs it | keep the default |
+| `project.release.security_check` | `""` | Security gate command to pass before shipping. When set, ship verification, landings on a protected branch and pushes of a release tag need that commit's security stamp, written by `lanekeeper-test-report security-pass`. When empty, ship verification only warns that the release security gate is not configured | `"pnpm security:release-check"` |
+| `project.release.security_required` | `false` | `true` blocks even when the command is empty | `true` |
+| `project.release.security_stamp` | `"lanekeeper-security-pass"` | File name of the security pass stamp (`<git common dir>/lanekeeper/<name>.json`) | keep the default |
+| `project.release.tag_patterns` | `["v*"]` | Tag names that count as release tags. Pushing one checks the security stamp on the tagged commit | `["v*","studio-v*"]` |
 
 Fields of each `quality.suites` entry:
 
