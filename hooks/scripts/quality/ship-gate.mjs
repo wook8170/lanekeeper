@@ -8,15 +8,16 @@
 // the kinds and states and the command that runs and fixes them (/lanekeeper:ship-verify).
 // Kinds in project.quality.ship.advisory (default ux-adversarial) are checked the same way but only
 // add a warning: not run before shipping, or the newest result failed (an open blocker finding).
-// The release security gate (project.release) is checked at the same point: with a check set, the
-// current commit needs the security stamp (`lanekeeper-test-report security-pass`); required but not set
-// also blocks; not set and not required only adds a "not configured" warning.
+// The release gates (project.release.gates) are checked at the same point: every required gate needs
+// its pass stamp on the current commit (`lanekeeper-test-report gates-pass`), and each one that has not
+// passed is named with the command that passes it. A gate that is not required only warns; with no
+// gate set at all the hook adds a "not configured" warning.
 // Not a safety hook: internal errors let the call through (fail-open) with a note.
 import { resolveConfig, projectRoot } from '../../../lib/config.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { hookMain } from '../../../lib/runtime.mjs'
 import { qualitySettings, isShipTarget, precheck, treeDirty } from '../../../lib/quality.mjs'
-import { securityState, securityBlocks } from '../../../lib/release.mjs'
+import { gateVars, releaseState, splitGates } from '../../../lib/release.mjs'
 
 export function evaluate(input, env = process.env, overrides = {}) {
   if (!['Agent', 'Task', 'Skill'].includes(input.tool_name)) return null
@@ -25,16 +26,18 @@ export function evaluate(input, env = process.env, overrides = {}) {
   const S = qualitySettings(resolved.config)
   if (S.ship.enforce === 'off') return null
   if (!isShipTarget(input, S)) return null
-  const sec = securityState(root, resolved.config)
-  const secBad = securityBlocks(sec) ? sec : null
-  const secWarn = sec.state === 'unconfigured'
+  const rel = releaseState(root, resolved.config)
+  const { blocking, optional } = splitGates(rel.gates)
+  const gates = blocking.map((g) => ({ state: g.state, vars: gateVars(g, rel.head) }))
+  const optionalGates = optional.map((g) => gateVars(g, rel.head))
+  const unset = !rel.configured
   const res = S.ship.requires.length ? precheck(root, S) : { rows: [], advisory: [] }
   const dirty = S.ship.requires.length ? treeDirty(root, `${S.resultsRoot.replace(/\/+$/, '')}/`) : false
   const bad = res.rows.filter((r) => r.state !== 'ok')
   const advisory = (res.advisory || []).filter((r) => r.state !== 'ok')
-  if (!bad.length && !dirty && !advisory.length && !secBad && !secWarn) return null
-  const level = bad.length || dirty || secBad ? (S.ship.enforce === 'warn' ? 'warn' : 'deny') : 'warn'
-  return { level, rows: bad, advisory, dirty, security: secBad, securityUnset: secWarn, language: resolved.effective?.language || 'en' }
+  if (!bad.length && !dirty && !advisory.length && !gates.length && !optionalGates.length && !unset) return null
+  const level = bad.length || dirty || gates.length ? (S.ship.enforce === 'warn' ? 'warn' : 'deny') : 'warn'
+  return { level, rows: bad, advisory, dirty, gates, optionalGates, releaseUnset: unset, language: resolved.effective?.language || 'en' }
 }
 
 export function format(r) {
@@ -43,13 +46,15 @@ export function format(r) {
   if (r.dirty) items.push(t('q.state.tree_dirty'))
   const head = r.level === 'deny' ? t('safety.blocked') : t('dispatch.warn')
   const adv = (r.advisory || []).map((x) => `${x.kind}=${t(`q.state.${x.state}`)}`).join(', ')
-  const advLine = [adv ? t('dispatch.ship_precheck.advisory', { items: adv }) : '', r.securityUnset ? t('dispatch.ship_security.unset') : ''].filter(Boolean).join('\n')
-  const sec = r.security
-  const vars = sec && { head: sec.head ? sec.head.slice(0, 9) : '?', stamped: sec.stamp?.head?.slice(0, 9) || '-', command: sec.command || '-' }
-  const secLine = sec ? `${t(`safety.security.${sec.state}.why`, vars)}\n${t('safety.fix')}: ${t(`safety.security.${sec.state}.fix`, vars)}` : ''
+  const optional = (r.optionalGates || []).map((v) => t('dispatch.ship_release.optional_item', v)).join(', ')
+  const advLine = [
+    adv ? t('dispatch.ship_precheck.advisory', { items: adv }) : '',
+    optional ? t('dispatch.ship_release.optional', { items: optional }) : '',
+    r.releaseUnset ? t('dispatch.ship_release.unset') : '',
+  ].filter(Boolean).join('\n')
   const parts = []
   if (items.length) parts.push(`${t('dispatch.ship_precheck.why', { items: items.join(', ') })}\n${t('safety.fix')}: ${t('dispatch.ship_precheck.fix')}`)
-  if (secLine) parts.push(secLine)
+  for (const g of r.gates || []) parts.push(`${t(`safety.release.${g.state}.why`, g.vars)}\n${t('safety.fix')}: ${t(`safety.release.${g.state}.fix`, g.vars)}`)
   if (!parts.length) return `[lanekeeper] ${head}: ${advLine}`
   return `[lanekeeper] ${head}: ${parts.join('\n')}${advLine ? `\n${advLine}` : ''}`
 }

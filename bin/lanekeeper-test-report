@@ -7,8 +7,10 @@
 //                                              gate -> every stage -> workbook, no bail
 //   lanekeeper-test-report gate [--no-bail] [--skip a]  gate steps one by one into gate.json
 //   lanekeeper-test-report gate-pass                   run project.gate.command; on a pass write the gate pass stamp
-//   lanekeeper-test-report security-pass [--force]     run project.release.security_check; on a pass write the release
-//                                              security stamp (skipped when this commit already passed)
+//   lanekeeper-test-report gates-pass [--name G] [--force]  run the release gates (project.release.gates), or only G;
+//                                              each pass writes that gate's stamp. A gate that already passed on this
+//                                              commit is not run again (--force runs it anyway)
+//   lanekeeper-test-report security-pass [--force]     the same for the gate `security` (older form)
 //   lanekeeper-test-report build [core options]        workbook from results (default: newest folder under test_runs_raw)
 //   lanekeeper-test-report latest                      path of the newest workbook
 //   lanekeeper-test-report summary [--json]            counts of the newest workbook (for /lanekeeper:report)
@@ -93,6 +95,57 @@ function stampAfter(before, command, code) {
   print(t('tr.stamp.written', { head: before.head.slice(0, 9), file }))
 }
 
+// Release gates. Same trust as gate-pass: the commands come from the project config. Runs the named
+// gate, or every gate, that has not passed on this commit; the exit code is the first failure's.
+function passGates(only) {
+  const st = REL.releaseState(root, resolved.config)
+  if (!st.configured) {
+    warn(t('tr.gates.unset'))
+    process.exit(2)
+  }
+  const picked = only ? st.gates.filter((g) => g.name === only) : st.gates
+  if (!picked.length) {
+    warn(t('tr.gates.unknown', { gate: only, names: st.gates.map((g) => g.name).join(', ') }))
+    process.exit(2)
+  }
+  let code = 0
+  for (const g of picked) {
+    const c = passGate(g)
+    if (c && !code) code = c
+  }
+  process.exit(code)
+}
+
+// One gate: skip when it already passed on this commit, else run it and stamp a pass on a clean,
+// unchanged HEAD.
+function passGate(g) {
+  if (g.state === 'unset') {
+    warn(t('tr.gates.no_command', { gate: g.name }))
+    return g.required ? 2 : 0
+  }
+  if (g.state === 'ok' && !args.force) {
+    print(t('tr.gates.already', { gate: g.name, head: (g.stamp?.head || '').slice(0, 9), file: g.file }))
+    return 0
+  }
+  const before = R.headState(root)
+  print(t('tr.gates.running', { gate: g.name, command: g.command }))
+  const r = spawnSync('sh', ['-c', g.command], { cwd: root, stdio: 'inherit' })
+  const code = r.status ?? 1
+  if (code !== 0) {
+    warn(t('tr.gates.failed', { gate: g.name, code }))
+    return code
+  }
+  const after = R.headState(root)
+  if (!before.head || !before.clean || !after.clean || after.head !== before.head) {
+    warn(t('tr.gates.not_clean', { gate: g.name }))
+    return 1
+  }
+  const file = REL.gateStampFile(stateDir(root), resolved.config, g.name)
+  R.writeGateStamp(file, { head: before.head, command: g.command, gate: g.name })
+  print(t('tr.gates.written', { gate: g.name, head: before.head.slice(0, 9), file }))
+  return 0
+}
+
 const COMMANDS = {
   env() {
     const py = R.pythonStatus()
@@ -151,34 +204,11 @@ const COMMANDS = {
     stampAfter(before, command, code)
     process.exit(code)
   },
-  // Release security gate. Same trust as gate-pass: the command comes from the project config.
+  'gates-pass'() {
+    passGates(typeof args.name === 'string' && args.name ? args.name : null)
+  },
   'security-pass'() {
-    const st = REL.securityState(root, resolved.config)
-    if (st.state === 'unconfigured' || st.state === 'unset') {
-      warn(t('tr.security.unset'))
-      process.exit(2)
-    }
-    if (st.state === 'ok' && !args.force) {
-      print(t('tr.security.already', { head: st.head.slice(0, 9), file: st.file }))
-      process.exit(0)
-    }
-    const before = R.headState(root)
-    print(t('tr.security.running', { command: st.command }))
-    const r = spawnSync('sh', ['-c', st.command], { cwd: root, stdio: 'inherit' })
-    const code = r.status ?? 1
-    if (code !== 0) {
-      warn(t('tr.security.failed', { code }))
-      process.exit(code)
-    }
-    const after = R.headState(root)
-    if (!before.head || !before.clean || !after.clean || after.head !== before.head) {
-      warn(t('tr.security.not_clean'))
-      process.exit(1)
-    }
-    const file = R.securityStampFile(stateDir(root), resolved.config)
-    R.writeGateStamp(file, { head: before.head, command: st.command })
-    print(t('tr.security.written', { head: before.head.slice(0, 9), file }))
-    process.exit(0)
+    passGates(REL.LEGACY_GATE)
   },
   build() {
     if (!ready()) return finish(0, true)

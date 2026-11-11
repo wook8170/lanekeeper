@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "git": { "protected_branches": ["main"] },
+  "release": {
+    "gates": [
+      { "name": "security", "command": "npm audit --omit=dev --audit-level=high", "required": true },
+      { "name": "sonarqube", "command": "curl -fsS -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=my-project\" | jq -e '.projectStatus.status==\"OK\"'", "required": true },
+      { "name": "semgrep", "command": "semgrep scan --config p/owasp-top-ten --error --metrics=off", "required": true },
+      { "name": "license-scan", "command": "npx license-checker --production --failOn GPL", "required": false }
+    ],
+    "tag_patterns": ["v*"]
+  }
+}

@@ -211,10 +211,11 @@ lanekeeper-config validate
 | `project.quality.ship.enforce` | `"deny"` | 관문 훅의 동작. `deny`(막음) · `warn`(알림만) · `off` | `"warn"` |
 | `project.quality.ship.agents` | `["readiness-auditor"]` | 관문을 거쳐야 하는 서브에이전트 종류(`플러그인:이름` 의 이름 부분도 맞춤) | 기본값 유지 |
 | `project.quality.ship.skills` | `["verifying-production-readiness"]` | 관문을 거쳐야 하는 스킬. 서브에이전트 지시문에 이 이름이 있어도 관문을 거친다 | 기본값 유지 |
-| `project.release.security_check` | `""` | 출하 전 보안 점검 관문 명령. 정하면 출하 검증 시작 · 보호 브랜치 반영 · 릴리스 태그 push 전에 그 커밋의 보안 관문 표식이 있어야 한다. 표식은 `lanekeeper-test-report security-pass` 가 남긴다. 비어 있으면 출하 검증 때 「보안 관문 미설정」 경고만 낸다 | `"pnpm security:release-check"` |
-| `project.release.security_required` | `false` | `true` 면 명령이 비어 있을 때도 막는다 | `true` |
-| `project.release.security_stamp` | `"lanekeeper-security-pass"` | 보안 관문 통과 표식 파일 이름(`<git 공용 폴더>/lanekeeper/<이름>.json`) | 기본값 유지 |
-| `project.release.tag_patterns` | `["v*"]` | 릴리스 태그로 보는 태그 이름. 이 태그를 push 하면 태그 커밋의 보안 관문 표식을 본다 | `["v*","studio-v*"]` |
+| `project.release.gates` | `[]` | 출하 전에 통과할 관문 목록: `[{ "name", "command", "required" }]`. `name` 은 영문 소문자 · 숫자 · `.` · `_` · `-` 로 쓴다. `required` 를 적지 않으면 `true` 다. 출하 검증 시작 · 보호 브랜치 반영 · 릴리스 태그 push 전에 그 커밋에서 필수 관문을 모두 통과한 표식이 있어야 한다. 표식은 `lanekeeper-test-report gates-pass [--name <이름>]` 가 남긴다. 그 커밋에서 이미 통과한 관문은 다시 돌리지 않는다. `required: false` 인 관문은 경고만 한다. 관문이 하나도 없으면 출하 검증 때 「릴리스 관문 미설정」 경고만 낸다 | 릴리스 관문 설정 예 참고 |
+| `project.release.security_check` | `""` | 옛 단일 설정. 값이 있으면 이 명령을 쓰는 필수 관문 `security` 로 읽는다(`gates` 에 `security` 가 있으면 그쪽이 우선) | `"pnpm security:release-check"` |
+| `project.release.security_required` | `false` | 옛 단일 설정. `true` 면 명령이 비어 있어도 필수 관문 `security` 를 더한다. 그래서 명령을 적을 때까지 막는다 | `true` |
+| `project.release.security_stamp` | `"lanekeeper-security-pass"` | 관문 `security` 의 통과 표식 파일 이름(`<git 공용 폴더>/lanekeeper/<이름>.json`). 다른 관문은 `lanekeeper-release-<이름>-pass.json` 을 쓴다 | 기본값 유지 |
+| `project.release.tag_patterns` | `["v*"]` | 릴리스 태그로 보는 태그 이름. 이 태그를 push 하면 태그 커밋에서 필수 관문을 확인한다 | `["v*","studio-v*"]` |
 
 `quality.suites` 의 각 항목:
 
@@ -338,6 +339,23 @@ pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI �
   "ship": { "requires": ["unit", "gate", "e2e", "usability"] }
 }
 ```
+
+**릴리스 관문(`.lanekeeper/config.json` 의 `release`)**
+
+보안 점검과 정적 분석을 출하 전 관문으로 두는 예다. SonarQube 관문은 서버에 그 프로젝트의 품질 게이트 상태를 묻고, Semgrep 관문은 발견 항목이 하나라도 있으면 실패한다. 프로젝트에 모든 점검을 함께 돌리는 명령이 있으면 관문 하나로 충분하다. P3vot 은 `security` = `pnpm security:release-check` 하나만 두고, 이 명령이 SonarQube · Semgrep 결과도 함께 판정한다([examples/p3vot-config.json](../../examples/p3vot-config.json)). 두 도구를 관문 하나로 묶을 수도 있다. 예를 들어 `"name": "static-analysis"` 에 두 명령을 `&&` 로 잇는다. 전체는 플러그인의 [examples/static-analysis-gates.json](../../examples/static-analysis-gates.json) 에 있다.
+
+```json
+"release": {
+  "gates": [
+    { "name": "security", "command": "pnpm security:release-check", "required": true },
+    { "name": "sonarqube", "command": "curl -fsS -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=<key>\" | jq -e '.projectStatus.status==\"OK\"'", "required": true },
+    { "name": "semgrep", "command": "semgrep scan --config p/owasp-top-ten --error --metrics=off", "required": true }
+  ],
+  "tag_patterns": ["v*"]
+}
+```
+
+`lanekeeper-test-report gates-pass` 는 지금 커밋에서 아직 통과하지 않은 관문을 모두 돌리고, 통과한 관문마다 표식을 남긴다. `--name semgrep` 은 그 관문만 돌린다. 관문이 막으면 안내 문구가 그 관문 이름과 이 명령을 알려 준다.
 
 **머신(`~/.lanekeeper/machine.json`)**
 

@@ -434,7 +434,7 @@ test('lanekeeper-quality: advisory kind is listed apart, warns, keeps exit 0; sh
   r = hook({ subagent_type: 'readiness-auditor' })
   assert.equal(r.out.hookSpecificOutput.permissionDecision, undefined)
   assert.doesNotMatch(r.out.hookSpecificOutput.additionalContext, /Warning kinds/, 'advisory: [] turns the warning off')
-  assert.match(r.out.hookSpecificOutput.additionalContext, /Release security gate not configured/, 'no release.security_check: the only warning left')
+  assert.match(r.out.hookSpecificOutput.additionalContext, /Release gates not configured/, 'no release gates: the only warning left')
   w(path.join(f.repo, '.lanekeeper/config.json'), { version: 1, quality: { suites: { unit: { command: 'true', slot: 'none' }, 'ux-adversarial': { category: 'ux-adversarial' } }, ship: { requires: ['unit', 'ux-adversarial'] } } })
   commitAll(f.repo, 'require it')
   assert.equal(bin('lanekeeper-quality', ['run', 'unit', '--no-xlsx'], f.env, f.repo).status, 0)

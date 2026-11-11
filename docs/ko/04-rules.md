@@ -53,7 +53,7 @@ Lanekeeper 는 아래 규칙 53개를 훅과 명령으로 지킨다. 이 문서�
 | 37 | 시험 결과는 엑셀로 저장 | `test-results-workbook` | 품질과 문서 |
 | 38 | 설계는 적대 검증 「높음 0건」 뒤에 구현 | `design-adversarial-review` | 품질과 문서 |
 | 39 | 출하 검증 전에 선행 검증 통과 | `ship-precheck` | 품질과 문서 |
-| 40 | 출하 전에 릴리스 보안 관문 통과 | `release-security-gate` | 품질과 문서 |
+| 40 | 출하 전에 릴리스 관문(보안 점검 · 정적 분석) 통과 | `release-security-gate` | 품질과 문서 |
 | 41 | 번호는 먼저 예약 | `number-reservation` | 품질과 문서 |
 | 42 | 끝난 작업 폴더 정리 | `worktree-cleanup` | 품질과 문서 |
 | 43 | 소유자 결정은 문서로 | `owner-decisions-recorded` | 품질과 문서 |
@@ -408,12 +408,12 @@ Lanekeeper 는 아래 규칙 53개를 훅과 명령으로 지킨다. 이 문서�
 - 메시지 코드: `dispatch.ship_precheck`
 - 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
-### 40. 출하 전에 릴리스 보안 관문 통과 (`release-security-gate`)
+### 40. 출하 전에 릴리스 관문(보안 점검 · 정적 분석) 통과 (`release-security-gate`)
 
-- 규칙: `release.security_check` 에 보안 점검 명령을 적은 프로젝트는 그 커밋에서 관문을 통과한 표식이 있어야 출하 검증을 시작한다. 보호 브랜치 병합과 push, 릴리스 태그 push 도 같다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막는다. `release.security_required` 가 켜져 있는데 명령이 비어 있어도 막는다. 보안 관문이 있으면 `git push --tags` 는 거부하고 태그를 이름으로 push 하게 한다.
-- 왜: 보안 점검은 사람이 기억해서 돌려야만 실행됐다. 그래서 점검을 거치지 않은 버전이 출하 단계까지 갔다. 출하하는 커밋에 통과 표식을 묶어야 점검을 건너뛸 수 없다.
-- 막혔을 때: 출하할 커밋을 체크아웃한 작업 폴더에서 `lanekeeper-test-report security-pass` 를 실행해 관문을 통과시킨다. 실패하면 보안 점검의 미달 사유를 고친 뒤 다시 돌린다. 명령이 비어 있으면 `.lanekeeper/config.json` 의 `release.security_check` 를 채운다.
-- 메시지 코드: `safety.security.*`
+- 규칙: `release.gates` 에 적은 필수 관문(예: 보안 점검 · SonarQube · Semgrep)은 출하하는 커밋에서 모두 통과한 표식이 있어야 한다. 출하 검증 시작 · 보호 브랜치 병합과 push · 릴리스 태그 push 때 확인한다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 그 관문만 이름으로 알리고 막는다. 필수 관문에 명령이 비어 있어도 막는다. 필수가 아닌 관문은 경고만 한다. 필수 관문이 있으면 `git push --tags` 는 거부하고 태그를 이름으로 push 하게 한다. 옛 설정 `release.security_check` 는 필수 관문 `security` 로 읽는다.
+- 왜: 보안 점검과 정적 분석은 사람이 기억해서 돌려야만 실행됐다. 그래서 점검을 거치지 않은 버전이 출하 단계까지 갔다. 출하하는 커밋에 관문별 통과 표식을 묶어야 점검을 건너뛸 수 없다. 이미 통과한 관문은 다시 돌리지 않아서 같은 커밋에서 같은 점검을 반복하지 않는다.
+- 막혔을 때: 출하할 커밋을 체크아웃한 작업 폴더에서 안내 문구에 나온 명령(`lanekeeper-test-report gates-pass --name <관문>`)을 실행한다. 이름 없이 `lanekeeper-test-report gates-pass` 를 실행하면 아직 통과하지 않은 관문만 돈다. 실패하면 보고된 미달 사유를 고친 뒤 다시 돌린다. 명령이 비어 있으면 `.lanekeeper/config.json` 의 `release.gates` 에서 그 관문의 `command` 를 채운다.
+- 메시지 코드: `safety.release.*`
 - 어디서 지키나: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
 
 ### 41. 번호는 먼저 예약 (`number-reservation`)

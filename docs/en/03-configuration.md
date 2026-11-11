@@ -211,10 +211,11 @@ Placeholders are `{lane}`, `{date}`, `{slug}`, `{name}`, `{HHMM}`, `{stamp}` and
 | `project.quality.ship.enforce` | `"deny"` | What the gate hook does: `deny` (block) · `warn` (note only) · `off` | `"warn"` |
 | `project.quality.ship.agents` | `["readiness-auditor"]` | Subagent types that need the precheck (the name part of `plugin:name` also matches) | keep the default |
 | `project.quality.ship.skills` | `["verifying-production-readiness"]` | Skills that need the precheck. A subagent prompt that names one also needs it | keep the default |
-| `project.release.security_check` | `""` | Security gate command to pass before shipping. When set, ship verification, landings on a protected branch and pushes of a release tag need that commit's security stamp, written by `lanekeeper-test-report security-pass`. When empty, ship verification only warns that the release security gate is not configured | `"pnpm security:release-check"` |
-| `project.release.security_required` | `false` | `true` blocks even when the command is empty | `true` |
-| `project.release.security_stamp` | `"lanekeeper-security-pass"` | File name of the security pass stamp (`<git common dir>/lanekeeper/<name>.json`) | keep the default |
-| `project.release.tag_patterns` | `["v*"]` | Tag names that count as release tags. Pushing one checks the security stamp on the tagged commit | `["v*","studio-v*"]` |
+| `project.release.gates` | `[]` | Gates to pass before shipping: `[{ "name", "command", "required" }]`. `name` is lower case letters, digits, `.`, `_` and `-`. `required` defaults to `true`. Ship verification, landings on a protected branch and pushes of a release tag need a pass stamp of every required gate on that commit, written by `lanekeeper-test-report gates-pass [--name <name>]`. A gate that already passed on the commit is not run again. A gate with `required: false` only warns. With no gate at all, ship verification warns that release gates are not configured | see the release gates example |
+| `project.release.security_check` | `""` | Older single setting. When set, it is read as the required gate `security` with this command (a `security` entry in `gates` takes precedence) | `"pnpm security:release-check"` |
+| `project.release.security_required` | `false` | Older single setting. `true` adds the required gate `security` even when the command is empty, so it blocks until a command is set | `true` |
+| `project.release.security_stamp` | `"lanekeeper-security-pass"` | File name of the stamp of the gate `security` (`<git common dir>/lanekeeper/<name>.json`). Other gates use `lanekeeper-release-<name>-pass.json` | keep the default |
+| `project.release.tag_patterns` | `["v*"]` | Tag names that count as release tags. Pushing one checks the required gates on the tagged commit | `["v*","studio-v*"]` |
 
 Fields of each `quality.suites` entry:
 
@@ -338,6 +339,23 @@ An example for a pnpm monorepo with unit tests, a test database, gate steps, e2e
   "ship": { "requires": ["unit", "gate", "e2e", "usability"] }
 }
 ```
+
+**Release gates (`release` in `.lanekeeper/config.json`)**
+
+A security check and static analysis as gates to pass before shipping. The SonarQube gate asks the server for the project's quality gate status, and the Semgrep gate fails on any finding. When the project has one command that runs all its checks, one gate is enough: P3vot sets only `security` = `pnpm security:release-check`, and that command also judges the SonarQube and Semgrep results ([examples/p3vot-config.json](../../examples/p3vot-config.json)). Two tools can also share one gate, for example `"name": "static-analysis"` with both commands joined by `&&`. The full file is [examples/static-analysis-gates.json](../../examples/static-analysis-gates.json) in the plugin.
+
+```json
+"release": {
+  "gates": [
+    { "name": "security", "command": "pnpm security:release-check", "required": true },
+    { "name": "sonarqube", "command": "curl -fsS -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=<key>\" | jq -e '.projectStatus.status==\"OK\"'", "required": true },
+    { "name": "semgrep", "command": "semgrep scan --config p/owasp-top-ten --error --metrics=off", "required": true }
+  ],
+  "tag_patterns": ["v*"]
+}
+```
+
+`lanekeeper-test-report gates-pass` runs every gate that has not passed on the current commit and writes a stamp for each pass. `--name semgrep` runs only that gate. When a gate blocks, the message names it and gives this command.
 
 **Machine (`~/.lanekeeper/machine.json`)**
 

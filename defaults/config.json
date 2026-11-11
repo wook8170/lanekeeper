@@ -69,6 +69,7 @@
     }
   },
   "release": {
+    "gates": [],
     "security_check": "",
     "security_required": false,
     "security_stamp": "lanekeeper-security-pass",

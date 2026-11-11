@@ -53,7 +53,7 @@ The rules are grouped in the order a new user usually meets them: git and branch
 | 37 | Test results saved as a workbook | `test-results-workbook` | Quality and documents |
 | 38 | Design review reaches high 0 before implementation | `design-adversarial-review` | Quality and documents |
 | 39 | Required checks pass before ship verification | `ship-precheck` | Quality and documents |
-| 40 | Release security gate passes before shipping | `release-security-gate` | Quality and documents |
+| 40 | Release gates pass before shipping | `release-security-gate` | Quality and documents |
 | 41 | Reserve numbers first | `number-reservation` | Quality and documents |
 | 42 | Remove finished lane worktrees | `worktree-cleanup` | Quality and documents |
 | 43 | Owner decisions are written down | `owner-decisions-recorded` | Quality and documents |
@@ -408,12 +408,12 @@ Keeps reviews, reports and documents to the same standard. Most of these are gui
 - Message codes: `dispatch.ship_precheck`
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 
-### 40. Release security gate passes before shipping (`release-security-gate`)
+### 40. Release gates pass before shipping (`release-security-gate`)
 
-- Rule: In a project whose `release.security_check` names a security check command, ship verification starts only when that commit has a passed gate stamp. The same applies to merges and pushes to protected branches and to release tag pushes. A missing stamp, or one from another commit or another command, blocks. An empty command also blocks when `release.security_required` is on. With a security gate, `git push --tags` is refused and tags are pushed by name.
-- Why: The security check ran only when someone remembered to run it, so versions reached the ship stage without it. Tying a pass stamp to the shipped commit means the check cannot be skipped.
-- If blocked: In a working folder that has the commit to ship checked out, run `lanekeeper-test-report security-pass` until the gate passes. If it fails, fix what the security check reports and run it again. If the command is empty, fill `release.security_check` in `.lanekeeper/config.json`.
-- Message codes: `safety.security.*`
+- Rule: Every required gate listed in `release.gates` (for example a security check, SonarQube or Semgrep) needs a pass stamp on the commit being shipped. It is checked when ship verification starts, on merges and pushes to protected branches, and on release tag pushes. A missing stamp, or one from another commit or another command, blocks, and only those gates are named. A required gate with an empty command also blocks. A gate that is not required only warns. With a required gate, `git push --tags` is refused and tags are pushed by name. The older `release.security_check` is read as the required gate `security`.
+- Why: Security checks and static analysis ran only when someone remembered to run them, so versions reached the ship stage without them. Tying a pass stamp per gate to the shipped commit means no check can be skipped. A gate that already passed is not run again, so the same check is not repeated on the same commit.
+- If blocked: In a working folder that has the commit to ship checked out, run the command the message names (`lanekeeper-test-report gates-pass --name <gate>`). `lanekeeper-test-report gates-pass` without a name runs only the gates that have not passed yet. If one fails, fix what it reports and run it again. If a command is empty, fill that gate's `command` in `release.gates` of `.lanekeeper/config.json`.
+- Message codes: `safety.release.*`
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
 
 ### 41. Reserve numbers first (`number-reservation`)

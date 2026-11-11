@@ -4,8 +4,9 @@
   "gate": { "command": "pnpm gate", "verify_all": "", "append_checks": [] },
   "git": { "protected_branches": ["main"] },
   "release": {
-    "security_check": "pnpm security:release-check",
-    "security_required": true,
+    "gates": [
+      { "name": "security", "command": "pnpm security:release-check", "required": true }
+    ],
     "tag_patterns": ["v*", "studio-v*"]
   }
 }

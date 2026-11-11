@@ -10,7 +10,7 @@ The ship gate hook blocks the readiness verification (the skills in `quality.shi
 ## Steps
 
 1. Commit everything. The precheck needs a clean tree (result files may stay uncommitted).
-   Release security gate: when `project.release.security_check` is set, run `lanekeeper-test-report security-pass` on this commit (it is skipped when the commit already passed). The ship gate hook, protected landings and release tag pushes need its stamp. When the check fails, fix what it reports and run it again; do not route around it. When the hook warns that the gate is not configured, tell the owner.
+   Release gates: when `project.release.gates` (or the older `release.security_check`) is set, run `lanekeeper-test-report gates-pass` on this commit. It runs only the gates that have not passed on the commit yet. The ship gate hook, protected landings and release tag pushes need every required gate passed; a blocked call names the gate and the exact command (`lanekeeper-test-report gates-pass --name <gate>`). When a gate fails, fix what it reports and run it again; do not route around it. When the hook warns that release gates are not configured, or that an optional gate has not passed, tell the owner.
 2. Run `lanekeeper-quality precheck --run`. It reads the newest result of each required kind from the index and decides:
 
    | State | Meaning | What happens |
