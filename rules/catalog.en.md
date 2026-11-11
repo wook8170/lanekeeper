@@ -326,6 +326,14 @@ Ship verification starts only after every required verification (unit, integrati
 - Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `bin/lanekeeper-quality`, `skills/ship-verify/SKILL.md`, `skills/quality-ux-adversarial/SKILL.md`
 - If blocked: Run `/lanekeeper:ship-verify`. `lanekeeper-quality precheck --run` runs every missing, stale or failed verification. Fix the cause of a failure and run it again. When a weakening is intended, the repository owner accepts it by typing `/lanekeeper:approve accept-quality <kind> --reason why` in the prompt.
 
+### Release gates pass before shipping (`release-security-gate`)
+
+Every required gate listed in `release.gates` (for example a security check, SonarQube or Semgrep) needs a pass stamp on the commit being shipped. It is checked when ship verification starts, on merges and pushes to protected branches, and on release tag pushes. A missing stamp, or one from another commit or another command, blocks, and only those gates are named. A required gate with an empty command also blocks. A gate that is not required only warns. With a required gate, `git push --tags` is refused and tags are pushed by name. The older `release.security_check` is read as the required gate `security`.
+
+- Why: Security checks and static analysis ran only when someone remembered to run them, so versions reached the ship stage without them. Tying a pass stamp per gate to the shipped commit means no check can be skipped. A gate that already passed is not run again, so the same check is not repeated on the same commit.
+- Enforced in: `hooks/scripts/quality/ship-gate.mjs`, `hooks/scripts/safety/git-guard.mjs`, `hooks/scripts/safety/owner-dialog.mjs`, `bin/lanekeeper-test-report`
+- If blocked: In a working folder that has the commit to ship checked out, run the command the message names (`lanekeeper-test-report gates-pass --name <gate>`). `lanekeeper-test-report gates-pass` without a name runs only the gates that have not passed yet. If one fails, fix what it reports and run it again. If a command is empty, fill that gate's `command` in `release.gates` of `.lanekeeper/config.json`.
+
 ### Reserve numbers first (`number-reservation`)
 
 Numbered files (database migration scripts, decision records and so on) get their number reserved before they are created.

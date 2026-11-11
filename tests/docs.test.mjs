@@ -29,7 +29,7 @@ const ABSENT_SKILLS = {}
 const AFTER_WB = new Set(['lanekeeper-grant'])
 
 // lanekeeper-* words that are names, not commands.
-const NOT_COMMANDS = new Set(['lanekeeper', 'lanekeeper-brief', 'lanekeeper-decision', 'lanekeeper-gate-pass', 'lanekeeper-scratch'])
+const NOT_COMMANDS = new Set(['lanekeeper', 'lanekeeper-brief', 'lanekeeper-decision', 'lanekeeper-gate-pass', 'lanekeeper-security-pass', 'lanekeeper-release', 'lanekeeper-scratch'])
 
 // Leaf keys of the settings schema. A map with default entries contributes one
 // key per entry (project.paths.briefs …); other maps count as one key.

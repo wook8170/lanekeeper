@@ -15,6 +15,7 @@ import { checkGrant, checkStamp, gateLocked, grantNeeded, prKey, prMergeLine, re
 import { parse, tokenize } from './shell.mjs'
 import { onlyUnder, resultsPrefix } from '../../../lib/testresults.mjs'
 import { laneCommitPolicy } from '../../../lib/brief.mjs'
+import { gateStampName, gateState, gateVars, releaseSettings } from '../../../lib/release.mjs'
 
 const GLOBAL_WITH_ARG = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--super-prefix', '--config-env'])
 const BUILTIN = new Set([
@@ -691,14 +692,14 @@ function judgePush(args, target, info, f, ctx, vars, cmd) {
   // destinations
   const dests = []
   if (!p.refspecs.length) {
-    if (p.tagsOnly) return pushFeature(f, vars)
+    if (p.tagsOnly) return releaseTagsAll(ctx, info) || pushFeature(f, vars)
     const up = ctx.git.upstream(target)
     dests.push({ src: 'HEAD', dst: up ? branchName(up) : info.branch })
   } else dests.push(...refspecDests(p, info))
   const out = []
   for (const d of dests) {
     if (!d.dst || d.dst.startsWith('refs/tags/')) {
-      out.push(pushFeature(f, vars))
+      out.push(releaseTag(ctx, info, target, d) || pushFeature(f, vars))
       continue
     }
     if (f.isProtected(d.dst)) {
@@ -714,9 +715,32 @@ function judgePush(args, target, info, f, ctx, vars, cmd) {
       const pushVars = { ...vars, branch: d.dst, target: d.dst }
       const v = withoutContentConfig(withGrant(ctx, info, 'push-main', sha, true, pushVars, cmd, { dest: d.dst, remote, source: d.src || 'HEAD', remoteName: named }), cmd, pushVars)
       out.push(pushTransport(cmd) ? deny('grant.config', { ...pushVars, cmd: shortCmd(cmd) }) : v)
-    } else out.push(pushFeature(f, vars))
+    } else out.push(releaseTag(ctx, info, target, d) || pushFeature(f, vars))
   }
   return out
+}
+
+// A pushed tag that matches project.release.tag_patterns is a release: its commit needs every required
+// release gate passed. Other tags, and projects with no required gate, go on as before.
+// A short name (`git push origin v1.2.0`) counts as a tag when refs/tags/<name> exists.
+function releaseTag(ctx, info, target, d) {
+  const { gates, tagPatterns } = releaseSettings(ctx.config)
+  if (!d.dst || d.delete || !gates.some((g) => g.required)) return null
+  let name = d.dst.startsWith('refs/tags/') ? d.dst.slice('refs/tags/'.length) : null
+  if (name === null && d.src === d.dst && ctx.git.revParse(target, `refs/tags/${d.dst}`)) name = d.dst
+  if (name === null) return null
+  if (!matchAny(name, tagPatterns)) return null
+  const src = d.src && d.src !== d.dst ? d.src : `refs/tags/${name}`
+  const sha = ctx.git.revParse(target, src)
+  const open = releaseGatesFor(ctx, info.stateDir, info.top, sha)
+  return open.length ? releaseDenies(open, sha, { action: `tag ${name}` }) : null
+}
+
+// `git push --tags` cannot say which commit a release tag is on, so with a required release gate it is
+// refused and the tag is pushed by name instead.
+function releaseTagsAll(ctx) {
+  if (!releaseSettings(ctx.config).gates.some((g) => g.required)) return null
+  return deny('release.tags_all', {})
 }
 
 function pushFeature(f, vars) {
@@ -732,6 +756,26 @@ export function stampFor(ctx, stateDir, cwd, sha) {
   const resultsOnly = (from) => !!sha && !!ctx.git.changedSince && onlyUnder(resultsPrefix(ctx.config), ctx.git.changedSince(t, from, sha))
   return checkStamp(stateDir, ctx.config.project?.git?.gate_stamp, sha, resultsOnly)
 }
+
+// Required release gates (project.release.gates; the older security_check counts as the gate
+// `security`) that have not passed on this commit. Empty when every one passed or none is required.
+// A stamp written by another command, or for another commit, counts as not passed.
+export function releaseGatesFor(ctx, stateDir, cwd, sha) {
+  const required = releaseSettings(ctx.config).gates.filter((g) => g.required)
+  if (!required.length) return []
+  const t = { cwd, globalOpts: [], env: {} }
+  const same = (from) => !!sha && !!ctx.git.changedSince && onlyUnder(resultsPrefix(ctx.config), ctx.git.changedSince(t, from, sha))
+  const open = []
+  for (const g of required) {
+    const stamp = stateDir ? readJsonSafe(path.join(stateDir, `${gateStampName(ctx.config, g.name)}.json`)) : null
+    const state = gateState(g, stamp, sha, same)
+    if (state !== 'ok') open.push({ ...g, state, stamp })
+  }
+  return open
+}
+
+// One reason per gate that has not passed, each naming the command that passes it.
+export const releaseDenies = (open, sha, vars) => open.map((g) => deny(`release.${g.state}`, { ...vars, ...gateVars(g, sha) }))
 
 // The line that raises the dialog for exactly this change, so the agent does not have to work out a
 // target or ask anyone. A source that is not a plain word goes by its commit.
@@ -752,6 +796,11 @@ function withGrant(ctx, info, action, sha, needStamp, vars, cmd, { source, remot
   if (sha && needStamp && gateCmd) {
     const s = stampFor(ctx, info.stateDir, info.top, sha)
     if (!s.ok) return deny(`stamp.${s.why}`, { ...vars, action, head: short, stamped: s.stamp?.head?.slice(0, 9) || '-' })
+  }
+  // A release reaches a protected branch here: every required release gate has to have passed on it first.
+  if (sha && needStamp) {
+    const open = releaseGatesFor(ctx, info.stateDir, info.top, sha)
+    if (open.length) return releaseDenies(open, sha, { ...vars, action })
   }
   const g = checkGrant(info.stateDir, action, sha, ctx.now, bind)
   if (!g.ok) return deny(`grant.${g.why}`, { ...vars, action, head: short, line: grantLine(action, sha, { source, remoteName, dest: bind.dest }), where: info.top, granted: g.grant?.head ? shortHead(g.grant.head) : '-', dest: bind.dest ?? '-', grantedDest: g.grant?.dest ?? '-', remote: bind.remote ?? '-', grantedRemote: g.grant?.remoteUrl ?? '-', ttl: ctx.config.project?.git?.owner_grant_ttl_min || 15 })

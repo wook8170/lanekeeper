@@ -357,11 +357,15 @@ lanekeeper-test-report init                  create .lanekeeper/verify.config.js
 lanekeeper-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
 lanekeeper-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
 lanekeeper-test-report gate-pass             run project.gate.command; a pass writes the gate pass stamp
+lanekeeper-test-report gates-pass [--name G] [--force]  run the release gates (project.release.gates), or only G; each pass writes a stamp (not run again on a commit that passed)
+lanekeeper-test-report security-pass [--force]  the same for the gate `security` (older form)
 lanekeeper-test-report latest | summary [--json]
 lanekeeper-check test-results [--json] [--require-pass]
 ```
 
 `lanekeeper-test-report run` and `gate` hold `<git common dir>/lanekeeper/gate.lock` while they run. Merges wait meanwhile, and a second gate run stops with exit code 3. The lock is removed when the run ends. When `run` (without `--only` or `--skip`, which pick a part) or `gate-pass` passes with no uncommitted changes, it writes the gate pass stamp (HEAD commit, time, command) to `<git common dir>/lanekeeper/<git.gate_stamp>.json`. The protected-branch check reads that stamp, and treats commits after it that change only files in the results folder (`paths.test_results`) as the same commit. The HEAD comparison in `lanekeeper-check test-results` follows the same rule.
+
+The gates to pass before shipping, such as a security check, SonarQube or Semgrep, are listed in `project.release.gates` as `{ name, command, required }` (P3vot: one gate `security` = `pnpm security:release-check`, see [`examples/p3vot-config.json`](examples/p3vot-config.json); SonarQube and Semgrep gates: [`examples/static-analysis-gates.json`](examples/static-analysis-gates.json)). `lanekeeper-test-report gates-pass` runs each gate that has not passed on the commit and writes one stamp per pass to `<git common dir>/lanekeeper/`. Ship verification, merges and pushes onto a protected branch, and pushes of a tag matching `release.tag_patterns` need every required gate passed on the commit. A gate that passed is not run or asked again; a blocked call names only the gates that have not passed, each with the command that passes it. A gate with `required: false` only warns. With no gate at all, ship verification only warns that release gates are not configured. The older `release.security_check` is still read, as the required gate `security`.
 
 Each stage names an `adapter` (vitest, jest, playwright, pytest), a `kind` (unit, integration, e2e, uistab), a `cmd` (`{file}` is where the structured output goes) and a `slot` (`heavy`, `heavy,browser`, `none`). Heavy stages run inside `lanekeeper-slot`. A run that only left logs is read with `build --input adapter:kind:name=log=<log>`.
 

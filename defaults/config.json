@@ -68,6 +68,13 @@
       "skills": ["verifying-production-readiness"]
     }
   },
+  "release": {
+    "gates": [],
+    "security_check": "",
+    "security_required": false,
+    "security_stamp": "lanekeeper-security-pass",
+    "tag_patterns": ["v*"]
+  },
   "docs_sync": {
     "base": "main",
     "release_tag": "v*",

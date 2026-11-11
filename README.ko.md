@@ -390,11 +390,15 @@ lanekeeper-test-report init                  .lanekeeper/verify.config.json 생�
 lanekeeper-test-report run [--name N] [--only a,b] [--skip a,b] [--ledger-priority P0] [--no-slot]
 lanekeeper-test-report build --input vitest:unit:app=out.json[,log=out.log] [--gate-json gate.json] [--rerun playwright=again.json]
 lanekeeper-test-report gate-pass             project.gate.command 실행, 통과하면 게이트 통과 표식
+lanekeeper-test-report gates-pass [--name G] [--force]  릴리스 관문(project.release.gates) 전부 또는 G 만 실행, 통과하면 관문별 표식(이미 통과한 커밋은 다시 돌리지 않음)
+lanekeeper-test-report security-pass [--force]  관문 `security` 만 실행(옛 형태)
 lanekeeper-test-report latest | summary [--json]
 lanekeeper-check test-results [--json] [--require-pass]
 ```
 
 `lanekeeper-test-report run`·`gate` 는 실행하는 동안 `<git 공용 폴더>/lanekeeper/gate.lock` 을 잡아 둔다. 그동안 병합은 기다리고, 다른 게이트 실행은 종료 코드 3 으로 멈춘다. 실행이 끝나면 잠금을 지운다. `run`(일부만 고르는 `--only`·`--skip` 없이)이나 `gate-pass` 가 통과하고 커밋하지 않은 변경이 없으면 `<git 공용 폴더>/lanekeeper/<git.gate_stamp>.json` 에 게이트 통과 표식(커밋 HEAD·시각·명령)을 남긴다. 보호 브랜치 반영 판정은 이 표식을 읽고, 표식 뒤에 결과 폴더(`paths.test_results`) 안의 파일만 바뀐 커밋은 같은 커밋으로 본다. `lanekeeper-check test-results` 의 HEAD 비교도 같은 규칙을 따른다.
+
+출하 전에 통과할 관문(보안 점검 · SonarQube · Semgrep 등)은 `project.release.gates` 에 `{ name, command, required }` 목록으로 적는다. P3vot 은 관문 `security` = `pnpm security:release-check` 하나를 둔다(설정 예 [`examples/p3vot-config.json`](examples/p3vot-config.json)). SonarQube · Semgrep 관문 예는 [`examples/static-analysis-gates.json`](examples/static-analysis-gates.json) 에 있다. `lanekeeper-test-report gates-pass` 는 그 커밋에서 아직 통과하지 않은 관문을 돌리고, 통과한 관문마다 `<git 공용 폴더>/lanekeeper/` 에 표식을 남긴다. 출하 검증 시작 · 보호 브랜치 병합과 push · `release.tag_patterns` 에 맞는 태그 push 는 그 커밋에서 필수 관문을 모두 통과해야 한다. 통과한 관문은 다시 돌리지도 묻지도 않는다. 막을 때는 통과하지 않은 관문만 이름으로 알리고, 그 관문을 통과시킬 명령을 함께 안내한다. `required: false` 인 관문은 경고만 한다. 관문이 하나도 없으면 출하 검증 때 「릴리스 관문 미설정」 경고만 낸다. 옛 설정 `release.security_check` 도 필수 관문 `security` 로 읽는다.
 
 단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `lanekeeper-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
 

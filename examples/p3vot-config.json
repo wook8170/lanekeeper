@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "project_kind": "web-ui",
+  "gate": { "command": "pnpm gate", "verify_all": "", "append_checks": [] },
+  "git": { "protected_branches": ["main"] },
+  "release": {
+    "gates": [
+      { "name": "security", "command": "pnpm security:release-check", "required": true }
+    ],
+    "tag_patterns": ["v*", "studio-v*"]
+  }
+}

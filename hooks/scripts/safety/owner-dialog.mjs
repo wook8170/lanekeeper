@@ -22,7 +22,7 @@ import * as Q from '../../../lib/quality.mjs'
 import { slotSettings } from '../../../lib/slots.mjs'
 import { resolvePrTarget, resolveTarget } from './approve.mjs'
 import { ask, deny } from './common.mjs'
-import { stampFor } from './git-guard.mjs'
+import { releaseDenies, releaseGatesFor, stampFor } from './git-guard.mjs'
 import { ACTIONS, isUnborn, shortHead } from './grant.mjs'
 import { READ_ONLY } from './paths.mjs'
 import { base } from './shell.mjs'
@@ -170,6 +170,9 @@ function judgeGrant(call, ctx, sd, t) {
     // Without a stamp the grant could not be used, and it may run out before the gate has finished.
     const stamped = ctx.config.project?.gate?.command ? stampFor(ctx, sd, ctx.cwd, head) : null
     if (stamped && !stamped.ok) return deny(`stamp.${stamped.why}`, { action: call.action, head: shortHead(head), stamped: stamped.stamp?.head?.slice(0, 9) || '-' })
+    // Same for the release gates: do not ask the owner for a grant that would then be refused.
+    const open = releaseGatesFor(ctx, sd, ctx.cwd, head)
+    if (open.length) return releaseDenies(open, head, { action: call.action })
     const stamp = stamped ? t('safety.owner.grant.stamp_ok') : ''
     const url = remoteUrl === remote ? t('safety.owner.grant.no_url') : shown(remoteUrl, 400)
     const landing = remote ? t('safety.owner.grant.on_remote', { dest: shown(dest), remote: shown(remote), url }) : shown(dest)
