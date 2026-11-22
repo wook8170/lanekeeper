@@ -20,7 +20,7 @@ This page explains when and how to use each feature, and ends with the 29 skills
 | Docs sync | Finds the documents a change of screens or features affects, drafts the edits, recaptures and checks, and blocks a change that leaves a required document alone | `lanekeeper-docs`, `/lanekeeper:docs-sync` |
 | Review, integrate and report | Nine-item review, rule-based merge, artifact report | `lanekeeper-check lane`, `lanekeeper-integrate`, `lanekeeper-art`, `/lanekeeper:review-lane`, `/lanekeeper:integrate`, `/lanekeeper:report` |
 | Mockup first | Blocks screen structure changes until a decision is recorded | `lanekeeper-decide`, `/lanekeeper:decide` |
-| Code standards | Puts the project's standards document into briefs and checks it at the gate, at review and with a warning hook | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
+| Code standards | Puts the project's standards document and the readable code rules into briefs and checks them at the gate, at review and with a warning hook | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
 | Beginner layer | Guides a one-line request, explains blocks, sets the writing voice | `/lanekeeper:work`, `/lanekeeper:explain`, `/lanekeeper:writing-style` |
 | Code index | codegraph index queue and usage hints | `lanekeeper-index` |
 | Session helpers | Token guard, automatic resume, terse mode, checkpoints | `lanekeeper-token`, `lanekeeper-retry`, `lanekeeper-terse`, `/lanekeeper:token-guard`, `/lanekeeper:auto-retry`, `/lanekeeper:terse` |
@@ -627,7 +627,7 @@ Blocked: 1 items did not pass. Ship verification cannot start.
 ### /lanekeeper:code-standards
 
 - When: writing or changing code, splitting or moving a large file or function, writing or reviewing the brief of an implementation, split or fix lane, or when the warning hook or the gate step `code-standards` reports a finding.
-- How: find the standards document (`doc`) with `lanekeeper-config get project.code_standards`, read that section and apply it as written. Follow the six general principles as well (limits and the ratchet, routes call services, error logging helpers, no cycles and no re-export files, characterization tests first, behavior and protected paths). Details in [Code standards](06-code-standards.md).
+- How: find the standards document (`doc`) with `lanekeeper-config get project.code_standards`, read that section and apply it as written. Follow the six general principles as well (limits and the ratchet, routes call services, error logging helpers, no cycles and no re-export files, characterization tests first, behavior and protected paths) and the seven readable code rules. Details in [Code standards](06-code-standards.md).
 - Example: "split this route file into a service"
 
 ### /lanekeeper:report

@@ -16,6 +16,7 @@
   1. {{acceptance}}
 - When user-visible behavior changes, update the user docs and help in the same change.
 - {{code_standards}}
+- {{readability}}
 
 ## Do not
 - Change files outside the owned list. Add features or refactor beyond the scope.

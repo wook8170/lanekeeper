@@ -12,6 +12,7 @@
 ## 범위
 {{findings}}
 - {{code_standards}}
+- {{readability}}
 
 ## 금지
 - 지적과 무관한 코드 정리·리팩터링, 시험 기대값 완화.

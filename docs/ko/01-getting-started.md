@@ -90,8 +90,8 @@ claude plugin list
 Installed plugins:
 
   ❯ lanekeeper@wook8170-plugins
-    Version: 0.2.5
-    Read from: ~/.claude/plugins/cache/wook8170-plugins/lanekeeper/0.2.5
+    Version: 0.2.6
+    Read from: ~/.claude/plugins/cache/wook8170-plugins/lanekeeper/0.2.6
     Scope: user
     Status: ✔ enabled
 ```

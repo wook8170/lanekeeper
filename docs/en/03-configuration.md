@@ -285,7 +285,13 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 | `project.code_standards.helpers` | `[]` | Names of the error logging helpers. They go into briefs and warnings, and drive the `.catch(<name>)` warning | `["ignoreError","warnError"]` |
 | `project.code_standards.protected_paths` | `[]` | Paths (globs) that may import the protected modules. They go into briefs and are checked at review | `["server/src/billing/**"]` |
 | `project.code_standards.exempt_paths` | `[]` | Paths (globs) the warning hook skips. Test files are skipped without being listed | `["cli/**"]` |
-| `project.code_standards.warn_hook` | `false` | Warns about an empty catch, `.catch(() => value)` or `console` in newly written code. Never blocks | `true` |
+| `project.code_standards.warn_hook` | `false` | Warns about an empty catch, `.catch(() => value)` or `console` in newly written code, and, with the readable code rules on, about history markers in comments, a new file without a header comment and long parameter lists. Never blocks | `true` |
+| `project.code_standards.readability.enabled` | `true` | The readable code rules. `false` removes the brief line, the review items and the readability warnings of the hook | `false` |
+| `project.code_standards.readability.doc` | `""` | Path and anchor of the project's readability document. Briefs and warnings name it | `"AGENTS.md#readable-code"` |
+| `project.code_standards.readability.max_params` | `7` | Upper limit for parameters and for the fields of one input object. Used by briefs, review and the warning hook | `5` |
+| `project.code_standards.readability.max_props` | `12` | Upper limit for the props of a screen component (React function component, Vue `defineProps`). Used by briefs, review and the warning hook | `15` |
+| `project.code_standards.readability.review_tasks` | `3` | Upper limit of tasks in the fresh-eyes check (1 to this value) | `2` |
+| `project.code_standards.readability.fresh_eyes_review` | `true` | The check of a large change is done adversarially in a separate context (`lanekeeper:design-adversary`) | `false` |
 | `project.dispatch.brief` | `"deny"` | Brief check: `deny` blocks, `warn` only shows a hint, `off` skips it | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | Agent types that skip the brief check | `["fork"]` |
 | `project.waves.stale_min` | `20` | A running lane with no activity for this many minutes counts as stopped | `40` |
