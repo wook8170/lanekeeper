@@ -10,6 +10,7 @@ A gate suite lists `steps` (`[{ "name": "docs", "cmd": "…" }]`). Every step ru
 ## Steps
 
 1. `lanekeeper-quality list` shows the configured suites. The suites of this skill are the ones with category `gate`. None configured: show the user the `quality.suites` example in the plugin's `examples/quality-config.json` and stop.
+   - `project.code_standards.checks` adds the gate kind `code-standards`: one step per command, run like any other gate suite (`lanekeeper-quality run code-standards`). A suite named `code-standards` in `quality.suites` replaces it. Example: `examples/code-standards-config.json` in the plugin.
 2. Commit or set aside your changes first. A run on a tree with uncommitted changes is recorded as stale and the ship precheck will not use it.
 3. Run `lanekeeper-quality run --category gate` (or `lanekeeper-quality run <kind>` for one suite). Each suite runs its configured command through `lanekeeper-slot` (heavy suites wait for a free slot and for the load to drop). The common head JSON and the workbook go to `<results>/<version>/<date>/<kind>-<HHMM>.{json,xlsx}`, the log stays in the raw folder (not committed), and the index (`index.json`, `INDEX.md`) is rebuilt.
 4. Quote the `[quality] … passed|failed · total … · passed … · failed … · skipped … · fixme …` line. Do not recount.

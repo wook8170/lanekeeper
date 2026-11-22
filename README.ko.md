@@ -117,6 +117,7 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 | PreToolUse (Agent, Task, Skill) | `quality/ship-gate` | 출하 검증을 시작하기 전에, 현재 커밋에서 필요한 품질 결과가 통과했는지 확인한다 |
 | PreToolUse (Bash) | `slots/slot-guard` | 무거운 명령을 `lanekeeper-slot` 안에서 실행하라고 알린다 |
 | PreToolUse (Write, Edit, MultiEdit) | `mockup/mockup-first` | `project.mockup.decision_required` 가 켜져 있으면, 화면 구조를 바꾸기 전에 확정된 시안을 요구한다 |
+| PreToolUse (Write, Edit, MultiEdit) | `codestd/warn` | `project.code_standards.warn_hook` 이 켜져 있으면, 새로 쓰는 코드에 빈 catch·`.catch(() => 값)`·`console` 이 있을 때 경고를 더한다. 막지는 않는다 |
 | PreToolUse (Bash, Grep) | `codegraph/nudge` | 재귀 `grep` 대신 `rg` 를 쓰라고 알린다 |
 | PreToolUse (codegraph MCP 도구) | `codegraph/deadpath` | 색인이 없는 경로에 같은 호출을 반복하지 않게 막는다 |
 | UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | 한 번만 쓸 수 있는 오너 허가를 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 쓴다. `merge-pr` 는 `~/.lanekeeper/owner/owner-grant.json` 에 쓰고, 이때 `gh pr view` 를 실행한다 |
@@ -468,6 +469,17 @@ PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 �
 - 결정 기록: `lanekeeper-decide new <이름> --kind mockup --scope "src/list/**" …` 로 질문 문서를 만들고, 오너의 선택을 `lanekeeper-decide answer` 로 기록한다. 문서 표지 `<!-- lanekeeper-decision v1 status=decided kind=mockup scope=src/list/** -->` 의 `scope` 가 그 파일을 덮으면 통과한다. 대기 중(`status=pending`)인 결정은 풀지 않는다. `scope` 를 생략하면 모든 화면 파일을 덮는다. 손으로 쓴 표지에 `status` 가 없으면 결정된 것으로 본다. 문서 골격은 `templates/decision/` 하나다.
 - 순서: 현재 화면과 대안 시안을 프로젝트 토큰으로 만들어 아티팩트로 보여 주고(`mockup.tokens_css`), 선택을 받은 뒤 결정 문서를 커밋한다. 레인 워크트리는 이 커밋 뒤의 통합 HEAD 에서 만든다.
 - 끄기: `mockup.decision_required: false`.
+
+## 코드 작성 기준
+
+설정 `code_standards` 는 레인이 따를 프로젝트의 코드 작성 기준 문서를 가리킨다. Lanekeeper 는 특정 프로젝트의 규칙을 담지 않는다. 스킬 `/lanekeeper:code-standards` 에 일반 원칙 여섯 가지(상한과 래칫, 라우트에서 서비스로, 오류 기록 도우미, 순환과 다시 내보내기 금지, 나누기 전 특성화 테스트, 동작과 보호 경로 보존)가 있고, 세부는 `code_standards.doc` 이 가리키는 문서가 정한다. 기본값은 모두 비어 있거나 꺼져 있다.
+
+- 지시서: `lanekeeper-style brief impl|fix` 와 `/lanekeeper:review-lane` 의 되돌림 지시서에 「`<doc>` 의 코드 작성 기준을 따른다(어기면 미완료)」 줄이 도우미 이름, 보호 경로와 함께 들어간다.
+- 게이트: `code_standards.checks` 가 있으면 게이트 종류 `code-standards` 가 생기고 명령마다 단계 하나로 돈다(`lanekeeper-quality run code-standards`).
+- 검수: `/lanekeeper:review-lane` 이 게이트가 잡지 못하는 항목을 확인한다. 나누기 전 특성화 테스트 커밋, 옮긴 뒤 `-u` 미사용, 문구·응답·상태 코드·테스트 손잡이·순서·로그 형식 보존, 다시 내보내기 파일 없음, 보호 대상 모듈은 `code_standards.protected_paths` 안에서만 가져옴, 새 파일과 새 함수의 허용 폭 0 이다.
+- 경고 훅: `code_standards.warn_hook: true` 면 PreToolUse 훅 `codestd/warn` 이 새로 쓰는 코드의 빈 catch, `.catch(() => 값)`, `console`, `catch (e) { void e }`, `.catch(<도우미>)` 에 경고를 낸다. 경고에는 도우미 이름과 문서 위치가 들어간다. 도구 호출은 막지 않는다. 테스트 파일과 `code_standards.exempt_paths` 는 건너뛴다.
+
+예: `examples/code-standards-config.json`. 자세한 설명: [docs/ko/06-code-standards.md](docs/ko/06-code-standards.md).
 
 ## 초보자 계층
 

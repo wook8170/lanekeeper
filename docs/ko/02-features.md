@@ -2,7 +2,7 @@
 
 Lanekeeper 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Code 가 도구를 실행하기 전후에 자동으로 판정한다. `lanekeeper-*` 명령은 사람이나 Claude 가 직접 실행한다. 스킬(`/lanekeeper:<이름>`)은 Claude 에게 정해진 순서로 명령을 실행하게 하는 작업 안내다.
 
-이 문서는 기능별로 언제 쓰는지와 어떻게 쓰는지를 설명하고, 끝에 스킬 28개를 하나씩 정리했다. 설정 키의 기본값과 뜻은 [설정](03-configuration.md), 규칙별 이유와 복구 방법은 [규칙 안내](04-rules.md)에 있다.
+이 문서는 기능별로 언제 쓰는지와 어떻게 쓰는지를 설명하고, 끝에 스킬 29개를 하나씩 정리했다. 설정 키의 기본값과 뜻은 [설정](03-configuration.md), 규칙별 이유와 복구 방법은 [규칙 안내](04-rules.md)에 있다.
 
 **동작 범위.** 안전 훅은 모든 저장소에서 동작한다. 나머지 작업 훅은 `.lanekeeper/config.json` 이 있는 저장소(또는 그 저장소의 워크트리)에서만 동작한다. 환경 변수 `LANEKEEPER_ACTIVE=1` 을 두면 모든 저장소에서 켜지고, `LANEKEEPER_ACTIVE=0` 을 두면 모두 꺼진다. 핸드오프·토큰 가드·자동 재개·간결 모드는 Claude Code 설정에 같은 종류의 훅이 있으면 꺼진다(`personal.global_hooks`). 세션을 시작할 때는 기본으로 `progress.md` 의 첫 절만 넣는다(`personal.handoff.inject`).
 
@@ -20,6 +20,7 @@ Lanekeeper 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Cod
 | 문서 현행화 | 화면·기능 변경에서 고칠 문서를 찾아 초안·재촬영·검사까지 진행, 필수 문서를 안 고친 변경을 막음 | `lanekeeper-docs`, `/lanekeeper:docs-sync` |
 | 검수·취합·보고 | 9항목 검수, 규칙 기반 병합, 아티팩트 보고 | `lanekeeper-check lane`, `lanekeeper-integrate`, `lanekeeper-art`, `/lanekeeper:review-lane`, `/lanekeeper:integrate`, `/lanekeeper:report` |
 | 시안 먼저 | 화면 구조 변경을 결정 기록 전에 막음 | `lanekeeper-decide`, `/lanekeeper:decide` |
+| 코드 작성 기준 | 프로젝트 기준 문서를 지시서에 넣고, 게이트·검수·경고 훅에서 확인 | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
 | 초보자 계층 | 한 줄 요청 안내, 막힌 이유 설명, 문체 지정 | `/lanekeeper:work`, `/lanekeeper:explain`, `/lanekeeper:writing-style` |
 | 코드 색인 | codegraph 색인 대기열, 사용 안내 | `lanekeeper-index` |
 | 세션 보조 | 토큰 가드, 자동 재개, 간결 모드, 체크포인트 | `lanekeeper-token`, `lanekeeper-retry`, `lanekeeper-terse`, `/lanekeeper:token-guard`, `/lanekeeper:auto-retry`, `/lanekeeper:terse` |
@@ -372,7 +373,7 @@ lanekeeper-token status
 
 자동 재개의 권한 모드 기본값은 `default` 다. 이 모드에서는 승인이 필요한 도구가 무인 실행에서 거절되므로 재개한 작업이 그 지점에서 멈출 수 있다. `bypassPermissions` 는 사람이 프롬프트에 `/lanekeeper:approve retry-bypass` 를 입력할 때만 켜진다. 에이전트는 이 모드를 켤 수 없고, 저장소의 프로젝트 설정으로도 확인을 대신할 수 없다.
 
-## 13. 스킬 28개
+## 13. 스킬 29개
 
 스킬은 Claude Code 프롬프트에 `/lanekeeper:<이름>` 으로 입력한다. 설명에 맞는 요청을 하면 Claude 가 스스로 부르기도 한다. 다만 `/lanekeeper:approve` 는 사람이 직접 입력할 때만 동작한다.
 
@@ -401,6 +402,7 @@ lanekeeper-token status
 | `/lanekeeper:ship-verify` | 선행 검증 관문을 통과시킨 뒤 출하 검증을 한다 |
 | `/lanekeeper:quality-report` | 버전 품질 보고서(엑셀·Markdown·HTML)를 만든다 |
 | `/lanekeeper:docs-sync` | 화면·기능 변경에 맞춰 문서·스크린샷을 한 번에 현행화한다 |
+| `/lanekeeper:code-standards` | 코드를 쓰거나 나누거나 검수할 때 프로젝트의 코드 작성 기준을 적용한다 |
 | `/lanekeeper:report` | 최종 보고를 아티팩트로 게시한다 |
 | `/lanekeeper:approve` | 소유자 결정을 기록한다(사람만 입력): 보호 브랜치 반영 1회, 약화 결과 승인, 자동 재개의 `bypassPermissions`, 오래된 게이트 잠금 삭제 |
 | `/lanekeeper:auto-retry` | 한도 뒤 자동 재개를 관리한다 |
@@ -622,6 +624,12 @@ lanekeeper-quality precheck --run
 - 언제: 화면·기능을 고친 뒤 매뉴얼·문서·화면 문구·스크린샷을 맞출 때, `lanekeeper-docs check` 나 품질 종류 `docs` 가 실패했을 때.
 - 어떻게: `lanekeeper-docs map` 으로 영향 지도를 보고, `lanekeeper-docs apply` 로 생성 문서를 다시 만들고, `lanekeeper-docs drafts` 의 초안대로 글을 고친다. 재촬영 후보는 지도에 나온 명령으로 다시 찍는다. 이때 전용 포트, 헤드리스, 2배 배율을 쓴다. `lanekeeper-docs verify` 로 검사하고 `lanekeeper-docs check` 가 통과할 때까지 되풀이한다. 일부러 옛 문구를 남기는 문서는 근거와 함께 `docs_sync.ack_file` 에 적는다.
 - 예시: `lanekeeper-docs drafts --out drafts.md`
+
+### /lanekeeper:code-standards
+
+- 언제: 코드를 새로 쓰거나 고칠 때, 큰 파일이나 함수를 나누거나 옮길 때, 구현·분리·수정 레인의 지시서를 쓰거나 검수할 때, 경고 훅이나 게이트 단계 `code-standards` 가 지적했을 때.
+- 어떻게: `lanekeeper-config get project.code_standards` 로 기준 문서(`doc`)를 찾아 그 절을 읽고 그대로 적용한다. 일반 원칙 여섯 가지(상한과 래칫, 라우트에서 서비스로, 오류 기록 도우미, 순환과 다시 내보내기 금지, 특성화 테스트 먼저, 동작 보존과 보호 경로)를 함께 따른다. 자세한 내용은 [코드 작성 기준](06-code-standards.md).
+- 예시: 「이 라우트 파일을 서비스로 나눠 줘」
 
 ### /lanekeeper:report
 

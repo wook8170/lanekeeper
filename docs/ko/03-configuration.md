@@ -280,6 +280,12 @@ lanekeeper-config validate
 | `project.protected_data.ports` | `[]` | 시험이 쓰면 안 되는 DB 서버 포트. psql·mysql 이 이 포트로 쓰기 SQL 을 보내면 레인은 막고 메인 세션은 확인을 받는다 | `[5432]` |
 | `project.protected_data.containers` | `[]` | 시험이 쓰면 안 되는 컨테이너 이름. `docker exec` 쓰기 명령과 `docker cp` 를 판정한다 | `["owner-pg"]` |
 | `project.lanes.commit` | `"allowed"` | 레인 커밋 정책. `allowed` 는 자기 브랜치 커밋 허용, `on-instruction` 은 지시서 표지에 `commit=allowed`(또는 「커밋 허용」 줄)가 있을 때만 허용하고 없으면 확인을 받는다. 체크포인트 커밋도 따른다 | `"on-instruction"` |
+| `project.code_standards.doc` | `""` | 코드 작성 기준 문서의 경로와 앵커. 값이 있으면 구현·수리 지시서와 되돌림 지시서에 「이 문서의 기준을 따른다」 줄이 들어간다 | `"CONTRIBUTING.md#code-standards"` |
+| `project.code_standards.checks` | `[]` | 기준을 검사하는 명령. 값이 있으면 게이트 종류 `code-standards` 가 생기고 명령마다 단계 하나로 돈다 | `["npm run -s lint:structure"]` |
+| `project.code_standards.helpers` | `[]` | 오류 기록 도우미 이름. 지시서와 경고 문구에 들어가고, `.catch(<이름>)` 경고에 쓴다 | `["ignoreError","warnError"]` |
+| `project.code_standards.protected_paths` | `[]` | 보호 대상 모듈을 가져와도 되는 경로(glob). 지시서에 들어가고 검수에서 확인한다 | `["server/src/billing/**"]` |
+| `project.code_standards.exempt_paths` | `[]` | 경고 훅이 건너뛰는 경로(glob). 테스트 파일은 따로 적지 않아도 건너뛴다 | `["cli/**"]` |
+| `project.code_standards.warn_hook` | `false` | 새로 쓰는 코드의 빈 catch·`.catch(() => 값)`·`console` 에 경고를 낸다. 막지는 않는다 | `true` |
 | `project.dispatch.brief` | `"deny"` | 지시서 검사. `deny` 는 차단, `warn` 은 안내만, `off` 는 검사 안 함 | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | 지시서 검사를 건너뛸 에이전트 종류 | `["fork"]` |
 | `project.waves.stale_min` | `20` | 활동이 이 시간(분) 넘게 없는 진행 레인을 멈춤으로 봄 | `40` |

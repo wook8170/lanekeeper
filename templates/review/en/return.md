@@ -11,6 +11,7 @@ Return a new HEAD that resolves every finding below. Make no change unrelated to
 
 ## Scope
 {{findings}}
+- {{code_standards}}
 
 ## Do not
 - Do not clean up or refactor unrelated code, and do not weaken test expectations.

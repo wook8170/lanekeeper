@@ -280,6 +280,12 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 | `project.protected_data.ports` | `[]` | Database server ports tests must not write to. A psql or mysql write to one is blocked for a lane and needs confirmation in the main session | `[5432]` |
 | `project.protected_data.containers` | `[]` | Container names tests must not write to. Writing `docker exec` commands and `docker cp` are judged | `["owner-pg"]` |
 | `project.lanes.commit` | `"allowed"` | Lane commit policy. `allowed` lets a lane commit to its own branch; `on-instruction` allows it only when the brief marker has `commit=allowed` (or a "commit allowed" line) and otherwise asks. Checkpoint commits follow it too | `"on-instruction"` |
+| `project.code_standards.doc` | `""` | Path and anchor of the code standards document. When set, implementation, fix and return briefs get the line "follow the standards in this document" | `"CONTRIBUTING.md#code-standards"` |
+| `project.code_standards.checks` | `[]` | Commands that check the standards. When set, the gate kind `code-standards` appears and runs one step per command | `["npm run -s lint:structure"]` |
+| `project.code_standards.helpers` | `[]` | Names of the error logging helpers. They go into briefs and warnings, and drive the `.catch(<name>)` warning | `["ignoreError","warnError"]` |
+| `project.code_standards.protected_paths` | `[]` | Paths (globs) that may import the protected modules. They go into briefs and are checked at review | `["server/src/billing/**"]` |
+| `project.code_standards.exempt_paths` | `[]` | Paths (globs) the warning hook skips. Test files are skipped without being listed | `["cli/**"]` |
+| `project.code_standards.warn_hook` | `false` | Warns about an empty catch, `.catch(() => value)` or `console` in newly written code. Never blocks | `true` |
 | `project.dispatch.brief` | `"deny"` | Brief check: `deny` blocks, `warn` only shows a hint, `off` skips it | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | Agent types that skip the brief check | `["fork"]` |
 | `project.waves.stale_min` | `20` | A running lane with no activity for this many minutes counts as stopped | `40` |
