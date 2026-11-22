@@ -5,7 +5,9 @@
 //   lanekeeper-style rules [haeyo|report|plain]     full rule text for a style (all three when omitted)
 //   lanekeeper-style text <path...>                 the one-line text that fills {{style}} in a brief
 //   lanekeeper-style brief <type|file> [--owned a,b] [--var k=v]...
-//                                           brief template with {{style}} (and any --var) filled in
+//                                           brief template with {{style}} (and any --var) filled in;
+//                                           {{code_standards}} gets the line for project.code_standards.doc,
+//                                           or its line is dropped when no document is set
 //
 // Common options: --project <dir>, --lang ko|en
 import fs from 'node:fs'
@@ -18,6 +20,7 @@ const { load, parseOptions } = await imp('cli.mjs')
 const { translator } = await imp('i18n.mjs')
 const { PLUGIN_ROOT, getPath } = await imp('config.mjs')
 const S = await imp('style.mjs')
+const CS = await imp('code-standards.mjs')
 
 const argv = process.argv.slice(2)
 const vars = {}
@@ -57,7 +60,9 @@ if (cmd === 'of') {
   const owned = args.owned ? String(args.owned).split(',').map((s) => s.trim()).filter(Boolean) : []
   const all = { style: S.renderStyle(map, owned, t), ...vars }
   if (owned.length && !('owned_files' in all)) all.owned_files = owned.join(', ')
-  process.stdout.write(S.fillTemplate(fs.readFileSync(file, 'utf8'), all))
+  let text = fs.readFileSync(file, 'utf8')
+  if (!('code_standards' in vars)) text = CS.applyToBrief(text, CS.briefLine(resolved.config, t))
+  process.stdout.write(S.fillTemplate(text, all))
 } else {
   print('usage: lanekeeper-style of|rules|text|brief …')
   process.exit(2)

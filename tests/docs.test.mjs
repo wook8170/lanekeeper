@@ -14,7 +14,7 @@ import { translator } from '../lib/i18n.mjs'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
 const LANGS = ['ko', 'en']
-const CHAPTERS = ['01-getting-started.md', '02-features.md', '03-configuration.md', '04-rules.md', '05-troubleshooting.md']
+const CHAPTERS = ['01-getting-started.md', '02-features.md', '03-configuration.md', '04-rules.md', '05-troubleshooting.md', '06-code-standards.md']
 const docFiles = () => ['docs/README.md', ...LANGS.flatMap((l) => CHAPTERS.map((c) => `docs/${l}/${c}`))]
 const doc = (lang, chapter) => read(`docs/${lang}/${chapter}`)
 

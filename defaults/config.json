@@ -37,6 +37,7 @@
   "protected_paths": [],
   "protected_data": { "paths": [], "ports": [], "containers": [] },
   "lanes": { "commit": "allowed" },
+  "code_standards": { "doc": "", "checks": [], "helpers": [], "protected_paths": [], "exempt_paths": [], "warn_hook": false },
   "dispatch": { "brief": "deny", "exempt_agents": ["fork", "claude-code-guide", "statusline-setup"] },
   "waves": { "stale_min": 20 },
   "numbers": {},

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "project_kind": "web-ui",
+  "code_standards": {
+    "doc": "CONTRIBUTING.md#code-standards",
+    "checks": [
+      "npm run -s lint:structure",
+      "npm run -s lint:cycles",
+      "npm run -s typecheck"
+    ],
+    "helpers": ["ignoreError", "warnError", "logger"],
+    "protected_paths": ["server/src/billing/**", "server/src/auth/**"],
+    "exempt_paths": ["cli/**", "scripts/**"],
+    "warn_hook": true
+  }
+}

@@ -117,6 +117,7 @@ Every hook is a Node.js script in `hooks/scripts/`, started as `"${CLAUDE_PLUGIN
 | PreToolUse (Agent, Task, Skill) | `quality/ship-gate` | Before ship verification starts, checks that the required quality results passed on the current commit |
 | PreToolUse (Bash) | `slots/slot-guard` | Asks to run heavy commands inside `lanekeeper-slot` |
 | PreToolUse (Write, Edit, MultiEdit) | `mockup/mockup-first` | When `project.mockup.decision_required` is on, asks for a decided mockup before a screen structure change |
+| PreToolUse (Write, Edit, MultiEdit) | `codestd/warn` | When `project.code_standards.warn_hook` is on, adds a warning (never a block) when new code brings an empty catch, `.catch(() => value)` or `console` |
 | PreToolUse (Bash, Grep) | `codegraph/nudge` | Suggests `rg` instead of a recursive `grep` |
 | PreToolUse (codegraph MCP tools) | `codegraph/deadpath` | Stops repeated calls for a path with no index |
 | UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | Writes a one-time owner grant to `<git common dir>/lanekeeper/owner-grant.json`. `merge-pr` writes `~/.lanekeeper/owner/owner-grant.json` and runs `gh pr view` |
@@ -435,6 +436,17 @@ The PreToolUse hook `mockup-first` blocks writes that change the screen structur
 - Decision: create the question with `lanekeeper-decide new <name> --kind mockup --scope "src/list/**" …` and record the owner's choice with `lanekeeper-decide answer`. A record whose marker `<!-- lanekeeper-decision v1 status=decided kind=mockup scope=src/list/** -->` has a `scope` covering the file unlocks it; a pending record (`status=pending`) does not. Without `scope` it covers every screen file. A hand-written marker without `status` counts as decided. The skeleton is the single `templates/decision/`.
 - Order: build the current screen and the options with the project tokens (`mockup.tokens_css`), show them as an artifact, get a choice, commit the decision. Lane worktrees are then made from the integration HEAD after that commit.
 - Off: `mockup.decision_required: false`.
+
+## Code standards
+
+The setting `code_standards` points lanes at the project's own code standards document. Lanekeeper carries no project's rules; the skill `/lanekeeper:code-standards` holds six general principles (limits and the ratchet, routes call services, error logging helpers, no cycles or re-export files, characterization tests before a split, behavior and protected paths kept), and the document named in `code_standards.doc` decides the details. Every default is empty or off.
+
+- Briefs: `lanekeeper-style brief impl|fix` and the return briefs of `/lanekeeper:review-lane` add "follow the code standards in `<doc>` (work that breaks them is not done)" with the helper names and protected paths.
+- Gate: `code_standards.checks` adds the gate kind `code-standards`, one step per command (`lanekeeper-quality run code-standards`).
+- Review: `/lanekeeper:review-lane` checks what the gate cannot see: characterization tests committed before the split, no `-u` after a move, text, responses, status codes, test handles, order and log formats kept, no re-export files, protected modules imported only inside `code_standards.protected_paths`, and no allowance for new files and functions.
+- Warning hook: with `code_standards.warn_hook: true`, the PreToolUse hook `codestd/warn` warns about an empty catch, `.catch(() => value)`, `console`, `catch (e) { void e }` and `.catch(<helper>)` in newly written code, naming the helpers and the document. It never blocks. Test files and `code_standards.exempt_paths` are skipped.
+
+Example: `examples/code-standards-config.json`. Details: [docs/en/06-code-standards.md](docs/en/06-code-standards.md).
 
 ## Beginner layer
 

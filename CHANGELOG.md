@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-22
+
 ### Added
 - 출하 전 보안 점검 관문(`project.release`). `release.security_check` 에 프로젝트의 보안 점검 명령을 적으면(P3vot 예: `pnpm security:release-check`) 출하 검증 시작 · 보호 브랜치 병합과 push · 릴리스 태그(`release.tag_patterns`, 기본 `v*`) push 전에 그 커밋의 보안 관문 표식을 본다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막고, 실행할 명령을 알린다. 허가 확인 창도 표식이 없으면 띄우지 않는다
 - `lanekeeper-test-report security-pass [--force]`: 보안 점검 명령을 깨끗한 HEAD 에서 실행하고, 통과하면 `<git 공용 폴더>/lanekeeper/<release.security_stamp>.json` 표식을 남긴다. 이미 통과한 커밋은 다시 돌리지 않는다
@@ -11,6 +13,12 @@
 - 설정 예 `examples/p3vot-config.json`, 시험 `tests/release-security.test.mjs`
 - 규칙 `release-security-gate`(규칙 53개)
 - 출하 관문 목록 `release.gates`(`[{ name, command, required }]`). 보안 점검 외에 SonarQube · Semgrep 같은 정적 분석도 관문으로 둔다. 관문마다 통과 표식을 따로 남기고(`lanekeeper-test-report gates-pass [--name <이름>] [--force]`), 그 커밋에서 이미 통과한 관문은 다시 돌리지 않는다. 막을 때는 통과하지 않은 필수 관문만 이름과 통과 명령으로 알리고, `required: false` 관문은 경고만 한다. 옛 `release.security_check` · `security_required` · 표식 파일은 관문 `security` 로 그대로 읽는다. 예시 `examples/static-analysis-gates.json`
+- 코드 작성 기준(`project.code_standards`). `doc` 에 프로젝트의 기준 문서와 앵커를 적으면 구현 · 수리 지시서(`lanekeeper-style brief impl|fix`)와 되돌림 지시서의 범위 절에 「이 문서의 코드 작성 기준을 따른다(어기면 미완료)」 줄이 도우미 이름(`helpers`), 보호 경로(`protected_paths`)와 함께 들어간다. `doc` 이 없으면 줄을 넣지 않는다
+- 스킬 `/lanekeeper:code-standards`: 일반 원칙 여섯 가지(상한과 래칫, 라우트에서 서비스로, 오류 기록 도우미, 순환과 다시 내보내기 금지, 나누기 전 특성화 테스트, 동작과 보호 경로 보존)와 프로젝트 기준 문서를 읽고 적용하는 순서(스킬 29개)
+- `code_standards.checks` 가 있으면 게이트 종류 `code-standards` 를 등록한다. 명령마다 단계 하나이고, 같은 이름의 `quality.suites` 스위트가 있으면 그것을 쓴다
+- 경고 훅 `codestd/warn`(PreToolUse, Write · Edit · MultiEdit). `code_standards.warn_hook: true` 면 새로 쓰는 코드의 빈 catch, `.catch(() => 값)`, `console` · `globalThis.console`, `catch (e) { void e }`, `.catch(<도우미>)` 에 도우미 이름과 문서 위치를 담은 경고를 더한다. 도구 호출은 막지 않는다. 테스트 파일과 `code_standards.exempt_paths` 는 건너뛴다
+- `/lanekeeper:review-lane` 에 게이트가 잡지 못하는 코드 작성 기준 항목(특성화 테스트 커밋 순서, 옮긴 뒤 `-u`, 동작 보존, 다시 내보내기, 보호 경로, 새 코드 허용 폭 0)을 더했다
+- 설명서 `docs/ko/06-code-standards.md` · `docs/en/06-code-standards.md`, 설정 예 `examples/code-standards-config.json`, 시험 `tests/code-standards.test.mjs`
 
 ### Changed
 - 출하 검증 관문 훅은 `quality.ship.requires` 가 비어 있어도 출하 검증 호출에서 보안 관문을 본다. 그래서 보안 관문을 정하지 않은 프로젝트에는 「보안 관문 미설정」 경고가 붙는다

@@ -92,8 +92,8 @@ claude plugin list
 Installed plugins:
 
   ❯ lanekeeper@wook8170-plugins
-    Version: 0.2.4
-    Read from: ~/.claude/plugins/cache/wook8170-plugins/lanekeeper/0.2.4
+    Version: 0.2.5
+    Read from: ~/.claude/plugins/cache/wook8170-plugins/lanekeeper/0.2.5
     Scope: user
     Status: ✔ enabled
 ```
@@ -595,7 +595,8 @@ If only result files were committed after the stamp, it stays valid. Any other c
 
 ## What to read next
 
-- [Features](02-features.md): how to use each feature, and the 28 skills
+- [Features](02-features.md): how to use each feature, and the 29 skills
 - [Configuration](03-configuration.md): settings layers and every key
 - [Rules](04-rules.md): the 53 rules and how to fix the work when blocked
 - [Troubleshooting](05-troubleshooting.md): common messages and questions
+- [Code standards](06-code-standards.md): how lanes are held to the project's code standards

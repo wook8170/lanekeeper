@@ -14,6 +14,7 @@ Fix {{defect}}. Work in order: reproduce, confirm the cause, fix, regression tes
 - Symptom and reproduction: {{repro}}
 - Owned files (do not change anything else): {{owned_files}}
 - Done when the symptom is gone in the reproduction and a regression test that failed on the old code passes.
+- {{code_standards}}
 
 ## Do not
 - Clean up or refactor code unrelated to the cause. Hide the symptom (swallowing errors, loosening test expectations).

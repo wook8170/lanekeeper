@@ -1,6 +1,6 @@
 {
   "name": "lanekeeper",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": true,
   "description": "Lanekeeper (Agent Workbench) Claude Code plugin",
   "license": "MIT",

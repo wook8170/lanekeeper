@@ -2,7 +2,7 @@
 
 Lanekeeper works in three ways. Hooks judge automatically before and after Claude Code runs a tool. The `lanekeeper-*` commands are run by you or by Claude. Skills (`/lanekeeper:<name>`) are task guides that make Claude run commands in a set order.
 
-This page explains when and how to use each feature, and ends with the 28 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
+This page explains when and how to use each feature, and ends with the 29 skills one by one. Default values and meanings of settings keys are in [Configuration](03-configuration.md); the reason and recovery of each rule are in [Rules](04-rules.md).
 
 **Where it acts.** The safety hooks run in every repository. The other workflow hooks act only in a repository with `.lanekeeper/config.json` (or a worktree of it). The environment variable `LANEKEEPER_ACTIVE=1` turns every repository on and `LANEKEEPER_ACTIVE=0` turns them all off. Handoff, token guard, automatic resume and terse mode turn off when the Claude Code settings already hook the same kind (`personal.global_hooks`). At session start only the first section of `progress.md` goes in by default (`personal.handoff.inject`).
 
@@ -20,6 +20,7 @@ This page explains when and how to use each feature, and ends with the 28 skills
 | Docs sync | Finds the documents a change of screens or features affects, drafts the edits, recaptures and checks, and blocks a change that leaves a required document alone | `lanekeeper-docs`, `/lanekeeper:docs-sync` |
 | Review, integrate and report | Nine-item review, rule-based merge, artifact report | `lanekeeper-check lane`, `lanekeeper-integrate`, `lanekeeper-art`, `/lanekeeper:review-lane`, `/lanekeeper:integrate`, `/lanekeeper:report` |
 | Mockup first | Blocks screen structure changes until a decision is recorded | `lanekeeper-decide`, `/lanekeeper:decide` |
+| Code standards | Puts the project's standards document into briefs and checks it at the gate, at review and with a warning hook | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
 | Beginner layer | Guides a one-line request, explains blocks, sets the writing voice | `/lanekeeper:work`, `/lanekeeper:explain`, `/lanekeeper:writing-style` |
 | Code index | codegraph index queue and usage hints | `lanekeeper-index` |
 | Session helpers | Token guard, automatic resume, terse mode, checkpoints | `lanekeeper-token`, `lanekeeper-retry`, `lanekeeper-terse`, `/lanekeeper:token-guard`, `/lanekeeper:auto-retry`, `/lanekeeper:terse` |
@@ -372,7 +373,7 @@ Calibration seven-day: 1% ≈ 13,724,352 weighted tokens (since the window start
 
 The permission mode of an automatic resume defaults to `default`. In this mode tools that need approval are refused in the unattended run, so the resumed work may stop at that point. `bypassPermissions` is turned on only when a person types `/lanekeeper:approve retry-bypass` in the prompt. An agent cannot turn it on, and a repository's project settings cannot confirm it.
 
-## 13. The 28 skills
+## 13. The 29 skills
 
 Type a skill in the Claude Code prompt as `/lanekeeper:<name>`. Claude also calls a skill on its own when a request matches its description. `/lanekeeper:approve` is the exception: it works only when a person types it.
 
@@ -401,6 +402,7 @@ Type a skill in the Claude Code prompt as `/lanekeeper:<name>`. Claude also call
 | `/lanekeeper:ship-verify` | Gets the precheck through, then runs ship verification |
 | `/lanekeeper:quality-report` | Builds the quality report of a version (workbook, Markdown, HTML) |
 | `/lanekeeper:docs-sync` | Brings documents and screenshots up to date with a change of screens or features |
+| `/lanekeeper:code-standards` | Applies the project's code standards when writing, splitting or reviewing code |
 | `/lanekeeper:report` | Publishes the final report as an artifact |
 | `/lanekeeper:approve` | Owner decisions, typed by a person only: one change to a protected branch, accepting a weakened result, `bypassPermissions` for the automatic resume, clearing an old gate lock |
 | `/lanekeeper:auto-retry` | Manages the automatic resume after a limit |
@@ -621,6 +623,12 @@ Blocked: 1 items did not pass. Ship verification cannot start.
 - When: after a change of screens or features, to bring the manual, documents, UI strings and screenshots along; or when `lanekeeper-docs check` or the quality kind `docs` failed.
 - How: read the impact map with `lanekeeper-docs map`, regenerate generated documents with `lanekeeper-docs apply`, and edit the text following `lanekeeper-docs drafts`. Recapture the candidates with the command in the map, on your own ports, headless, at scale 2. Check with `lanekeeper-docs verify` and repeat until `lanekeeper-docs check` passes. A document that keeps an old phrase on purpose goes into `docs_sync.ack_file` with the reason.
 - Example: `lanekeeper-docs drafts --out drafts.md`
+
+### /lanekeeper:code-standards
+
+- When: writing or changing code, splitting or moving a large file or function, writing or reviewing the brief of an implementation, split or fix lane, or when the warning hook or the gate step `code-standards` reports a finding.
+- How: find the standards document (`doc`) with `lanekeeper-config get project.code_standards`, read that section and apply it as written. Follow the six general principles as well (limits and the ratchet, routes call services, error logging helpers, no cycles and no re-export files, characterization tests first, behavior and protected paths). Details in [Code standards](06-code-standards.md).
+- Example: "split this route file into a service"
 
 ### /lanekeeper:report
 
