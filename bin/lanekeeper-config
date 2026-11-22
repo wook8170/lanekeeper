@@ -129,6 +129,7 @@ switch (cmd) {
         else if (a.type === 'worktreeHook') print(ti('init.worktreeHook', a))
         else if (a.type === 'worktreeHookKept') print(ti('init.worktreeHookKept'))
         else if (a.type === 'worktreeHookConflict') print(ti('wthook.conflict', a))
+        else if (a.type.startsWith('wiki')) print(ti(`init.${a.type}`, a))
       }
       print(ti('init.done'))
     }

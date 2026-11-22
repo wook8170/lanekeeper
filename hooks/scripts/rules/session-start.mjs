@@ -5,6 +5,8 @@
 //   remote     rules/remote-viewer.<lang>.md   when personal.report.viewer is remote
 //   conduct    rules/conduct.<lang>.md         reporting, communication and fixing rules
 // Each part is turned off with personal.session_rules.<part> = false.
+// When project.docs_search.search is set, one line names the project's docs search
+// command (lib/docs-search.mjs).
 // It also tells the user, once, which names from before 0.2.0 (~/.wb, .wb,
 // <git-common-dir>/wb, WB_* variables) are still read (lib/naming.mjs).
 // Not a safety hook: errors add nothing.
@@ -14,6 +16,7 @@ import { resolveConfig, projectRoot, getPath, stateDir, PLUGIN_ROOT, LEGACY_ENV_
 import { ctxOutput, hookMain, dataDir } from '../../../lib/runtime.mjs'
 import { translator } from '../../../lib/i18n.mjs'
 import { legacyInUse, legacyNotice } from '../../../lib/naming.mjs'
+import { sessionLine } from '../../../lib/docs-search.mjs'
 
 export const readRule = (name, lang) => fs.readFileSync(path.join(PLUGIN_ROOT, 'rules', `${name}.${lang === 'ko' ? 'ko' : 'en'}.md`), 'utf8').trim()
 
@@ -48,8 +51,9 @@ export function handle(input, env = process.env) {
   const lang = resolved.effective.language
   const notice = legacyText(root, lang, env)
   const parts = sessionRuleParts(resolved)
-  if (!parts.length && !notice) return null
-  const text = [...parts.map((p) => readRule(p, lang)), notice].filter(Boolean).join('\n\n')
+  const docs = sessionLine(resolved.config, translator(lang))
+  if (!parts.length && !notice && !docs) return null
+  const text = [...parts.map((p) => readRule(p, lang)), docs, notice].filter(Boolean).join('\n\n')
   const out = ctxOutput('SessionStart', text)
   if (notice) out.systemMessage = notice
   return out

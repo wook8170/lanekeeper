@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-11-23
+
+### Added
+- 문서 색인 우선(`project.docs_search`). 키는 `search` · `read` · `backlinks` · `build` · `rebuild`(기본 `gate`) · `mcp_server` · `sources` · `stale_marker` · `skill`(기본 `wook-skills:project-wiki`)이다. 명령의 `{query}` · `{id}` 자리에 질의와 색인 ID 가 들어가고, `{wiki_index}` 는 이 기계에 설치된 위키 스킬 색인기 경로로 바뀐다. `search` 가 비어 있으면 이 기능은 꺼져 있다
+- 구현 · 수리 지시서와 되돌림 지시서의 범위 절에 「문서 색인」 줄을 넣는다. 문서 · 설계 · 운영 · 결정 이력 질문은 먼저 `search` 명령으로 찾고 정확한 줄은 `rg` 로 확인하며, 보고의 설계 · 결정 근거에는 색인 ID 나 문서 절을 적으라는 내용이다. 자리표시는 `{{docs_search}}` 이고 `--var docs_search=…` 로 바꿀 수 있다
+- 같은 지시서에 「코드 찾기」 줄(`{{code_search}}`)을 넣는다. 코드 흐름 · 위치는 codegraph 먼저, 문서 · 결정은 위키 먼저 찾으라는 내용이다. `project.codegraph.nudge` 가 `off` 면 빠지고, codegraph 가 없는 기계에서는 `rg` 와 Read 로 진행하고 설치는 메인 세션에 알리라는 안내가 붙는다
+- 세션 시작 훅 `rules/session-start` 가 `search` 가 있을 때 검색 명령을 담은 한 줄을 넣는다
+- `/lanekeeper:init` 은 `search` 가 비어 있고 문서 폴더(`docs` · `doc` · `documentation`)가 있으면 위키 스킬(wook-skills `project-wiki`)의 `init` 을 실행한다. 새로 만든 `.lanekeeper/config.json` 에는 `docs_search` 를 위키 명령으로 채우고, 기존 파일은 고치지 않고 넣을 내용만 보여 준다. 위키 스킬이 없으면 한 줄 안내만 낸다. `LANEKEEPER_WIKI=off` 로 끈다
+- `build` 가 있고 `rebuild` 가 `gate` 면 게이트 종류 `docs-index` 를 등록해 게이트 앞에서 색인을 다시 만든다. 색인은 커밋하지 않는다
+- `/lanekeeper:review-lane` 에 「문서 색인 근거」 항목을 더했다. 레인 보고의 설계 · 결정 근거가 색인 ID 나 문서 절을 가리키는지 보고, 권고로만 적는다(실패로 판정하지 않음)
+- 설정 예 `examples/docs-search-config.json`(자체 색인 명령을 가진 프로젝트의 예), 시험 `tests/docs-search.test.mjs`
+- 위키 색인기는 wook-skills 의 `project-wiki` 스킬(`skills/project-wiki/bin/wiki-index.mjs`)을 쓴다. 이 기능에는 **wook-skills 0.1.2(project-wiki) 이상**이 필요하다. 설치본은 `$CLAUDE_CONFIG_DIR`(없으면 `~/.claude`)의 `plugins/cache/<마켓>/wook-skills/<버전>/`, `plugins/marketplaces/`, 개인 스킬 폴더 순으로 찾고, 버전이 여럿이면 가장 높은 것을 쓴다. 하나도 없으면 init 이 한 줄로 안내한다
+- init 의 위키 설정은 `search "{query}"` · `read {id}` · `backlinks {id}` · `build --if-changed --quiet` 명령을 쓰고, 위키 `init` 은 `--root <저장소>` 를 붙여 실행한다. 설정 파일은 `.wiki/config.json` 이다. 게이트 `docs-index` 는 원천이 그대로면 색인 만들기를 건너뛴다
+
+### Changed
+- 공개 저장소에서 제품 · 회사 이름을 모두 가상 프로젝트 이름(`acme-studio`)으로 바꿨다. 출하 관문 설정 예의 파일 이름도 `examples/acme-config.json` 으로 바꿨다. `tests/repo.test.mjs` 의 금지 문자열 검사에 제품 · 회사 이름을 더했다
+
 ## [0.2.6] - 2026-11-22
 
 ### Added
@@ -16,10 +33,10 @@
 ## [0.2.5] - 2026-11-22
 
 ### Added
-- 출하 전 보안 점검 관문(`project.release`). `release.security_check` 에 프로젝트의 보안 점검 명령을 적으면(P3vot 예: `pnpm security:release-check`) 출하 검증 시작 · 보호 브랜치 병합과 push · 릴리스 태그(`release.tag_patterns`, 기본 `v*`) push 전에 그 커밋의 보안 관문 표식을 본다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막고, 실행할 명령을 알린다. 허가 확인 창도 표식이 없으면 띄우지 않는다
+- 출하 전 보안 점검 관문(`project.release`). `release.security_check` 에 프로젝트의 보안 점검 명령을 적으면(예: `pnpm security:release-check`) 출하 검증 시작 · 보호 브랜치 병합과 push · 릴리스 태그(`release.tag_patterns`, 기본 `v*`) push 전에 그 커밋의 보안 관문 표식을 본다. 표식이 없거나 다른 커밋 · 다른 명령의 것이면 막고, 실행할 명령을 알린다. 허가 확인 창도 표식이 없으면 띄우지 않는다
 - `lanekeeper-test-report security-pass [--force]`: 보안 점검 명령을 깨끗한 HEAD 에서 실행하고, 통과하면 `<git 공용 폴더>/lanekeeper/<release.security_stamp>.json` 표식을 남긴다. 이미 통과한 커밋은 다시 돌리지 않는다
 - 명령이 비어 있으면 출하 검증 때 「보안 관문 미설정」 경고만 낸다. `release.security_required: true` 면 막는다. 보안 관문이 있는 프로젝트에서 `git push --tags` 는 태그를 이름으로 push 하라고 안내하며 거부한다
-- 설정 예 `examples/p3vot-config.json`, 시험 `tests/release-security.test.mjs`
+- 설정 예 `examples/acme-config.json`, 시험 `tests/release-security.test.mjs`
 - 규칙 `release-security-gate`(규칙 53개)
 - 출하 관문 목록 `release.gates`(`[{ name, command, required }]`). 보안 점검 외에 SonarQube · Semgrep 같은 정적 분석도 관문으로 둔다. 관문마다 통과 표식을 따로 남기고(`lanekeeper-test-report gates-pass [--name <이름>] [--force]`), 그 커밋에서 이미 통과한 관문은 다시 돌리지 않는다. 막을 때는 통과하지 않은 필수 관문만 이름과 통과 명령으로 알리고, `required: false` 관문은 경고만 한다. 옛 `release.security_check` · `security_required` · 표식 파일은 관문 `security` 로 그대로 읽는다. 예시 `examples/static-analysis-gates.json`
 - 코드 작성 기준(`project.code_standards`). `doc` 에 프로젝트의 기준 문서와 앵커를 적으면 구현 · 수리 지시서(`lanekeeper-style brief impl|fix`)와 되돌림 지시서의 범위 절에 「이 문서의 코드 작성 기준을 따른다(어기면 미완료)」 줄이 도우미 이름(`helpers`), 보호 경로(`protected_paths`)와 함께 들어간다. `doc` 이 없으면 줄을 넣지 않는다

@@ -21,6 +21,7 @@ This page explains when and how to use each feature, and ends with the 29 skills
 | Review, integrate and report | Nine-item review, rule-based merge, artifact report | `lanekeeper-check lane`, `lanekeeper-integrate`, `lanekeeper-art`, `/lanekeeper:review-lane`, `/lanekeeper:integrate`, `/lanekeeper:report` |
 | Mockup first | Blocks screen structure changes until a decision is recorded | `lanekeeper-decide`, `/lanekeeper:decide` |
 | Code standards | Puts the project's standards document and the readable code rules into briefs and checks them at the gate, at review and with a warning hook | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
+| Docs search first | Puts the project's document index commands into briefs and the session start context, and at review advises citing the index in reports | `project.docs_search`, `/lanekeeper:review-lane` |
 | Beginner layer | Guides a one-line request, explains blocks, sets the writing voice | `/lanekeeper:work`, `/lanekeeper:explain`, `/lanekeeper:writing-style` |
 | Code index | codegraph index queue and usage hints | `lanekeeper-index` |
 | Session helpers | Token guard, automatic resume, terse mode, checkpoints | `lanekeeper-token`, `lanekeeper-retry`, `lanekeeper-terse`, `/lanekeeper:token-guard`, `/lanekeeper:auto-retry`, `/lanekeeper:terse` |

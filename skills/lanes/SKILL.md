@@ -31,7 +31,7 @@ lanekeeper-waves return <wave> <lane> --reason "<what to fix>"
 - Mark a verifier lane with `lanekeeper-worktree create <id> --role verifier` or `role=verifier` in its brief marker, so a high load stops its heavy runs first.
 - `return` is for a reviewer who sends a lane back. It counts one return and sets the lane to `pending`.
 - An executor records its own progress with `lanekeeper-waves todo <wave> <lane> done <id>`, `lanekeeper-waves verify <wave> <lane> <name> pass|fail|skip` and `lanekeeper-waves note`. Add this rule to the brief.
-- Write the brief of an implementation, split or fix lane with `lanekeeper-style brief impl|fix …`. When `project.code_standards.doc` is set it adds the line "follow the code standards in `<doc>` (work that breaks them is not done)" to the scope, and a "Readable code" line with the seven readable code rules unless `project.code_standards.readability.enabled` is false; do not delete them. A brief written by hand copies that line from `lanekeeper-style brief`. Rules: `/lanekeeper:code-standards`.
+- Write the brief of an implementation, split or fix lane with `lanekeeper-style brief impl|fix …`. When `project.code_standards.doc` is set it adds the line "follow the code standards in `<doc>` (work that breaks them is not done)" to the scope, and a "Readable code" line with the seven readable code rules unless `project.code_standards.readability.enabled` is false, and a "Docs search" line when `project.docs_search.search` is set; do not delete them. A brief written by hand copies that line from `lanekeeper-style brief`. Rules: `/lanekeeper:code-standards`.
 
 ## Status line
 

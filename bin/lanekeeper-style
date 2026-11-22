@@ -9,7 +9,11 @@
 //                                           {{code_standards}} gets the line for project.code_standards.doc,
 //                                           or its line is dropped when no document is set;
 //                                           {{readability}} gets the readable code rules unless
-//                                           project.code_standards.readability.enabled is false
+//                                           project.code_standards.readability.enabled is false;
+//                                           {{docs_search}} gets the docs search line when
+//                                           project.docs_search.search is set, or its line is dropped;
+//                                           {{code_search}} gets "codegraph first for code, the index
+//                                           first for documents" unless project.codegraph.nudge is off
 //
 // Common options: --project <dir>, --lang ko|en
 import fs from 'node:fs'
@@ -24,6 +28,7 @@ const { PLUGIN_ROOT, getPath } = await imp('config.mjs')
 const S = await imp('style.mjs')
 const CS = await imp('code-standards.mjs')
 const RD = await imp('readability.mjs')
+const DS = await imp('docs-search.mjs')
 
 const argv = process.argv.slice(2)
 const vars = {}
@@ -66,6 +71,8 @@ if (cmd === 'of') {
   let text = fs.readFileSync(file, 'utf8')
   if (!('code_standards' in vars)) text = CS.applyToBrief(text, CS.briefLine(resolved.config, t))
   if (!('readability' in vars)) text = CS.applyToBrief(text, RD.briefText(resolved.config, t), 'readability')
+  if (!('code_search' in vars)) text = CS.applyToBrief(text, DS.codeSearchLine(resolved.config, t), 'code_search')
+  if (!('docs_search' in vars)) text = CS.applyToBrief(text, DS.briefLine(resolved.config, t), 'docs_search')
   process.stdout.write(S.fillTemplate(text, all))
 } else {
   print('usage: lanekeeper-style of|rules|text|brief …')

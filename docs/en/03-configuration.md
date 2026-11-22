@@ -292,6 +292,15 @@ A full example is in [examples/docs-sync-config.json](../../examples/docs-sync-c
 | `project.code_standards.readability.max_props` | `12` | Upper limit for the props of a screen component (React function component, Vue `defineProps`). Used by briefs, review and the warning hook | `15` |
 | `project.code_standards.readability.review_tasks` | `3` | Upper limit of tasks in the fresh-eyes check (1 to this value) | `2` |
 | `project.code_standards.readability.fresh_eyes_review` | `true` | The check of a large change is done adversarially in a separate context (`lanekeeper:design-adversary`) | `false` |
+| `project.docs_search.search` | `""` | Command that searches the project's document index; `{query}` is replaced by the question. `{wiki_index}` becomes the path of the wiki skill's indexer installed on this machine. The feature is on only when this is set: implementation, fix and return briefs then get the line "search first with this command for questions about documents, design and operations", and the session start context gets one line | `"pnpm -s wiki:search \"{query}\" --limit 5"` |
+| `project.docs_search.read` | `""` | Command that reads one document from the index; `{id}` is replaced by the index ID | `"pnpm -s wiki:read {id}"` |
+| `project.docs_search.backlinks` | `""` | Command that lists the documents pointing to one document; `{id}` is replaced by the index ID | `"pnpm -s wiki:backlinks {id}"` |
+| `project.docs_search.build` | `""` | Command that builds the document index again. The index is not committed | `"node {wiki_index} build"` |
+| `project.docs_search.rebuild` | `"gate"` | When to rebuild the index. With `gate` and a `build` command, the gate kind `docs-index` appears and runs before the gate; with `manual` it is run by hand | `"manual"` |
+| `project.docs_search.mcp_server` | `""` | Name of an MCP server that opens the same index (its key in `.mcp.json`) | `"wiki"` |
+| `project.docs_search.sources` | `""` | What the index covers, quoted as written in briefs and the session start context | `"design docs, runbooks, the e2e ledger"` |
+| `project.docs_search.stale_marker` | `""` | Marker on a result that may be out of date. Briefs say to check such a result against the source and the code | `"[stale-candidate]"` |
+| `project.docs_search.skill` | `"wook-skills:project-wiki"` | Name of a skill with the full search steps. Briefs and the session start context name it; an empty value leaves it out | `""` |
 | `project.dispatch.brief` | `"deny"` | Brief check: `deny` blocks, `warn` only shows a hint, `off` skips it | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | Agent types that skip the brief check | `["fork"]` |
 | `project.waves.stale_min` | `20` | A running lane with no activity for this many minutes counts as stopped | `40` |
@@ -354,7 +363,7 @@ An example for a pnpm monorepo with unit tests, a test database, gate steps, e2e
 
 **Release gates (`release` in `.lanekeeper/config.json`)**
 
-A security check and static analysis as gates to pass before shipping. The SonarQube gate asks the server for the project's quality gate status, and the Semgrep gate fails on any finding. When the project has one command that runs all its checks, one gate is enough: P3vot sets only `security` = `pnpm security:release-check`, and that command also judges the SonarQube and Semgrep results ([examples/p3vot-config.json](../../examples/p3vot-config.json)). Two tools can also share one gate, for example `"name": "static-analysis"` with both commands joined by `&&`. The full file is [examples/static-analysis-gates.json](../../examples/static-analysis-gates.json) in the plugin.
+A security check and static analysis as gates to pass before shipping. The SonarQube gate asks the server for the project's quality gate status, and the Semgrep gate fails on any finding. When the project has one command that runs all its checks, one gate is enough: a project `acme-studio` sets only `security` = `pnpm security:release-check`, and that command also judges the SonarQube and Semgrep results ([examples/acme-config.json](../../examples/acme-config.json)). Two tools can also share one gate, for example `"name": "static-analysis"` with both commands joined by `&&`. The full file is [examples/static-analysis-gates.json](../../examples/static-analysis-gates.json) in the plugin.
 
 ```json
 "release": {

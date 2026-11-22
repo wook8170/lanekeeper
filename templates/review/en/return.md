@@ -13,6 +13,8 @@ Return a new HEAD that resolves every finding below. Make no change unrelated to
 {{findings}}
 - {{code_standards}}
 - {{readability}}
+- {{code_search}}
+- {{docs_search}}
 
 ## Do not
 - Do not clean up or refactor unrelated code, and do not weaken test expectations.

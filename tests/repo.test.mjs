@@ -74,6 +74,8 @@ test('defaults carry no denied model and the agreed caps', () => {
 const FORBIDDEN = [
   ['ga', 'ea'],
   ['gst', 'udio'],
+  ['p3', 'vot'],
+  ['지어', '소프트'],
   ['wook', '8170'],
   ['/Vol', 'umes/'],
   ['/Us', 'ers/'],

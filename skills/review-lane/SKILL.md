@@ -73,6 +73,10 @@ Unless `project.code_standards.readability.enabled` is false (`lanekeeper-config
 
 **Separate context for large changes.** When `fresh_eyes_review` is true (the default) and the lane is large (a split, a move or a refactoring, or a diff of more than 10 files or 500 changed lines), do not judge the fresh-eyes check in this session alone. Dispatch the agent `lanekeeper:design-adversary` at stage implementation, routed with `lanekeeper-route resolve adversarial`. Give it the lane diff, the tasks, the readable code rules as the invariants and a result folder in the scratch area. Every high finding goes into the return brief. With `fresh_eyes_review: false` the review in this session is enough.
 
+## Docs search citations (advice only)
+
+When `project.docs_search.search` is set (`lanekeeper-config get project.docs_search`), read the lane report and check whether each reason it gives for a design or a decision points to an index ID or a document section (for example `ADR-012` or `docs/design/40.md §3`). A reason with no such pointer is listed in the review result as advice, with the search command to find the source. This item never fails a lane, never goes into a return brief and does not change the result of `lanekeeper-check lane`. With no search command, skip this section.
+
 ## Do not
 
 - Do not mark captures as seen without opening them.
