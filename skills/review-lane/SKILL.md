@@ -1,6 +1,6 @@
 ---
 name: review-lane
-description: Review a lane's result against the nine review items (HEAD, report, guards, failure before the fix, brief scope, captures, served code, test results, terms) plus the code standards items the checks cannot see when the project names a standards document, and send a return brief to the lane when an item fails. Use when the user runs /lanekeeper:review-lane, when a lane reports back, or when the lane board shows a lane waiting for review.
+description: Review a lane's result against the nine review items (HEAD, report, guards, failure before the fix, brief scope, captures, served code, test results, terms) plus the code standards items the checks cannot see when the project names a standards document and the readable code items (a fresh-eyes check with a few tasks, pieces cut in statement order, shared bundles, too many inputs), and send a return brief to the lane when an item fails. Use when the user runs /lanekeeper:review-lane, when a lane reports back, or when the lane board shows a lane waiting for review.
 ---
 
 # Lanekeeper review-lane
@@ -56,6 +56,22 @@ A failed item is a finding of the return brief. If `lanekeeper-check lane` also 
 | No allowance for new code | a new file or a new function is over the document's limits, or an existing large function grew instead of having the change moved out |
 
 Read the lane's diff for these (`git diff <base>...<lane HEAD>`); do not trust the report alone. With no `doc`, skip this section and say so in the result.
+
+## Readable code (fresh-eyes check)
+
+Unless `project.code_standards.readability.enabled` is false (`lanekeeper-config get project.code_standards.readability`), check these items by hand for a lane that added, changed or split code. Rules are in `/lanekeeper:code-standards` under "Readable code"; a project document in `readability.doc` wins where it is more specific. A failed item is a finding of the return brief, sent the same way as the code standards items above.
+
+| Item | Fails when |
+|---|---|
+| Fresh-eyes check | the report has no tasks, or fewer than 1 or more than `review_tasks` (default 3) tasks a first-time reader might get (for example "change the message shown when a drop on a locked shelf is refused"). Try each task yourself on the lane HEAD: it fails when finding the place to change takes more than 3 files or 300 lines, or the same rule must be changed in two places |
+| Pieces cut in statement order | a new function, hook, component or file is named after its position or order (`part2`, `step3`, `createX2`, `helpers2`, `rest`) instead of what it does, or its body is a run of statements moved out of one function |
+| Shared bundle | pieces pass one object of many values between them (`ctx`, `deps`, `c`, `state`) instead of the inputs each needs |
+| Too many inputs | a function takes more than `max_params` (default 7) parameters, or one input object with more than `max_params` fields; a screen component (a React function component, Vue `defineProps`) takes more than `max_props` (default 12) props |
+| Decision mixed with action | a handler both decides (allowed, rejected, what to change) and changes state, instead of asking a pure rule function and acting on its result; or the same clean-up repeats before every `return` |
+| One rule, two copies | the same rule is written in two places (two frameworks, server and screen) instead of one pure function in a shared module |
+| Comments and README | a comment holds history (version numbers, tickets, task numbers, design line numbers), a new file has no three-line header, or a new or changed domain folder has no README that matches the flow |
+
+**Separate context for large changes.** When `fresh_eyes_review` is true (the default) and the lane is large (a split, a move or a refactoring, or a diff of more than 10 files or 500 changed lines), do not judge the fresh-eyes check in this session alone. Dispatch the agent `lanekeeper:design-adversary` at stage implementation, routed with `lanekeeper-route resolve adversarial`. Give it the lane diff, the tasks, the readable code rules as the invariants and a result folder in the scratch area. Every high finding goes into the return brief. With `fresh_eyes_review: false` the review in this session is enough.
 
 ## Do not
 

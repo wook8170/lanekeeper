@@ -28,7 +28,7 @@ Request kinds and what they change:
 
 1. One lane per independent piece of work, within the lane cap (`machine.lanes.max`). Create the worktree with `lanekeeper-worktree create <lane>`, register the lane with `lanekeeper-waves lane …` (`/lanekeeper:lanes`).
 2. Write the brief from `templates/briefs/` with the style filled in: `lanekeeper-style brief <type> --owned <files> --var lane=<lane> …`. Check it with `lanekeeper-check brief <file>` before dispatching.
-   - For implementation, split and fix lanes (`impl`, `fix`) the command also fills the code standards line when `project.code_standards.doc` is set: "follow the code standards in `<doc>` (work that breaks them is not done)", with the helper names and protected paths. Keep that line. With no document set the line is left out. Rules: `/lanekeeper:code-standards`.
+   - For implementation, split and fix lanes (`impl`, `fix`) the command also fills the code standards line when `project.code_standards.doc` is set: "follow the code standards in `<doc>` (work that breaks them is not done)", with the helper names and protected paths. Keep that line. With no document set the line is left out. A second line, "Readable code", carries the seven readable code rules unless `project.code_standards.readability.enabled` is false; keep it too. Rules: `/lanekeeper:code-standards`.
 3. Dispatch with the model the plan names. The dispatch guard blocks a wrong model or an incomplete brief; read its message to the user in plain words (see `/lanekeeper:explain`).
 4. After each step tell the user, in one line, what finished and what starts next.
 

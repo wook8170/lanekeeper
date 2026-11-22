@@ -20,7 +20,7 @@ Lanekeeper 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Cod
 | 문서 현행화 | 화면·기능 변경에서 고칠 문서를 찾아 초안·재촬영·검사까지 진행, 필수 문서를 안 고친 변경을 막음 | `lanekeeper-docs`, `/lanekeeper:docs-sync` |
 | 검수·취합·보고 | 9항목 검수, 규칙 기반 병합, 아티팩트 보고 | `lanekeeper-check lane`, `lanekeeper-integrate`, `lanekeeper-art`, `/lanekeeper:review-lane`, `/lanekeeper:integrate`, `/lanekeeper:report` |
 | 시안 먼저 | 화면 구조 변경을 결정 기록 전에 막음 | `lanekeeper-decide`, `/lanekeeper:decide` |
-| 코드 작성 기준 | 프로젝트 기준 문서를 지시서에 넣고, 게이트·검수·경고 훅에서 확인 | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
+| 코드 작성 기준 | 프로젝트 기준 문서와 읽기 쉬운 코드 기준을 지시서에 넣고, 게이트·검수·경고 훅에서 확인 | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
 | 초보자 계층 | 한 줄 요청 안내, 막힌 이유 설명, 문체 지정 | `/lanekeeper:work`, `/lanekeeper:explain`, `/lanekeeper:writing-style` |
 | 코드 색인 | codegraph 색인 대기열, 사용 안내 | `lanekeeper-index` |
 | 세션 보조 | 토큰 가드, 자동 재개, 간결 모드, 체크포인트 | `lanekeeper-token`, `lanekeeper-retry`, `lanekeeper-terse`, `/lanekeeper:token-guard`, `/lanekeeper:auto-retry`, `/lanekeeper:terse` |
@@ -628,7 +628,7 @@ lanekeeper-quality precheck --run
 ### /lanekeeper:code-standards
 
 - 언제: 코드를 새로 쓰거나 고칠 때, 큰 파일이나 함수를 나누거나 옮길 때, 구현·분리·수정 레인의 지시서를 쓰거나 검수할 때, 경고 훅이나 게이트 단계 `code-standards` 가 지적했을 때.
-- 어떻게: `lanekeeper-config get project.code_standards` 로 기준 문서(`doc`)를 찾아 그 절을 읽고 그대로 적용한다. 일반 원칙 여섯 가지(상한과 래칫, 라우트에서 서비스로, 오류 기록 도우미, 순환과 다시 내보내기 금지, 특성화 테스트 먼저, 동작 보존과 보호 경로)를 함께 따른다. 자세한 내용은 [코드 작성 기준](06-code-standards.md).
+- 어떻게: `lanekeeper-config get project.code_standards` 로 기준 문서(`doc`)를 찾아 그 절을 읽고 그대로 적용한다. 일반 원칙 여섯 가지(상한과 래칫, 라우트에서 서비스로, 오류 기록 도우미, 순환과 다시 내보내기 금지, 특성화 테스트 먼저, 동작 보존과 보호 경로)와 읽기 쉬운 코드 기준 일곱 가지를 함께 따른다. 자세한 내용은 [코드 작성 기준](06-code-standards.md).
 - 예시: 「이 라우트 파일을 서비스로 나눠 줘」
 
 ### /lanekeeper:report

@@ -33,7 +33,10 @@ test('settings: project.code_standards defaults are empty and off', () => {
   const fx = repo(null)
   try {
     const r = resolveConfig({ projectDir: fx.repo, env: fx.env })
-    assert.deepEqual(r.config.project.code_standards, { doc: '', checks: [], helpers: [], protected_paths: [], exempt_paths: [], warn_hook: false })
+    assert.deepEqual(r.config.project.code_standards, {
+      doc: '', checks: [], helpers: [], protected_paths: [], exempt_paths: [], warn_hook: false,
+      readability: { enabled: true, doc: '', max_params: 7, max_props: 12, review_tasks: 3, fresh_eyes_review: true },
+    })
     assert.deepEqual(r.errors, [])
     const got = bin('lanekeeper-config', ['get', 'project.code_standards.warn_hook'], fx.env, fx.repo)
     assert.equal(got.stdout.trim(), 'false')

@@ -285,7 +285,13 @@ lanekeeper-config validate
 | `project.code_standards.helpers` | `[]` | 오류 기록 도우미 이름. 지시서와 경고 문구에 들어가고, `.catch(<이름>)` 경고에 쓴다 | `["ignoreError","warnError"]` |
 | `project.code_standards.protected_paths` | `[]` | 보호 대상 모듈을 가져와도 되는 경로(glob). 지시서에 들어가고 검수에서 확인한다 | `["server/src/billing/**"]` |
 | `project.code_standards.exempt_paths` | `[]` | 경고 훅이 건너뛰는 경로(glob). 테스트 파일은 따로 적지 않아도 건너뛴다 | `["cli/**"]` |
-| `project.code_standards.warn_hook` | `false` | 새로 쓰는 코드의 빈 catch·`.catch(() => 값)`·`console` 에 경고를 낸다. 막지는 않는다 | `true` |
+| `project.code_standards.warn_hook` | `false` | 새로 쓰는 코드의 빈 catch·`.catch(() => 값)`·`console` 에 경고를 낸다. 가독성 기준이 켜져 있으면 주석의 이력 표식, 새 파일의 머리 주석 누락, 긴 매개변수 목록에도 경고를 낸다. 막지는 않는다 | `true` |
+| `project.code_standards.readability.enabled` | `true` | 읽기 쉬운 코드 기준. `false` 면 지시서 줄, 검수 항목, 경고 훅의 가독성 경고를 뺀다 | `false` |
+| `project.code_standards.readability.doc` | `""` | 프로젝트의 가독성 기준 문서 경로와 앵커. 지시서와 경고에 들어간다 | `"AGENTS.md#readable-code"` |
+| `project.code_standards.readability.max_params` | `7` | 매개변수 수와 입력 객체 하나의 칸 수 상한. 지시서 · 검수 · 경고 훅이 쓴다 | `5` |
+| `project.code_standards.readability.max_props` | `12` | 화면 컴포넌트(React 함수 컴포넌트, Vue `defineProps`)의 props 수 상한. 지시서 · 검수 · 경고 훅이 쓴다 | `15` |
+| `project.code_standards.readability.review_tasks` | `3` | 「처음 보는 사람」 점검의 과제 수 상한(1 ~ 이 값) | `2` |
+| `project.code_standards.readability.fresh_eyes_review` | `true` | 큰 변경의 점검을 다른 맥락의 적대 점검(`lanekeeper:design-adversary`)으로 받는다 | `false` |
 | `project.dispatch.brief` | `"deny"` | 지시서 검사. `deny` 는 차단, `warn` 은 안내만, `off` 는 검사 안 함 | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | 지시서 검사를 건너뛸 에이전트 종류 | `["fork"]` |
 | `project.waves.stale_min` | `20` | 활동이 이 시간(분) 넘게 없는 진행 레인을 멈춤으로 봄 | `40` |

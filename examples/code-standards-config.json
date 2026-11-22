@@ -8,9 +8,26 @@
       "npm run -s lint:cycles",
       "npm run -s typecheck"
     ],
-    "helpers": ["ignoreError", "warnError", "logger"],
-    "protected_paths": ["server/src/billing/**", "server/src/auth/**"],
-    "exempt_paths": ["cli/**", "scripts/**"],
-    "warn_hook": true
+    "helpers": [
+      "ignoreError",
+      "warnError",
+      "logger"
+    ],
+    "protected_paths": [
+      "server/src/billing/**",
+      "server/src/auth/**"
+    ],
+    "exempt_paths": [
+      "cli/**",
+      "scripts/**"
+    ],
+    "warn_hook": true,
+    "readability": {
+      "doc": "CONTRIBUTING.md#readable-code",
+      "max_params": 7,
+      "max_props": 12,
+      "review_tasks": 3,
+      "fresh_eyes_review": true
+    }
   }
 }

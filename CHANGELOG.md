@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-11-22
+
+### Added
+- 읽기 쉬운 코드 기준(`project.code_standards.readability`). 처음 보는 사람이 기능 하나를 쉽게 찾아 고칠 수 있는지를 본다. 키는 `enabled`(기본 `true`) · `doc` · `max_params`(기본 7) · `max_props`(기본 12, 화면 컴포넌트의 props) · `review_tasks`(기본 3) · `fresh_eyes_review`(기본 `true`)다. `enabled: false` 로 끈다
+- 구현 · 수리 지시서와 되돌림 지시서의 범위 절에 「읽기 쉬운 코드」 줄과 일곱 가지 기준 요약을 넣는다. 기준은 판정과 실행 분리, 기능 단위 나누기, 같은 규칙 한 곳, 이름, 이력 없는 주석과 머리 주석 3줄, 도메인 폴더의 README, 처음 보는 사람 기준 점검이다. 자리표시 `{{readability}}` 이고 `--var readability=…` 로 바꿀 수 있다
+- `/lanekeeper:review-lane` 에 「읽기 쉬운 코드」 항목을 더했다. 처음 보는 사람 점검(과제 1 ~ `review_tasks` 개, 파일 3개 · 300줄 이하, 같은 규칙을 두 곳에서 고치지 않음)과 기계적 나누기의 징후(위치를 딴 이름, `ctx` · `deps` 공용 묶음, `max_params` 를 넘는 입력, `max_props` 를 넘는 컴포넌트 props)를 본다. `fresh_eyes_review` 가 켜져 있으면 나누기 · 옮기기 · 리팩토링과 큰 변경은 `lanekeeper:design-adversary` 가 다른 맥락에서 점검한다
+- 경고 훅 `codestd/warn` 은 `warn_hook` 이 켜져 있고 가독성 기준이 켜져 있으면 다음에도 경고를 낸다. 주석 안의 이력 표식(버전 · 티켓 · 작업 번호 · 설계 문서 줄 번호 · PR 번호), 머리 주석이 없는 새 파일, 매개변수나 구조 분해 입력 객체의 칸이 `max_params` 를 넘는 함수, props 가 `max_props` 를 넘는 React 함수 컴포넌트와 Vue `defineProps` 다. 막지는 않는다
+- 스킬 `/lanekeeper:code-standards` 에 「Readable code」 절, 설명서 `docs/{ko,en}/06-code-standards.md` 4절(판정 함수 나누기 전 · 후 예), 시험 `tests/readability.test.mjs`
+
 ## [0.2.5] - 2026-11-22
 
 ### Added

@@ -117,7 +117,7 @@ Every hook is a Node.js script in `hooks/scripts/`, started as `"${CLAUDE_PLUGIN
 | PreToolUse (Agent, Task, Skill) | `quality/ship-gate` | Before ship verification starts, checks that the required quality results passed on the current commit |
 | PreToolUse (Bash) | `slots/slot-guard` | Asks to run heavy commands inside `lanekeeper-slot` |
 | PreToolUse (Write, Edit, MultiEdit) | `mockup/mockup-first` | When `project.mockup.decision_required` is on, asks for a decided mockup before a screen structure change |
-| PreToolUse (Write, Edit, MultiEdit) | `codestd/warn` | When `project.code_standards.warn_hook` is on, adds a warning (never a block) when new code brings an empty catch, `.catch(() => value)` or `console` |
+| PreToolUse (Write, Edit, MultiEdit) | `codestd/warn` | When `project.code_standards.warn_hook` is on, adds a warning (never a block) when new code brings an empty catch, `.catch(() => value)` or `console`, a history marker in a comment, a new file without a header comment, a function over `readability.max_params`, or a screen component over `readability.max_props` |
 | PreToolUse (Bash, Grep) | `codegraph/nudge` | Suggests `rg` instead of a recursive `grep` |
 | PreToolUse (codegraph MCP tools) | `codegraph/deadpath` | Stops repeated calls for a path with no index |
 | UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | Writes a one-time owner grant to `<git common dir>/lanekeeper/owner-grant.json`. `merge-pr` writes `~/.lanekeeper/owner/owner-grant.json` and runs `gh pr view` |
@@ -439,12 +439,14 @@ The PreToolUse hook `mockup-first` blocks writes that change the screen structur
 
 ## Code standards
 
-The setting `code_standards` points lanes at the project's own code standards document. Lanekeeper carries no project's rules; the skill `/lanekeeper:code-standards` holds six general principles (limits and the ratchet, routes call services, error logging helpers, no cycles or re-export files, characterization tests before a split, behavior and protected paths kept), and the document named in `code_standards.doc` decides the details. Every default is empty or off.
+The setting `code_standards` points lanes at the project's own code standards document. Lanekeeper carries no project's rules; the skill `/lanekeeper:code-standards` holds six general principles (limits and the ratchet, routes call services, error logging helpers, no cycles or re-export files, characterization tests before a split, behavior and protected paths kept), and the document named in `code_standards.doc` decides the details. Every default is empty or off, except the readable code rules below.
 
 - Briefs: `lanekeeper-style brief impl|fix` and the return briefs of `/lanekeeper:review-lane` add "follow the code standards in `<doc>` (work that breaks them is not done)" with the helper names and protected paths.
 - Gate: `code_standards.checks` adds the gate kind `code-standards`, one step per command (`lanekeeper-quality run code-standards`).
 - Review: `/lanekeeper:review-lane` checks what the gate cannot see: characterization tests committed before the split, no `-u` after a move, text, responses, status codes, test handles, order and log formats kept, no re-export files, protected modules imported only inside `code_standards.protected_paths`, and no allowance for new files and functions.
 - Warning hook: with `code_standards.warn_hook: true`, the PreToolUse hook `codestd/warn` warns about an empty catch, `.catch(() => value)`, `console`, `catch (e) { void e }` and `.catch(<helper>)` in newly written code, naming the helpers and the document. It never blocks. Test files and `code_standards.exempt_paths` are skipped.
+
+- Readable code (`code_standards.readability`, on by default): briefs carry seven rules so that a first-time reader can find and change one feature (decisions apart from actions, split by feature not by position, one rule in one place, names, comments without history and a three-line header, a README per domain folder, a fresh-eyes check). Review checks the fresh-eyes tasks (1 to `review_tasks`, at most 3 files and 300 lines, no rule changed in two places) and the signs of a mechanical split (names after a position, `ctx` or `deps` bundles, more than `max_params` inputs, more than `max_props` component props); with `fresh_eyes_review` a large change gets a separate-context check by `lanekeeper:design-adversary`. With `warn_hook` on, the hook also warns about history markers in comments, a new file without a header comment functions over `max_params` and screen components (React function components, Vue `defineProps`) over `max_props` (default 12). Turn it off with `readability.enabled: false`.
 
 Example: `examples/code-standards-config.json`. Details: [docs/en/06-code-standards.md](docs/en/06-code-standards.md).
 

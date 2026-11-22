@@ -13,7 +13,7 @@ Lanekeeper (Agent Workbench) is a Claude Code plugin that keeps the rules for ru
 | [3. 설정](ko/03-configuration.md) | 설정 층, 합치는 규칙, 키 전체 참조 |
 | [4. 규칙 안내](ko/04-rules.md) | 규칙 53개: 무엇을 막는지, 왜, 걸렸을 때 고치는 법 |
 | [5. 문제 해결](ko/05-troubleshooting.md) | 메시지별 해결, 자주 묻는 질문, 알려진 제한 |
-| [6. 코드 작성 기준](ko/06-code-standards.md) | 일반 원칙, 설정, 지시서·게이트·검수·경고 훅에서 확인하는 방법 |
+| [6. 코드 작성 기준](ko/06-code-standards.md) | 일반 원칙, 읽기 쉬운 코드, 설정, 지시서·게이트·검수·경고 훅에서 확인하는 방법 |
 
 ## English
 
@@ -24,7 +24,7 @@ Lanekeeper (Agent Workbench) is a Claude Code plugin that keeps the rules for ru
 | [3. Configuration](en/03-configuration.md) | Settings layers, merge rules, reference of every key |
 | [4. Rules](en/04-rules.md) | The 53 rules: what each blocks, why, and how to fix the work |
 | [5. Troubleshooting](en/05-troubleshooting.md) | Fixes by message, frequently asked questions, known limitations |
-| [6. Code standards](en/06-code-standards.md) | General principles, settings, and how briefs, the gate, review and the warning hook check them |
+| [6. Code standards](en/06-code-standards.md) | General principles, readable code, settings, and how briefs, the gate, review and the warning hook check them |
 
 ## 문서 관리 · Maintaining these pages
 
