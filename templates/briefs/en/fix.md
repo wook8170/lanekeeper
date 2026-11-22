@@ -16,6 +16,8 @@ Fix {{defect}}. Work in order: reproduce, confirm the cause, fix, regression tes
 - Done when the symptom is gone in the reproduction and a regression test that failed on the old code passes.
 - {{code_standards}}
 - {{readability}}
+- {{code_search}}
+- {{docs_search}}
 
 ## Do not
 - Clean up or refactor code unrelated to the cause. Hide the symptom (swallowing errors, loosening test expectations).

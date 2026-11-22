@@ -286,9 +286,9 @@ test('ship gate: names only the gates that block, and warns about optional ones'
   e.cleanup()
 })
 
-test('examples: the P3vot config and the static analysis gates are valid', () => {
+test('examples: the sample project config and the static analysis gates are valid', () => {
   const read = (f) => JSON.parse(fs.readFileSync(path.join(ROOT, 'examples', f), 'utf8'))
-  const ex = read('p3vot-config.json')
+  const ex = read('acme-config.json')
   assert.deepEqual(check(SCHEMAS.project, ex).errors, [])
   assert.deepEqual(ex.release.gates, [{ name: 'security', command: 'pnpm security:release-check', required: true }])
   const sa = read('static-analysis-gates.json')

@@ -21,6 +21,7 @@ Lanekeeper 의 기능은 세 가지 방식으로 동작한다. 훅은 Claude Cod
 | 검수·취합·보고 | 9항목 검수, 규칙 기반 병합, 아티팩트 보고 | `lanekeeper-check lane`, `lanekeeper-integrate`, `lanekeeper-art`, `/lanekeeper:review-lane`, `/lanekeeper:integrate`, `/lanekeeper:report` |
 | 시안 먼저 | 화면 구조 변경을 결정 기록 전에 막음 | `lanekeeper-decide`, `/lanekeeper:decide` |
 | 코드 작성 기준 | 프로젝트 기준 문서와 읽기 쉬운 코드 기준을 지시서에 넣고, 게이트·검수·경고 훅에서 확인 | `/lanekeeper:code-standards`, `lanekeeper-quality run code-standards` |
+| 문서 색인 우선 | 프로젝트가 정한 문서 색인 명령을 지시서와 세션 시작 문맥에 넣고, 검수에서 보고의 근거 표기를 권고 | `project.docs_search`, `/lanekeeper:review-lane` |
 | 초보자 계층 | 한 줄 요청 안내, 막힌 이유 설명, 문체 지정 | `/lanekeeper:work`, `/lanekeeper:explain`, `/lanekeeper:writing-style` |
 | 코드 색인 | codegraph 색인 대기열, 사용 안내 | `lanekeeper-index` |
 | 세션 보조 | 토큰 가드, 자동 재개, 간결 모드, 체크포인트 | `lanekeeper-token`, `lanekeeper-retry`, `lanekeeper-terse`, `/lanekeeper:token-guard`, `/lanekeeper:auto-retry`, `/lanekeeper:terse` |

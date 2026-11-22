@@ -1,4 +1,5 @@
 node_modules/
+.codegraph/
 .lanekeeper/briefs/
 .DS_Store
 __pycache__/

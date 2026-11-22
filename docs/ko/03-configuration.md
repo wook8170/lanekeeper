@@ -292,6 +292,15 @@ lanekeeper-config validate
 | `project.code_standards.readability.max_props` | `12` | 화면 컴포넌트(React 함수 컴포넌트, Vue `defineProps`)의 props 수 상한. 지시서 · 검수 · 경고 훅이 쓴다 | `15` |
 | `project.code_standards.readability.review_tasks` | `3` | 「처음 보는 사람」 점검의 과제 수 상한(1 ~ 이 값) | `2` |
 | `project.code_standards.readability.fresh_eyes_review` | `true` | 큰 변경의 점검을 다른 맥락의 적대 점검(`lanekeeper:design-adversary`)으로 받는다 | `false` |
+| `project.docs_search.search` | `""` | 문서 색인 검색 명령. `{query}` 자리에 질의가 들어간다. `{wiki_index}` 는 이 기계에 설치된 위키 스킬 색인기 경로로 바뀐다. 값이 있어야 이 기능이 켜진다. 켜지면 구현 · 수리 지시서와 되돌림 지시서에 「문서 · 설계 · 운영 질문은 먼저 이 명령으로 찾는다」 줄이 들어가고, 세션 시작 문맥에도 한 줄이 들어간다 | `"pnpm -s wiki:search \"{query}\" --limit 5"` |
+| `project.docs_search.read` | `""` | 찾은 문서 한 건을 읽는 명령. `{id}` 자리에 색인 ID 가 들어간다 | `"pnpm -s wiki:read {id}"` |
+| `project.docs_search.backlinks` | `""` | 한 문서를 가리키는 문서를 찾는 명령. `{id}` 자리에 색인 ID 가 들어간다 | `"pnpm -s wiki:backlinks {id}"` |
+| `project.docs_search.build` | `""` | 문서 색인을 다시 만드는 명령. 만든 색인은 커밋하지 않는다 | `"node {wiki_index} build"` |
+| `project.docs_search.rebuild` | `"gate"` | 색인을 다시 만드는 때. `gate` 면 `build` 가 있을 때 게이트 종류 `docs-index` 가 생겨 게이트 앞에서 돈다. `manual` 이면 직접 실행한다 | `"manual"` |
+| `project.docs_search.mcp_server` | `""` | 같은 색인을 여는 MCP 서버 이름(`.mcp.json` 의 키) | `"wiki"` |
+| `project.docs_search.sources` | `""` | 색인이 다루는 문서 종류. 지시서와 세션 시작 문맥에 그대로 들어간다 | `"개발 문서 · 설계 산출물 · 운영 기준 · e2e 원장"` |
+| `project.docs_search.stale_marker` | `""` | 낡았을 수 있는 결과에 붙는 표식. 이 표식이 붙은 결과는 원문과 코드로 다시 확인하라고 안내한다 | `"[stale-candidate]"` |
+| `project.docs_search.skill` | `"wook-skills:project-wiki"` | 문서 검색 순서를 담은 스킬 이름. 지시서와 세션 시작 문맥에 들어간다. 빈 값이면 넣지 않는다 | `""` |
 | `project.dispatch.brief` | `"deny"` | 지시서 검사. `deny` 는 차단, `warn` 은 안내만, `off` 는 검사 안 함 | `"warn"` |
 | `project.dispatch.exempt_agents` | `["fork","claude-code-guide","statusline-setup"]` | 지시서 검사를 건너뛸 에이전트 종류 | `["fork"]` |
 | `project.waves.stale_min` | `20` | 활동이 이 시간(분) 넘게 없는 진행 레인을 멈춤으로 봄 | `40` |
@@ -354,7 +363,7 @@ pnpm 모노저장소에서 시험을 단위·시험용 DB·게이트·e2e·UI �
 
 **릴리스 관문(`.lanekeeper/config.json` 의 `release`)**
 
-보안 점검과 정적 분석을 출하 전 관문으로 두는 예다. SonarQube 관문은 서버에 그 프로젝트의 품질 게이트 상태를 묻고, Semgrep 관문은 발견 항목이 하나라도 있으면 실패한다. 프로젝트에 모든 점검을 함께 돌리는 명령이 있으면 관문 하나로 충분하다. P3vot 은 `security` = `pnpm security:release-check` 하나만 두고, 이 명령이 SonarQube · Semgrep 결과도 함께 판정한다([examples/p3vot-config.json](../../examples/p3vot-config.json)). 두 도구를 관문 하나로 묶을 수도 있다. 예를 들어 `"name": "static-analysis"` 에 두 명령을 `&&` 로 잇는다. 전체는 플러그인의 [examples/static-analysis-gates.json](../../examples/static-analysis-gates.json) 에 있다.
+보안 점검과 정적 분석을 출하 전 관문으로 두는 예다. SonarQube 관문은 서버에 그 프로젝트의 품질 게이트 상태를 묻고, Semgrep 관문은 발견 항목이 하나라도 있으면 실패한다. 프로젝트에 모든 점검을 함께 돌리는 명령이 있으면 관문 하나로 충분하다. 예를 들어 `acme-studio` 프로젝트는 `security` = `pnpm security:release-check` 하나만 두고, 이 명령이 SonarQube · Semgrep 결과도 함께 판정한다([examples/acme-config.json](../../examples/acme-config.json)). 두 도구를 관문 하나로 묶을 수도 있다. 예를 들어 `"name": "static-analysis"` 에 두 명령을 `&&` 로 잇는다. 전체는 플러그인의 [examples/static-analysis-gates.json](../../examples/static-analysis-gates.json) 에 있다.
 
 ```json
 "release": {

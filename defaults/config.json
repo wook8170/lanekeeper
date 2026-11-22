@@ -39,6 +39,7 @@
   "lanes": { "commit": "allowed" },
   "code_standards": { "doc": "", "checks": [], "helpers": [], "protected_paths": [], "exempt_paths": [], "warn_hook": false,
     "readability": { "enabled": true, "doc": "", "max_params": 7, "max_props": 12, "review_tasks": 3, "fresh_eyes_review": true } },
+  "docs_search": { "search": "", "read": "", "backlinks": "", "build": "", "rebuild": "gate", "mcp_server": "", "sources": "", "stale_marker": "", "skill": "wook-skills:project-wiki" },
   "dispatch": { "brief": "deny", "exempt_agents": ["fork", "claude-code-guide", "statusline-setup"] },
   "waves": { "stale_min": 20 },
   "numbers": {},

@@ -17,6 +17,8 @@
 - When user-visible behavior changes, update the user docs and help in the same change.
 - {{code_standards}}
 - {{readability}}
+- {{code_search}}
+- {{docs_search}}
 
 ## Do not
 - Change files outside the owned list. Add features or refactor beyond the scope.

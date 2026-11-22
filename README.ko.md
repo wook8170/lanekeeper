@@ -121,7 +121,7 @@ mv .git/wb .git/lanekeeper     # 저장소마다, 레인 상태
 | PreToolUse (Bash, Grep) | `codegraph/nudge` | 재귀 `grep` 대신 `rg` 를 쓰라고 알린다 |
 | PreToolUse (codegraph MCP 도구) | `codegraph/deadpath` | 색인이 없는 경로에 같은 호출을 반복하지 않게 막는다 |
 | UserPromptExpansion (`lanekeeper:approve`) | `safety/approve` | 한 번만 쓸 수 있는 오너 허가를 `<git 공용 폴더>/lanekeeper/owner-grant.json` 에 쓴다. `merge-pr` 는 `~/.lanekeeper/owner/owner-grant.json` 에 쓰고, 이때 `gh pr view` 를 실행한다 |
-| SessionStart | `handoff/session-start`, `auto-retry/session-start`, `terse/session-start`, `codegraph/session-start`, `rules/session-start` | 맥락을 더한다. `progress.md` 요약, 대기 중인 재개, 간결 모드, codegraph 안내, 작업 규칙, 옛 `wb` 이름에 대한 1회 안내가 들어간다 |
+| SessionStart | `handoff/session-start`, `auto-retry/session-start`, `terse/session-start`, `codegraph/session-start`, `rules/session-start` | 맥락을 더한다. `progress.md` 요약, 대기 중인 재개, 간결 모드, codegraph 안내, 작업 규칙, 문서 색인 안내 한 줄(`project.docs_search.search` 가 있을 때), 옛 `wb` 이름에 대한 1회 안내가 들어간다 |
 | SessionStart | `worktree/session-sync` | `project.worktree.hook` 이 `true` 일 때만 동작한다. 주 체크아웃의 `.claude/settings.local.json` 에 있는 WorktreeCreate·WorktreeRemove 항목을 현재 플러그인 경로로 맞추고, 설정을 끄면 그 항목을 지운다 |
 | UserPromptSubmit | `token-guard/check`, `load/check`, `safety/prompt-hint` | 사용량과 부하 평균을 읽고, 문턱에 닿으면 한 줄을 더한다. `/` 없이 입력한 `approve merge-pr` 같은 메시지에는 허가가 생기지 않았다는 한 줄을 더한다 |
 | PostToolUse, PostToolUseFailure (codegraph MCP 도구) | `codegraph/record` | 성공·빈 결과·오류를 `.lanekeeper/metrics/codegraph.jsonl` 에 적는다. 색인이 없는 경로이면 대기열에 넣고, 이 머신에서 `codegraph` 색인 작업을 백그라운드로 시작한다(`project.codegraph.auto_index`, 기본 켜짐) |
@@ -399,7 +399,7 @@ lanekeeper-check test-results [--json] [--require-pass]
 
 `lanekeeper-test-report run`·`gate` 는 실행하는 동안 `<git 공용 폴더>/lanekeeper/gate.lock` 을 잡아 둔다. 그동안 병합은 기다리고, 다른 게이트 실행은 종료 코드 3 으로 멈춘다. 실행이 끝나면 잠금을 지운다. `run`(일부만 고르는 `--only`·`--skip` 없이)이나 `gate-pass` 가 통과하고 커밋하지 않은 변경이 없으면 `<git 공용 폴더>/lanekeeper/<git.gate_stamp>.json` 에 게이트 통과 표식(커밋 HEAD·시각·명령)을 남긴다. 보호 브랜치 반영 판정은 이 표식을 읽고, 표식 뒤에 결과 폴더(`paths.test_results`) 안의 파일만 바뀐 커밋은 같은 커밋으로 본다. `lanekeeper-check test-results` 의 HEAD 비교도 같은 규칙을 따른다.
 
-출하 전에 통과할 관문(보안 점검 · SonarQube · Semgrep 등)은 `project.release.gates` 에 `{ name, command, required }` 목록으로 적는다. P3vot 은 관문 `security` = `pnpm security:release-check` 하나를 둔다(설정 예 [`examples/p3vot-config.json`](examples/p3vot-config.json)). SonarQube · Semgrep 관문 예는 [`examples/static-analysis-gates.json`](examples/static-analysis-gates.json) 에 있다. `lanekeeper-test-report gates-pass` 는 그 커밋에서 아직 통과하지 않은 관문을 돌리고, 통과한 관문마다 `<git 공용 폴더>/lanekeeper/` 에 표식을 남긴다. 출하 검증 시작 · 보호 브랜치 병합과 push · `release.tag_patterns` 에 맞는 태그 push 는 그 커밋에서 필수 관문을 모두 통과해야 한다. 통과한 관문은 다시 돌리지도 묻지도 않는다. 막을 때는 통과하지 않은 관문만 이름으로 알리고, 그 관문을 통과시킬 명령을 함께 안내한다. `required: false` 인 관문은 경고만 한다. 관문이 하나도 없으면 출하 검증 때 「릴리스 관문 미설정」 경고만 낸다. 옛 설정 `release.security_check` 도 필수 관문 `security` 로 읽는다.
+출하 전에 통과할 관문(보안 점검 · SonarQube · Semgrep 등)은 `project.release.gates` 에 `{ name, command, required }` 목록으로 적는다. 예를 들어 `acme-studio` 프로젝트는 관문 `security` = `pnpm security:release-check` 하나를 둔다(설정 예 [`examples/acme-config.json`](examples/acme-config.json)). SonarQube · Semgrep 관문 예는 [`examples/static-analysis-gates.json`](examples/static-analysis-gates.json) 에 있다. `lanekeeper-test-report gates-pass` 는 그 커밋에서 아직 통과하지 않은 관문을 돌리고, 통과한 관문마다 `<git 공용 폴더>/lanekeeper/` 에 표식을 남긴다. 출하 검증 시작 · 보호 브랜치 병합과 push · `release.tag_patterns` 에 맞는 태그 push 는 그 커밋에서 필수 관문을 모두 통과해야 한다. 통과한 관문은 다시 돌리지도 묻지도 않는다. 막을 때는 통과하지 않은 관문만 이름으로 알리고, 그 관문을 통과시킬 명령을 함께 안내한다. `required: false` 인 관문은 경고만 한다. 관문이 하나도 없으면 출하 검증 때 「릴리스 관문 미설정」 경고만 낸다. 옛 설정 `release.security_check` 도 필수 관문 `security` 로 읽는다.
 
 단계(`stages`)마다 `adapter`(vitest · jest · playwright · pytest), `kind`(unit · integration · e2e · uistab), `cmd`(`{file}` 에 구조화 결과가 놓인다), `slot`(`heavy` · `heavy,browser` · `none`)을 적는다. 무거운 단계는 `lanekeeper-slot` 안에서 돈다. 로그만 남은 실행은 `build --input adapter:kind:이름=log=<로그>` 로 읽는다.
 
@@ -482,6 +482,19 @@ PreToolUse 훅 `mockup-first` 는 화면 구조를 바꾸는 쓰기를 결정 �
 - 읽기 쉬운 코드(`code_standards.readability`, 기본으로 켜짐): 처음 보는 사람이 기능 하나를 찾아 고칠 수 있도록 지시서에 일곱 가지 기준이 들어간다. 기준은 판정과 실행 분리, 위치 순서가 아닌 기능 단위 나누기, 같은 규칙 한 곳, 이름, 이력 없는 주석과 머리 주석 3줄, 도메인 폴더의 README, 처음 보는 사람 기준 점검이다. 검수는 점검 과제(1 ~ `review_tasks` 개, 파일 3개 · 300줄 이하, 같은 규칙을 두 곳에서 고치지 않음)와 기계적 나누기의 징후(위치를 딴 이름, `ctx` · `deps` 묶음, `max_params` 를 넘는 입력, `max_props` 를 넘는 컴포넌트 props)를 본다. `fresh_eyes_review` 가 켜져 있으면 큰 변경은 `lanekeeper:design-adversary` 가 다른 맥락에서 점검한다. `warn_hook` 이 켜져 있으면 경고 훅이 주석의 이력 표식, 새 파일의 머리 주석 누락, `max_params` 를 넘는 함수, `max_props`(기본 12)를 넘는 화면 컴포넌트(React 함수 컴포넌트, Vue `defineProps`)에도 경고를 낸다. 끄려면 `readability.enabled: false` 로 둔다.
 
 예: `examples/code-standards-config.json`. 자세한 설명: [docs/ko/06-code-standards.md](docs/ko/06-code-standards.md).
+
+## 문서 색인 우선
+
+설정 `docs_search` 는 프로젝트의 문서 색인을 가리킨다. Lanekeeper 는 자체 색인이 없어서 명령을 프로젝트 설정에서 받는다. 명령의 기본값은 모두 비어 있고, `docs_search.search` 가 비어 있으면 문서 색인 줄을 넣지 않는다.
+
+- 지시서: `lanekeeper-style brief impl|fix` 와 `/lanekeeper:review-lane` 의 되돌림 지시서 범위 절에 「문서 색인」 줄이 들어간다. 문서 · 설계 · 운영 · 결정 이력 질문은 먼저 `docs_search.search` 로 찾고, 정확한 줄은 `rg` 로 확인하며, 코드 흐름은 codegraph 가 먼저라는 내용이다. 읽기 · 역링크 명령, MCP 서버, 색인 대상, 낡은 결과 표식, 스킬은 값이 있을 때 덧붙는다. 자리표시는 `{{docs_search}}` 이고 `--var docs_search=…` 로 바꿀 수 있다.
+- 코드 찾기: 같은 지시서에 「코드 흐름 · 위치는 codegraph 먼저, 문서 · 결정은 위키 먼저」 줄(자리표시 `{{code_search}}`)이 들어간다. 이 줄은 `docs_search` 와 관계없이 들어가고, `project.codegraph.nudge` 가 `off` 면 빠진다. 이 기계에 codegraph 가 없으면 `rg` 와 Read 로 진행하고 설치는 메인 세션에 알리라는 안내가 덧붙는다.
+- 처음 설정: `/lanekeeper:init` 은 `docs_search.search` 가 비어 있고 문서 폴더(`docs` · `doc` · `documentation`)가 있으면 위키 스킬(wook-skills `project-wiki`)의 `init` 을 실행한다. 이번 실행에서 `.lanekeeper/config.json` 을 새로 만들었으면 `docs_search` 를 위키 명령으로 채운다. 기존 파일은 고치지 않고 넣을 내용만 보여 준다. 위키 스킬이 없으면 한 줄 안내만 낸다.
+- 색인 다시 만들기: `docs_search.build` 가 있고 `rebuild` 가 `gate`(기본값)면 게이트 종류 `docs-index` 가 생겨 게이트 앞에서 색인을 다시 만든다. 색인은 커밋하지 않는다. `manual` 이면 직접 실행한다. 자체 색인기를 쓰는 프로젝트는 그 명령을 그대로 적는다.
+- 세션 시작: `rules/session-start` 가 검색 명령을 담은 한 줄을 넣는다.
+- 검수: `/lanekeeper:review-lane` 이 레인 보고의 설계 · 결정 근거가 색인 ID 나 문서 절을 가리키는지 본다. 이 항목은 권고이고, 실패로 판정하지 않는다.
+
+예: `examples/docs-search-config.json`.
 
 ## 초보자 계층
 

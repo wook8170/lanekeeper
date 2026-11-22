@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "project_kind": "web-ui",
+  "docs_search": {
+    "search": "pnpm -s wiki:search \"{query}\" --limit 5",
+    "read": "pnpm -s wiki:read {id}",
+    "backlinks": "pnpm -s wiki:backlinks {id}",
+    "build": "",
+    "rebuild": "manual",
+    "mcp_server": "wiki",
+    "sources": "개발 문서 · 설계 산출물 · 운영 기준 · e2e 원장",
+    "stale_marker": "[stale-candidate]",
+    "skill": "wook-skills:project-wiki"
+  }
+}
